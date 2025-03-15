@@ -1,0 +1,290 @@
+// src/screens/HomeScreen.js
+import React, { useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  StyleSheet, 
+  TouchableOpacity, 
+  Image,
+  RefreshControl
+} from 'react-native';
+import { useSelector, useDispatch } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
+import { fetchUserData, claimDailyBonus } from '../store/slices/userSlice';
+
+const HomeScreen = ({ navigation }) => {
+  const dispatch = useDispatch();
+  const { userId, username, level, xp, coins, status, lastDailyClaim } = useSelector((state) => state.user);
+  const isLoading = status === 'loading';
+  
+  useEffect(() => {
+    if (userId) {
+      dispatch(fetchUserData(userId));
+    }
+  }, [dispatch, userId]);
+  
+  const onRefresh = () => {
+    if (userId) {
+      dispatch(fetchUserData(userId));
+    }
+  };
+  
+  const handleClaimDailyBonus = () => {
+    if (userId) {
+      dispatch(claimDailyBonus(userId));
+    }
+  };
+  
+  // Check if daily bonus is available
+  const canClaimDaily = () => {
+    if (!lastDailyClaim) return true;
+    
+    const lastClaim = new Date(lastDailyClaim);
+    const now = new Date();
+    
+    // Check if last claim was more than 24 hours ago
+    return now - lastClaim > 24 * 60 * 60 * 1000;
+  };
+  
+  const certOptions = [
+    { id: 'aplus', name: 'A+ Certification', color: '#6543CC', icon: 'desktop-outline' },
+    { id: 'nplus', name: 'Network+', color: '#FF4C8B', icon: 'wifi-outline' },
+    { id: 'secplus', name: 'Security+', color: '#2ECC71', icon: 'shield-checkmark-outline' },
+    { id: 'cysa', name: 'CySA+', color: '#3498DB', icon: 'analytics-outline' },
+    { id: 'penplus', name: 'PenTest+', color: '#E67E22', icon: 'bug-outline' },
+    { id: 'linuxplus', name: 'Linux+', color: '#9B59B6', icon: 'terminal-outline' }
+  ];
+  
+  const navigateToTests = (certId, title) => {
+    navigation.navigate('TestList', { category: certId, title });
+  };
+  
+  return (
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
+      }
+    >
+      <View style={styles.header}>
+        <Text style={styles.welcomeText}>Welcome back, {username}!</Text>
+        
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>Level {level}</Text>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="trophy-outline" size={16} color="#6543CC" />
+            </View>
+          </View>
+          
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{xp} XP</Text>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="flash-outline" size={16} color="#FF4C8B" />
+            </View>
+          </View>
+          
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{coins}</Text>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="cash-outline" size={16} color="#2ECC71" />
+            </View>
+          </View>
+        </View>
+      </View>
+      
+      {canClaimDaily() && (
+        <TouchableOpacity 
+          style={styles.dailyBonusCard}
+          onPress={handleClaimDailyBonus}
+        >
+          <View style={styles.dailyBonusContent}>
+            <Ionicons name="calendar-outline" size={24} color="#FFFFFF" />
+            <View style={styles.dailyBonusTextContainer}>
+              <Text style={styles.dailyBonusTitle}>Daily Bonus Available!</Text>
+              <Text style={styles.dailyBonusSubtitle}>Claim 250 coins and XP</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
+      
+      <Text style={styles.sectionTitle}>Practice Tests</Text>
+      <View style={styles.certGrid}>
+        {certOptions.map((cert) => (
+          <TouchableOpacity
+            key={cert.id}
+            style={[styles.certCard, { backgroundColor: cert.color }]}
+            onPress={() => navigateToTests(cert.id, cert.name)}
+          >
+            <Ionicons name={cert.icon} size={28} color="#FFFFFF" />
+            <Text style={styles.certName}>{cert.name}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      
+      <Text style={styles.sectionTitle}>Training Tools</Text>
+      <View style={styles.toolsContainer}>
+        <TouchableOpacity 
+          style={styles.toolButton}
+          onPress={() => navigation.navigate('AnalogyHub')}
+        >
+          <Ionicons name="bulb-outline" size={24} color="#FF4C8B" />
+          <View style={styles.toolTextContainer}>
+            <Text style={styles.toolTitle}>Analogy Hub</Text>
+            <Text style={styles.toolSubtitle}>Learn complex concepts with analogies</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#AAAAAA" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.toolButton}
+          onPress={() => navigation.navigate('ScenarioSphere')}
+        >
+          <Ionicons name="document-text-outline" size={24} color="#2ECC71" />
+          <View style={styles.toolTextContainer}>
+            <Text style={styles.toolTitle}>Scenario Sphere</Text>
+            <Text style={styles.toolSubtitle}>Practice with real-world scenarios</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#AAAAAA" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.toolButton}
+          onPress={() => navigation.navigate('GRC')}
+        >
+          <Ionicons name="shield-outline" size={24} color="#3498DB" />
+          <View style={styles.toolTextContainer}>
+            <Text style={styles.toolTitle}>GRC Questions</Text>
+            <Text style={styles.toolSubtitle}>Governance, Risk & Compliance</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#AAAAAA" />
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#121212',
+  },
+  header: {
+    padding: 20,
+    backgroundColor: '#1E1E1E',
+  },
+  welcomeText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 20,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2A2A2A',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minWidth: 100,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginRight: 8,
+  },
+  statIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dailyBonusCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#6543CC',
+    margin: 20,
+    marginTop: 15,
+    padding: 15,
+    borderRadius: 10,
+  },
+  dailyBonusContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dailyBonusTextContainer: {
+    marginLeft: 15,
+  },
+  dailyBonusTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  dailyBonusSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    margin: 20,
+    marginBottom: 10,
+  },
+  certGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 10,
+  },
+  certCard: {
+    width: '45%',
+    height: 100,
+    margin: '2.5%',
+    borderRadius: 10,
+    padding: 15,
+    justifyContent: 'space-between',
+  },
+  certName: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 10,
+  },
+  toolsContainer: {
+    padding: 10,
+    paddingBottom: 30, // Extra padding at bottom
+  },
+  toolButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2A2A2A',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  toolTextContainer: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  toolTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  toolSubtitle: {
+    color: '#AAAAAA',
+    fontSize: 14,
+  },
+});
+
+export default HomeScreen;

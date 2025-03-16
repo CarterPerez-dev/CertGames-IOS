@@ -94,21 +94,41 @@ const HomeScreen = ({ navigation }) => {
         </View>
       </View>
       
-      {canClaimDaily() && (
-        <TouchableOpacity 
-          style={styles.dailyBonusCard}
-          onPress={handleClaimDailyBonus}
-        >
-          <View style={styles.dailyBonusContent}>
-            <Ionicons name="calendar-outline" size={24} color="#FFFFFF" />
-            <View style={styles.dailyBonusTextContainer}>
-              <Text style={styles.dailyBonusTitle}>Daily Bonus Available!</Text>
-              <Text style={styles.dailyBonusSubtitle}>Claim 250 coins and XP</Text>
-            </View>
+      {/* Daily Bonus Card - Now shows even when can't claim, but as a link to Daily Station */}
+      <TouchableOpacity 
+        style={styles.dailyBonusCard}
+        onPress={() => navigation.navigate('DailyStation')}
+      >
+        <View style={styles.dailyBonusContent}>
+          <Ionicons name={canClaimDaily() ? "gift-outline" : "calendar-outline"} size={24} color="#FFFFFF" />
+          <View style={styles.dailyBonusTextContainer}>
+            <Text style={styles.dailyBonusTitle}>
+              {canClaimDaily() ? "Daily Bonus Available!" : "Daily Station"}
+            </Text>
+            <Text style={styles.dailyBonusSubtitle}>
+              {canClaimDaily() ? "Claim 250 coins and answer daily challenge" : "Check daily challenge and return tomorrow for bonus"}
+            </Text>
           </View>
-          <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      )}
+        </View>
+        <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+      
+      {/* Newsletter Card - New addition */}
+      <TouchableOpacity 
+        style={styles.newsletterCard}
+        onPress={() => navigation.navigate('Newsletter')}
+      >
+        <View style={styles.newsletterContent}>
+          <Ionicons name="newspaper-outline" size={24} color="#FFFFFF" />
+          <View style={styles.newsletterTextContainer}>
+            <Text style={styles.newsletterTitle}>Daily Cyber Brief</Text>
+            <Text style={styles.newsletterSubtitle}>
+              Subscribe to our cybersecurity newsletter
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
       
       <Text style={styles.sectionTitle}>Practice Tests</Text>
       <View style={styles.certGrid}>
@@ -158,6 +178,18 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.toolTextContainer}>
             <Text style={styles.toolTitle}>GRC Questions</Text>
             <Text style={styles.toolSubtitle}>Governance, Risk & Compliance</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#AAAAAA" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.toolButton}
+          onPress={() => navigation.navigate('XploitCraft')}
+        >
+          <Ionicons name="code-slash-outline" size={24} color="#E67E22" />
+          <View style={styles.toolTextContainer}>
+            <Text style={styles.toolTitle}>XploitCraft</Text>
+            <Text style={styles.toolSubtitle}>Explore security exploit concepts</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#AAAAAA" />
         </TouchableOpacity>
@@ -215,6 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6543CC',
     margin: 20,
     marginTop: 15,
+    marginBottom: 10,
     padding: 15,
     borderRadius: 10,
   },
@@ -231,6 +264,33 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   dailyBonusSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  newsletterCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FF4C8B',
+    margin: 20,
+    marginTop: 0,
+    marginBottom: 20,
+    padding: 15,
+    borderRadius: 10,
+  },
+  newsletterContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  newsletterTextContainer: {
+    marginLeft: 15,
+  },
+  newsletterTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  newsletterSubtitle: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
   },

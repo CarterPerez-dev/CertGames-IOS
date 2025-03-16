@@ -17,6 +17,9 @@ import GRCScreen from '../screens/tools/GRCScreen'; //complete
 import AchievementsScreen from '../screens/profile/AchievementsScreen'; //complete
 import SupportScreen from '../screens/profile/SupportScreen';
 import XploitCraftScreen from '../screens/tools/XploitCraftScreen'; 
+import NewsletterScreen from '../screens/tools/NewsletterScreen'; // New
+import DailyStationScreen from '../screens/tools/DailyStationScreen'; // New
+
 // Create Navigators
 const Tab = createBottomTabNavigator();
 const HomeStack = createStackNavigator();
@@ -65,14 +68,25 @@ const HomeStackNavigator = () => (
       options={{ title: 'Scenario Sphere' }}
     />
     <HomeStack.Screen 
-      name="GRC Wizard" 
+      name="GRC" 
       component={GRCScreen} 
       options={{ title: 'GRC Questions' }}
     />
     <HomeStack.Screen 
       name="XploitCraft" 
-      component={GRCScreen} 
-      options={{ title: 'GRC Questions' }}
+      component={XploitCraftScreen} 
+      options={{ title: 'XploitCraft' }}
+    />
+    {/* New screens */}
+    <HomeStack.Screen 
+      name="DailyStation" 
+      component={DailyStationScreen} 
+      options={{ title: 'Daily Station' }}
+    />
+    <HomeStack.Screen 
+      name="Newsletter" 
+      component={NewsletterScreen} 
+      options={{ title: 'Daily Cyber Brief' }}
     />
   </HomeStack.Navigator>
 );
@@ -106,6 +120,17 @@ const ProfileStackNavigator = () => (
       name="Support" 
       component={SupportScreen} 
       options={{ title: 'Support' }}
+    />
+    {/* Access daily station and newsletter from profile as well */}
+    <ProfileStack.Screen 
+      name="DailyStation" 
+      component={DailyStationScreen} 
+      options={{ title: 'Daily Station' }}
+    />
+    <ProfileStack.Screen 
+      name="Newsletter" 
+      component={NewsletterScreen} 
+      options={{ title: 'Daily Cyber Brief' }}
     />
   </ProfileStack.Navigator>
 );

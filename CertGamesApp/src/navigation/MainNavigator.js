@@ -5,18 +5,18 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import screens
-import HomeScreen from '../screens/HomeScreen';
-import ProfileScreen from '../screens/profile/ProfileScreen';
+import HomeScreen from '../screens/HomeScreen'; //complete
+import ProfileScreen from '../screens/profile/ProfileScreen'; //complete
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import ShopScreen from '../screens/shop/ShopScreen';
 import TestListScreen from '../screens/tests/TestListScreen';
 import TestScreen from '../screens/tests/TestScreen';
-import AnalogyHubScreen from '../screens/tools/AnalogyHubScreen';
-import ScenarioSphereScreen from '../screens/tools/ScenarioSphereScreen';
-import GRCScreen from '../screens/tools/GRCScreen';
-import AchievementsScreen from '../screens/profile/AchievementsScreen';
+import AnalogyHubScreen from '../screens/tools/AnalogyHubScreen'; //complete
+import ScenarioSphereScreen from '../screens/tools/ScenarioSphereScreen'; //complete
+import GRCScreen from '../screens/tools/GRCScreen'; //complete
+import AchievementsScreen from '../screens/profile/AchievementsScreen'; //complete
 import SupportScreen from '../screens/profile/SupportScreen';
-
+import XploitCraftScreen from '../screens/tools/XploitCraftScreen'; 
 // Create Navigators
 const Tab = createBottomTabNavigator();
 const HomeStack = createStackNavigator();
@@ -65,7 +65,12 @@ const HomeStackNavigator = () => (
       options={{ title: 'Scenario Sphere' }}
     />
     <HomeStack.Screen 
-      name="GRC" 
+      name="GRC Wizard" 
+      component={GRCScreen} 
+      options={{ title: 'GRC Questions' }}
+    />
+    <HomeStack.Screen 
+      name="XploitCraft" 
       component={GRCScreen} 
       options={{ title: 'GRC Questions' }}
     />

@@ -1,3 +1,4 @@
+// src/components/FormattedQuestion.js
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 

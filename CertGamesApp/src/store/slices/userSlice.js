@@ -96,6 +96,12 @@ const userSlice = createSlice({
     
     updateXp: (state, action) => {
       state.xp = action.payload;
+    },
+    
+    // Add this new reducer
+    clearAuthErrors: (state) => {
+      state.error = null;
+      state.status = 'idle';
     }
   },
   extraReducers: (builder) => {
@@ -173,5 +179,5 @@ const userSlice = createSlice({
 });
 
 // Export actions and reducer
-export const { setUser, logout, updateCoins, updateXp } = userSlice.actions;
+export const { setUser, logout, updateCoins, updateXp, clearAuthErrors } = userSlice.actions;
 export default userSlice.reducer;

@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import useAchievements from '../../hooks/useAchievements';
-import AchievementItem from './components/AchievementItem';
+import AchievementItem from '../../components/AchievementItem';
 
 const AchievementsScreen = () => {
   const {

@@ -8,15 +8,15 @@ import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen'; //complete
 import ProfileScreen from '../screens/profile/ProfileScreen'; //complete
 import LeaderboardScreen from '../screens/LeaderboardScreen';
-import ShopScreen from '../screens/shop/ShopScreen';
-import TestListScreen from '../screens/tests/TestListScreen';
+import ShopScreen from '../screens/shop/ShopScreen'; //complete
+import TestListScreen from '../screens/tests/TestListScreen'; //complete
 import TestScreen from '../screens/tests/TestScreen';
 import AnalogyHubScreen from '../screens/tools/AnalogyHubScreen'; //complete
 import ScenarioSphereScreen from '../screens/tools/ScenarioSphereScreen'; //complete
 import GRCScreen from '../screens/tools/GRCScreen'; //complete
 import AchievementsScreen from '../screens/profile/AchievementsScreen'; //complete
-import SupportScreen from '../screens/profile/SupportScreen';
-import XploitCraftScreen from '../screens/tools/XploitCraftScreen'; 
+import SupportScreen from '../screens/profile/SupportScreen'; //complete
+import XploitCraftScreen from '../screens/tools/XploitCraftScreen'; //complete
 import NewsletterScreen from '../screens/tools/NewsletterScreen'; // New
 import DailyStationScreen from '../screens/tools/DailyStationScreen'; // New
 

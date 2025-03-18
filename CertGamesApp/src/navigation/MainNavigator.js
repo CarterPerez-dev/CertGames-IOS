@@ -5,22 +5,24 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import screens
-import HomeScreen from '../screens/HomeScreen'; //complete
-import ProfileScreen from '../screens/profile/ProfileScreen'; //complete
+import HomeScreen from '../screens/HomeScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
-import ShopScreen from '../screens/shop/ShopScreen'; //complete
-import TestListScreen from '../screens/tests/TestListScreen'; //complete
+import ShopScreen from '../screens/shop/ShopScreen';
+import TestListScreen from '../screens/tests/TestListScreen';
 import TestScreen from '../screens/tests/TestScreen';
-import AnalogyHubScreen from '../screens/tools/AnalogyHubScreen'; //complete
-import ScenarioSphereScreen from '../screens/tools/ScenarioSphereScreen'; //complete
-import GRCScreen from '../screens/tools/GRCScreen'; //complete
-import AchievementsScreen from '../screens/profile/AchievementsScreen'; //complete
-import SupportScreen from '../screens/profile/SupportScreen'; //complete
-import XploitCraftScreen from '../screens/tools/XploitCraftScreen'; //complete
-import NewsletterScreen from '../screens/tools/NewsletterScreen'; // New
-import DailyStationScreen from '../screens/tools/DailyStationScreen'; // New
+import AnalogyHubScreen from '../screens/tools/AnalogyHubScreen';
+import ScenarioSphereScreen from '../screens/tools/ScenarioSphereScreen';
+import GRCScreen from '../screens/tools/GRCScreen';
+import AchievementsScreen from '../screens/profile/AchievementsScreen';
+import SupportScreen from '../screens/profile/SupportScreen';
+import XploitCraftScreen from '../screens/tools/XploitCraftScreen';
+import DailyStationScreen from '../screens/tools/DailyStationScreen';
+import NewsletterScreen from '../screens/tools/NewsletterScreen';
 
-// Create Navigators
+// Import test navigator
+import TestNavigator from './TestNavigator';
+
 const Tab = createBottomTabNavigator();
 const HomeStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
@@ -77,7 +79,6 @@ const HomeStackNavigator = () => (
       component={XploitCraftScreen} 
       options={{ title: 'XploitCraft' }}
     />
-    {/* New screens */}
     <HomeStack.Screen 
       name="DailyStation" 
       component={DailyStationScreen} 
@@ -87,6 +88,13 @@ const HomeStackNavigator = () => (
       name="Newsletter" 
       component={NewsletterScreen} 
       options={{ title: 'Daily Cyber Brief' }}
+    />
+    
+    {/* This makes the TestNavigator accessible from HomeStack */}
+    <HomeStack.Screen 
+      name="Tests" 
+      component={TestNavigator} 
+      options={{ headerShown: false }}
     />
   </HomeStack.Navigator>
 );

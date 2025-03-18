@@ -56,8 +56,13 @@ const HomeScreen = ({ navigation }) => {
     { id: 'linuxplus', name: 'Linux+', color: '#9B59B6', icon: 'terminal-outline' }
   ];
   
+  // Updated navigation function to use TestNavigator
   const navigateToTests = (certId, title) => {
-    navigation.navigate('TestList', { category: certId, title });
+    // Instead of directly going to TestList, go to the appropriate screen in TestNavigator
+    navigation.navigate('Tests', { 
+      screen: `${certId}Tests`, // e.g., APlusTests, NetworkPlusTests, etc.
+      params: { category: certId, title }
+    });
   };
   
   return (
@@ -142,6 +147,65 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.certName}>{cert.name}</Text>
           </TouchableOpacity>
         ))}
+      </View>
+      
+      <Text style={styles.sectionTitle}>Other Practice Tests</Text>
+      <View style={styles.certGrid}>
+        <TouchableOpacity
+          style={[styles.certCard, { backgroundColor: '#1ABC9C' }]}
+          onPress={() => navigateToTests('aplus2', 'A+ Core 2')}
+        >
+          <Ionicons name="desktop-outline" size={28} color="#FFFFFF" />
+          <Text style={styles.certName}>A+ Core 2</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.certCard, { backgroundColor: '#E74C3C' }]}
+          onPress={() => navigateToTests('caspplus', 'CASP+')}
+        >
+          <Ionicons name="shield-outline" size={28} color="#FFFFFF" />
+          <Text style={styles.certName}>CASP+</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.certCard, { backgroundColor: '#3498DB' }]}
+          onPress={() => navigateToTests('cloudplus', 'Cloud+')}
+        >
+          <Ionicons name="cloud-outline" size={28} color="#FFFFFF" />
+          <Text style={styles.certName}>Cloud+</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.certCard, { backgroundColor: '#1ABC9C' }]}
+          onPress={() => navigateToTests('dataplus', 'Data+')}
+        >
+          <Ionicons name="bar-chart-outline" size={28} color="#FFFFFF" />
+          <Text style={styles.certName}>Data+</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.certCard, { backgroundColor: '#9B59B6' }]}
+          onPress={() => navigateToTests('serverplus', 'Server+')}
+        >
+          <Ionicons name="server-outline" size={28} color="#FFFFFF" />
+          <Text style={styles.certName}>Server+</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.certCard, { backgroundColor: '#34495E' }]}
+          onPress={() => navigateToTests('cissp', 'CISSP')}
+        >
+          <Ionicons name="lock-closed-outline" size={28} color="#FFFFFF" />
+          <Text style={styles.certName}>CISSP</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.certCard, { backgroundColor: '#F39C12' }]}
+          onPress={() => navigateToTests('awscloud', 'AWS Cloud')}
+        >
+          <Ionicons name="cloud-outline" size={28} color="#FFFFFF" />
+          <Text style={styles.certName}>AWS Cloud</Text>
+        </TouchableOpacity>
       </View>
       
       <Text style={styles.sectionTitle}>Training Tools</Text>

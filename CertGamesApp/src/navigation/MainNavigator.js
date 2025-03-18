@@ -19,6 +19,7 @@ import SupportScreen from '../screens/profile/SupportScreen';
 import XploitCraftScreen from '../screens/tools/XploitCraftScreen';
 import DailyStationScreen from '../screens/tools/DailyStationScreen';
 import NewsletterScreen from '../screens/tools/NewsletterScreen';
+import ResourcesScreen from '../screens/tools/ResourcesScreen';
 
 // Import test navigator
 import TestNavigator from './TestNavigator';
@@ -88,9 +89,12 @@ const HomeStackNavigator = () => (
       name="Newsletter" 
       component={NewsletterScreen} 
       options={{ title: 'Daily Cyber Brief' }}
+    /> 
+    <HomeStack.Screen 
+      name="Resources" 
+      component={ResourcesScreen} 
+      options={{ title: 'Resources Hub' }}
     />
-    
-    {/* This makes the TestNavigator accessible from HomeStack */}
     <HomeStack.Screen 
       name="Tests" 
       component={TestNavigator} 
@@ -139,6 +143,11 @@ const ProfileStackNavigator = () => (
       name="Newsletter" 
       component={NewsletterScreen} 
       options={{ title: 'Daily Cyber Brief' }}
+    />
+    <ProfileStack.Screen 
+      name="Resources" 
+      component={ResourcesScreen} 
+      options={{ title: 'Resources Hub' }}
     />
   </ProfileStack.Navigator>
 );

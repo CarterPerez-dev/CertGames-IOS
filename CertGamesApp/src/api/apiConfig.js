@@ -21,6 +21,11 @@ export const API = {
     OAUTH_APPLE: `${BASE_URL}/oauth/login/apple`,
   },
   
+    RESOURCES: {
+    CATEGORIES: `${BASE_URL}/resources/categories`,
+    BY_CATEGORY: `${BASE_URL}/resources/category`,
+    TRACK_CLICK: `${BASE_URL}/resources/track-click`,
+  },
   // User endpoints
   USER: {
     DETAILS: (userId) => `${BASE_URL}/test/user/${userId}`,

@@ -425,11 +425,4 @@ export const RESOURCES_DATA = {
   // Add more categories as needed
 };
 
-// Add update API endpoint in apiConfig.js
-export const API_ENDPOINTS = {
-  RESOURCES: {
-    CATEGORIES: '/resources/categories',
-    BY_CATEGORY: '/resources/category',
-    TRACK_CLICK: '/resources/track-click',
-  }
-};
+

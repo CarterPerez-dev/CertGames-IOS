@@ -47,14 +47,30 @@ const HomeScreen = ({ navigation }) => {
     return now - lastClaim > 24 * 60 * 60 * 1000;
   };
   
-  const certOptions = [
-    { id: 'aplus', name: 'A+ Certification', color: '#6543CC', icon: 'desktop-outline' },
-    { id: 'nplus', name: 'Network+', color: '#FF4C8B', icon: 'wifi-outline' },
-    { id: 'secplus', name: 'Security+', color: '#2ECC71', icon: 'shield-checkmark-outline' },
-    { id: 'cysa', name: 'CySA+', color: '#3498DB', icon: 'analytics-outline' },
-    { id: 'penplus', name: 'PenTest+', color: '#E67E22', icon: 'bug-outline' },
-    { id: 'linuxplus', name: 'Linux+', color: '#9B59B6', icon: 'terminal-outline' }
+  // Complete list of all certification options
+  const allCertOptions = [
+    // Main certifications
+    { id: 'aplus', name: 'A+ Core 1 (1101)', color: '#6543CC', icon: 'desktop-outline', primary: true },
+    { id: 'aplus2', name: 'A+ Core 2 (1102)', color: '#1ABC9C', icon: 'desktop-outline', primary: false },
+    { id: 'nplus', name: 'Network+ (N10-009)', color: '#FF4C8B', icon: 'wifi-outline', primary: true },
+    { id: 'secplus', name: 'Security+ (SY0-701)', color: '#2ECC71', icon: 'shield-checkmark-outline', primary: true },
+    { id: 'cysa', name: 'CySA+ (CS0-003)', color: '#3498DB', icon: 'analytics-outline', primary: true },
+    { id: 'penplus', name: 'PenTest+ (PT0-003)', color: '#E67E22', icon: 'bug-outline', primary: true },
+    { id: 'linuxplus', name: 'Linux+ (XK0-005)', color: '#9B59B6', icon: 'terminal-outline', primary: true },
+    // Additional certifications
+    { id: 'caspplus', name: 'CASP+ (CAS-005)', color: '#E74C3C', icon: 'shield-outline', primary: false },
+    { id: 'cloudplus', name: 'Cloud+ (CV0-004)', color: '#3498DB', icon: 'cloud-outline', primary: false },
+    { id: 'dataplus', name: 'Data+ (DA0-001)', color: '#1ABC9C', icon: 'bar-chart-outline', primary: false },
+    { id: 'serverplus', name: 'Server+ (SK0-005)', color: '#9B59B6', icon: 'server-outline', primary: false },
+    { id: 'cissp', name: 'CISSP', color: '#34495E', icon: 'lock-closed-outline', primary: false },
+    { id: 'awscloud', name: 'AWS Cloud Practitioner', color: '#F39C12', icon: 'cloud-outline', primary: false },
   ];
+  
+  // Filter for primary certifications (for the main Practice Tests section)
+  const primaryCertOptions = allCertOptions.filter(cert => cert.primary);
+  
+  // Filter for secondary certifications (for the Other Practice Tests section)
+  const secondaryCertOptions = allCertOptions.filter(cert => !cert.primary);
   
   // Updated navigation function to use TestNavigator
   const navigateToTests = (certId, title) => {
@@ -137,7 +153,7 @@ const HomeScreen = ({ navigation }) => {
       
       <Text style={styles.sectionTitle}>Practice Tests</Text>
       <View style={styles.certGrid}>
-        {certOptions.map((cert) => (
+        {primaryCertOptions.map((cert) => (
           <TouchableOpacity
             key={cert.id}
             style={[styles.certCard, { backgroundColor: cert.color }]}
@@ -151,61 +167,16 @@ const HomeScreen = ({ navigation }) => {
       
       <Text style={styles.sectionTitle}>Other Practice Tests</Text>
       <View style={styles.certGrid}>
-        <TouchableOpacity
-          style={[styles.certCard, { backgroundColor: '#1ABC9C' }]}
-          onPress={() => navigateToTests('aplus2', 'A+ Core 2')}
-        >
-          <Ionicons name="desktop-outline" size={28} color="#FFFFFF" />
-          <Text style={styles.certName}>A+ Core 2</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.certCard, { backgroundColor: '#E74C3C' }]}
-          onPress={() => navigateToTests('caspplus', 'CASP+')}
-        >
-          <Ionicons name="shield-outline" size={28} color="#FFFFFF" />
-          <Text style={styles.certName}>CASP+</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.certCard, { backgroundColor: '#3498DB' }]}
-          onPress={() => navigateToTests('cloudplus', 'Cloud+')}
-        >
-          <Ionicons name="cloud-outline" size={28} color="#FFFFFF" />
-          <Text style={styles.certName}>Cloud+</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.certCard, { backgroundColor: '#1ABC9C' }]}
-          onPress={() => navigateToTests('dataplus', 'Data+')}
-        >
-          <Ionicons name="bar-chart-outline" size={28} color="#FFFFFF" />
-          <Text style={styles.certName}>Data+</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.certCard, { backgroundColor: '#9B59B6' }]}
-          onPress={() => navigateToTests('serverplus', 'Server+')}
-        >
-          <Ionicons name="server-outline" size={28} color="#FFFFFF" />
-          <Text style={styles.certName}>Server+</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.certCard, { backgroundColor: '#34495E' }]}
-          onPress={() => navigateToTests('cissp', 'CISSP')}
-        >
-          <Ionicons name="lock-closed-outline" size={28} color="#FFFFFF" />
-          <Text style={styles.certName}>CISSP</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.certCard, { backgroundColor: '#F39C12' }]}
-          onPress={() => navigateToTests('awscloud', 'AWS Cloud')}
-        >
-          <Ionicons name="cloud-outline" size={28} color="#FFFFFF" />
-          <Text style={styles.certName}>AWS Cloud</Text>
-        </TouchableOpacity>
+        {secondaryCertOptions.map((cert) => (
+          <TouchableOpacity
+            key={cert.id}
+            style={[styles.certCard, { backgroundColor: cert.color }]}
+            onPress={() => navigateToTests(cert.id, cert.name)}
+          >
+            <Ionicons name={cert.icon} size={28} color="#FFFFFF" />
+            <Text style={styles.certName}>{cert.name}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
       
       <Text style={styles.sectionTitle}>Training Tools</Text>
@@ -218,6 +189,18 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.toolTextContainer}>
             <Text style={styles.toolTitle}>Analogy Hub</Text>
             <Text style={styles.toolSubtitle}>Learn complex concepts with analogies</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#AAAAAA" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.toolButton}
+          onPress={() => navigation.navigate('Resources')}
+        >
+          <Ionicons name="library-outline" size={24} color="#9B59B6" />
+          <View style={styles.toolTextContainer}>
+            <Text style={styles.toolTitle}>Resources Hub</Text>
+            <Text style={styles.toolSubtitle}>Learning resources and tools</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#AAAAAA" />
         </TouchableOpacity>

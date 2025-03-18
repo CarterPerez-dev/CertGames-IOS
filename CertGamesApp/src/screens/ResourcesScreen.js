@@ -1,5 +1,5 @@
 // src/screens/tools/ResourcesScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,144 +11,64 @@ import {
   StatusBar,
   RefreshControl,
   ActivityIndicator,
-  Dimensions,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { RESOURCES_DATA } from '../../constants/resourcesConstants';
 import ResourcesCategoriesComponent from '../../components/ResourcesCategoriesComponent';
 import ResourceItemComponent from '../../components/ResourceItemComponent';
 import ResourceRandomModal from '../../components/ResourceRandomModal';
-import ResourcesService from '../../api/ResourcesService';
+import useResources from '../../hooks/useResources';
 
 const ResourcesScreen = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [showCertCategories, setShowCertCategories] = useState(false);
-  const [resources, setResources] = useState([]);
-  const [filteredResources, setFilteredResources] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
-  const [sortAlphabetically, setSortAlphabetically] = useState(false);
+  // Use our custom hook for resources management
+  const {
+    searchTerm,
+    setSearchTerm,
+    selectedCategory,
+    setSelectedCategory,
+    showCertCategories,
+    filteredResources,
+    loading,
+    sortAlphabetically,
+    randomResource,
+    loadingRandom,
+    loadResources,
+    getRandomResource,
+    toggleCertCategories,
+    toggleSort,
+    clearFilters,
+  } = useResources('all');
   
-  // Random resource modal state
+  // Local UI state
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [showRandomModal, setShowRandomModal] = useState(false);
-  const [randomResource, setRandomResource] = useState(null);
-  const [loadingRandom, setLoadingRandom] = useState(false);
   
   // Get window dimensions to adjust layout
   const { width } = useWindowDimensions();
   const isWideScreen = width >= 768;
   
-  // Load resources based on selected category
-  useEffect(() => {
-    loadResourcesByCategory(selectedCategory);
-  }, [selectedCategory]);
-  
-  // Filter resources based on search term and sort preference
-  useEffect(() => {
-    filterAndSortResources();
-  }, [searchTerm, resources, sortAlphabetically]);
-  
-  // Load resources for the selected category
-  const loadResourcesByCategory = useCallback((categoryId) => {
-    setRefreshing(true);
-    
-    // Since resources are stored locally, we simulate a loading state
-    setTimeout(() => {
-      const categoryResources = RESOURCES_DATA[categoryId] || [];
-      setResources(categoryResources);
-      setRefreshing(false);
-    }, 400);
-    
-    // If you implement a backend API, you'd use:
-    // ResourcesService.fetchResourcesByCategory(categoryId)
-    //   .then(data => {
-    //     setResources(data);
-    //     setRefreshing(false);
-    //   })
-    //   .catch(error => {
-    //     console.error('Error fetching resources:', error);
-    //     setRefreshing(false);
-    //   });
-  }, []);
-  
-  // Filter and sort resources based on search term and sort preference
-  const filterAndSortResources = useCallback(() => {
-    let filtered = resources;
-    
-    // Apply search filter if needed
-    if (searchTerm.trim()) {
-      const searchTermLower = searchTerm.trim().toLowerCase();
-      filtered = resources.filter(
-        resource => resource.name.toLowerCase().includes(searchTermLower)
-      );
-    }
-    
-    // Apply sorting if needed
-    if (sortAlphabetically) {
-      filtered = [...filtered].sort((a, b) => 
-        a.name.localeCompare(b.name)
-      );
-    }
-    
-    setFilteredResources(filtered);
-  }, [resources, searchTerm, sortAlphabetically]);
-  
-  // Handle refresh (pull to refresh)
-  const handleRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadResourcesByCategory(selectedCategory);
-  }, [loadResourcesByCategory, selectedCategory]);
-  
   // Handle category selection
   const handleCategorySelect = useCallback((categoryId) => {
     setSelectedCategory(categoryId);
-    setSearchTerm('');
-  }, []);
-  
-  // Toggle between resource types and certifications
-  const toggleCertCategories = useCallback(() => {
-    setShowCertCategories(prev => !prev);
-    setSelectedCategory('all'); // Reset selected category
-  }, []);
-  
-  // Toggle sort
-  const toggleSort = useCallback(() => {
-    setSortAlphabetically(prev => !prev);
-  }, []);
+  }, [setSelectedCategory]);
   
   // Toggle view mode (grid/list)
   const toggleViewMode = useCallback(() => {
     setViewMode(prev => (prev === 'grid' ? 'list' : 'grid'));
   }, []);
   
-  // Clear search
-  const clearSearch = useCallback(() => {
-    setSearchTerm('');
-  }, []);
-  
-  // Get a random resource
-  const getRandomResource = useCallback(() => {
-    setLoadingRandom(true);
-    
-    // Create a slight delay for better UX
-    setTimeout(() => {
-      const availableResources = filteredResources.length > 0 
-        ? filteredResources 
-        : resources;
-      
-      if (availableResources.length === 0) {
-        setLoadingRandom(false);
-        return;
-      }
-      
-      const randomIndex = Math.floor(Math.random() * availableResources.length);
-      setRandomResource(availableResources[randomIndex]);
+  // Handle showing random resource modal
+  const handleGetRandomResource = useCallback(() => {
+    const resource = getRandomResource();
+    if (resource) {
       setShowRandomModal(true);
-      setLoadingRandom(false);
-    }, 500);
-  }, [filteredResources, resources]);
+    }
+  }, [getRandomResource]);
+  
+  // Handle refresh (pull to refresh)
+  const handleRefresh = useCallback(() => {
+    loadResources(selectedCategory);
+  }, [loadResources, selectedCategory]);
   
   // Render resource item
   const renderResourceItem = useCallback(({ item }) => (
@@ -168,16 +88,12 @@ const ResourcesScreen = () => {
       </Text>
       <TouchableOpacity 
         style={styles.resetButton}
-        onPress={() => {
-          setSearchTerm('');
-          setSelectedCategory('all');
-          setSortAlphabetically(false);
-        }}
+        onPress={clearFilters}
       >
         <Text style={styles.resetButtonText}>Reset Filters</Text>
       </TouchableOpacity>
     </View>
-  ), []);
+  ), [clearFilters]);
   
   return (
     <SafeAreaView style={styles.container}>
@@ -204,7 +120,7 @@ const ResourcesScreen = () => {
           autoCapitalize="none"
         />
         {searchTerm ? (
-          <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
+          <TouchableOpacity style={styles.clearButton} onPress={() => setSearchTerm('')}>
             <Ionicons name="close-circle" size={20} color="#AAAAAA" />
           </TouchableOpacity>
         ) : null}
@@ -251,7 +167,7 @@ const ResourcesScreen = () => {
           
           <TouchableOpacity 
             style={[styles.actionButton, styles.randomButton]} 
-            onPress={getRandomResource}
+            onPress={handleGetRandomResource}
             disabled={loadingRandom || filteredResources.length === 0}
           >
             {loadingRandom ? (
@@ -279,7 +195,7 @@ const ResourcesScreen = () => {
         }
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={loading}
             onRefresh={handleRefresh}
             tintColor="#6543CC"
             colors={["#6543CC"]}
@@ -293,7 +209,7 @@ const ResourcesScreen = () => {
         visible={showRandomModal}
         resource={randomResource}
         onClose={() => setShowRandomModal(false)}
-        onGetAnother={getRandomResource}
+        onGetAnother={handleGetRandomResource}
         isLoading={loadingRandom}
       />
     </SafeAreaView>

@@ -1,5 +1,5 @@
 // src/screens/shop/ShopScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,8 +17,9 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { fetchShopItems, purchaseItem, equipItem } from '../../api/shopService';
+import { fetchShopItems as reduxFetchShopItems } from '../../store/slices/shopSlice';
 import { fetchUserData } from '../../store/slices/userSlice';
+import * as shopService from '../../api/shopService';
 
 // Item type components
 import AvatarItem from './components/AvatarItem';
@@ -28,6 +29,7 @@ import ColorItem from './components/ColorItem';
 const ShopScreen = () => {
   const dispatch = useDispatch();
   const { userId, coins, level, purchasedItems, currentAvatar } = useSelector((state) => state.user);
+  const { items: reduxShopItems, status } = useSelector((state) => state.shop);
   
   const [shopItems, setShopItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -39,25 +41,37 @@ const ShopScreen = () => {
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [equipLoading, setEquipLoading] = useState(false);
   
-  // Function to load shop items
-  const loadShopItems = useCallback(async () => {
-    try {
-      setLoading(true);
-      const items = await fetchShopItems();
-      setShopItems(items);
-      filterItems(items, activeCategory);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load shop items. Please try again.');
-      console.error('Shop items fetch error:', error);
-    } finally {
+  // Track whether initial loading has been done
+  const initialLoadDone = useRef(false);
+  
+  // Initial load - using useEffect instead of useCallback to avoid infinite loop
+  useEffect(() => {
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      loadShopData();
+    }
+  }, []);
+  
+  // Watch for Redux shop items changes
+  useEffect(() => {
+    if (reduxShopItems && reduxShopItems.length > 0) {
+      setShopItems(reduxShopItems);
+      filterItems(reduxShopItems, activeCategory);
       setLoading(false);
     }
-  }, [activeCategory]);
+  }, [reduxShopItems, activeCategory]);
   
-  // Initial load
-  useEffect(() => {
-    loadShopItems();
-  }, [loadShopItems]);
+  // Function to load shop data
+  const loadShopData = async () => {
+    try {
+      setLoading(true);
+      // Dispatch Redux action to fetch shop items
+      dispatch(reduxFetchShopItems());
+    } catch (error) {
+      console.error('Error loading shop data:', error);
+      setLoading(false);
+    }
+  };
   
   // Filter items by category
   const filterItems = (items, category) => {
@@ -77,11 +91,16 @@ const ShopScreen = () => {
   // Handle refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([
-      loadShopItems(),
-      dispatch(fetchUserData(userId))
-    ]);
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        dispatch(reduxFetchShopItems()),
+        dispatch(fetchUserData(userId))
+      ]);
+    } catch (error) {
+      console.error('Error refreshing shop data:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
   
   // Show item details modal
@@ -117,7 +136,7 @@ const ShopScreen = () => {
           onPress: async () => {
             try {
               setPurchaseLoading(true);
-              await purchaseItem(userId, selectedItem._id);
+              await shopService.purchaseItem(userId, selectedItem._id);
               Alert.alert('Success', `You have purchased ${selectedItem.title}!`);
               
               // Refresh user data to update coins and purchased items
@@ -161,7 +180,7 @@ const ShopScreen = () => {
     
     try {
       setEquipLoading(true);
-      await equipItem(userId, selectedItem._id);
+      await shopService.equipItem(userId, selectedItem._id);
       Alert.alert('Success', `You have equipped ${selectedItem.title}!`);
       
       // Refresh user data to update equipped items
@@ -303,10 +322,14 @@ const ShopScreen = () => {
             
             <View style={styles.modalContent}>
               {selectedItem.type === 'avatar' && (
-                <Image
-                  source={{ uri: selectedItem.imageUrl }}
-                  style={styles.modalAvatar}
-                />
+                <View style={styles.modalAvatarContainer}>
+                  {/* Use placeholders for avatar images */}
+                  <View style={styles.modalAvatarPlaceholder}>
+                    <Text style={styles.modalAvatarPlaceholderText}>
+                      {selectedItem.title.charAt(0)}
+                    </Text>
+                  </View>
+                </View>
               )}
               
               {selectedItem.type === 'xpBoost' && (
@@ -700,11 +723,23 @@ const styles = StyleSheet.create({
   modalContent: {
     alignItems: 'center',
   },
-  modalAvatar: {
+  modalAvatarContainer: {
+    width: 120,
+    height: 120,
+    marginBottom: 16,
+  },
+  modalAvatarPlaceholder: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    marginBottom: 16,
+    backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalAvatarPlaceholderText: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#FFFFFF'
   },
   boostContainer: {
     alignItems: 'center',

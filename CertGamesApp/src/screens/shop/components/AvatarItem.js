@@ -1,16 +1,17 @@
 // src/screens/shop/components/AvatarItem.js
 import React from 'react';
-import { View, Image, StyleSheet, Text } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const AvatarItem = ({ item, isPurchased, isEquipped }) => {
   return (
     <View style={styles.container}>
-      <Image 
-        source={{ uri: item.imageUrl }} 
-        style={styles.avatarImage}
-        resizeMode="cover"
-      />
+      {/* Use a placeholder instead of trying to load images that don't exist */}
+      <View style={styles.placeholderContainer}>
+        <Text style={styles.placeholderText}>
+          {item.title?.charAt(0) || '?'}
+        </Text>
+      </View>
       
       {isPurchased && (
         <View style={styles.ownershipBadgeContainer}>
@@ -36,10 +37,17 @@ const styles = StyleSheet.create({
     height: 140,
     position: 'relative',
   },
-  avatarImage: {
+  placeholderContainer: {
     width: '100%',
     height: 140,
     backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   ownershipBadgeContainer: {
     position: 'absolute',

@@ -2,10 +2,40 @@
 import apiClient from './apiClient';
 import { API } from './apiConfig';
 
-export const getShopItems = async () => {
+// Helper to format image URLs
+const formatImageUrl = (url) => {
+  if (!url) return null;
+  
+  // If it's already a complete URL, return it
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // Fix relative URLs
+  if (!url.startsWith('/') && !url.startsWith('./')) {
+    url = '/' + url;
+  }
+  
+  return url;
+};
+
+/**
+ * Fetch all shop items
+ * @returns {Promise} Shop items
+ */
+export const fetchShopItems = async () => {
   try {
     const response = await apiClient.get(API.SHOP.ITEMS);
-    return response.data;
+    
+    // Process image URLs to ensure they're properly formatted
+    const items = response.data.map(item => {
+      if (item.imageUrl) {
+        item.imageUrl = formatImageUrl(item.imageUrl);
+      }
+      return item;
+    });
+    
+    return items;
   } catch (error) {
     console.error('Error fetching shop items:', error);
     // Return an empty array as fallback to prevent undefined errors
@@ -13,6 +43,14 @@ export const getShopItems = async () => {
   }
 };
 
+export const getShopItems = fetchShopItems; // Alias for backward compatibility
+
+/**
+ * Purchase an item
+ * @param {string} userId User ID
+ * @param {string} itemId Item ID to purchase
+ * @returns {Promise} Purchase result
+ */
 export const purchaseItem = async (userId, itemId) => {
   try {
     const response = await apiClient.post(API.SHOP.PURCHASE(itemId), { userId });
@@ -23,6 +61,12 @@ export const purchaseItem = async (userId, itemId) => {
   }
 };
 
+/**
+ * Equip an item
+ * @param {string} userId User ID
+ * @param {string} itemId Item ID to equip
+ * @returns {Promise} Equip result
+ */
 export const equipItem = async (userId, itemId) => {
   try {
     const response = await apiClient.post(API.SHOP.EQUIP, { userId, itemId });
@@ -35,6 +79,7 @@ export const equipItem = async (userId, itemId) => {
 
 export default {
   getShopItems,
+  fetchShopItems,
   purchaseItem,
   equipItem
 };

@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Image,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
@@ -14,12 +13,10 @@ import {
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchLeaderboard, fetchUserRanking } from '../api/leaderboardService';
-import { LinearGradient } from 'expo-linear-gradient';
+import { fetchLeaderboard } from '../api/leaderboardService';
 
 const LeaderboardScreen = () => {
   const [leaderboardData, setLeaderboardData] = useState([]);
-  const [userRank, setUserRank] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -28,7 +25,7 @@ const LeaderboardScreen = () => {
   const [error, setError] = useState(null);
   
   const pageSize = 20;
-  const { userId, username, level, xp } = useSelector((state) => state.user);
+  const { username } = useSelector((state) => state.user);
   
   const loadLeaderboard = useCallback(async (pageNum = 0, refresh = false) => {
     try {
@@ -36,22 +33,26 @@ const LeaderboardScreen = () => {
         setRefreshing(true);
         setPage(0);
         pageNum = 0;
-      }
-      
-      if (pageNum === 0) {
-        setLeaderboardData([]);
+      } else if (pageNum > 0) {
+        setLoadingMore(true);
       }
       
       const skip = pageNum * pageSize;
       const data = await fetchLeaderboard(skip, pageSize);
       
-      if (refresh) {
-        setLeaderboardData(data.data);
+      // Ensure we have data with proper structure
+      const processedData = (data.data || []).map((item, idx) => ({
+        ...item,
+        rank: skip + idx + 1, // Ensure rank is calculated
+      }));
+      
+      if (refresh || pageNum === 0) {
+        setLeaderboardData(processedData);
       } else {
-        setLeaderboardData(prevData => [...prevData, ...data.data]);
+        setLeaderboardData(prevData => [...prevData, ...processedData]);
       }
       
-      setHasMore(data.data.length === pageSize);
+      setHasMore(processedData.length === pageSize);
       setError(null);
     } catch (err) {
       setError('Failed to load leaderboard. Please try again.');
@@ -63,56 +64,33 @@ const LeaderboardScreen = () => {
     }
   }, [pageSize]);
   
-  const loadUserRank = useCallback(async () => {
-    if (userId) {
-      try {
-        const rankData = await fetchUserRanking(userId);
-        setUserRank(rankData);
-      } catch (err) {
-        console.error('User rank error:', err);
-      }
-    }
-  }, [userId]);
-  
   useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      loadLeaderboard(0),
-      loadUserRank()
-    ]).finally(() => {
-      setLoading(false);
-    });
-  }, [loadLeaderboard, loadUserRank]);
+    loadLeaderboard(0);
+  }, [loadLeaderboard]);
   
   const onRefresh = () => {
     setRefreshing(true);
-    Promise.all([
-      loadLeaderboard(0, true),
-      loadUserRank()
-    ]).finally(() => {
+    loadLeaderboard(0, true).finally(() => {
       setRefreshing(false);
     });
   };
   
   const loadMoreData = () => {
     if (hasMore && !loadingMore && !refreshing) {
-      setLoadingMore(true);
       const nextPage = page + 1;
       setPage(nextPage);
-      loadLeaderboard(nextPage).finally(() => {
-        setLoadingMore(false);
-      });
+      loadLeaderboard(nextPage);
     }
   };
   
   const renderRankItem = ({ item, index }) => {
     const isCurrentUser = item.username === username;
-    const rankType = index < 3 ? ['gold', 'silver', 'bronze'][index] : 'normal';
     
     return (
       <View style={[
         styles.rankItem,
-        isCurrentUser && styles.currentUserItem
+        isCurrentUser && styles.currentUserItem,
+        index < 3 && styles.topRankItem
       ]}>
         <View style={styles.rankNumberContainer}>
           {index < 3 ? (
@@ -122,26 +100,18 @@ const LeaderboardScreen = () => {
               index === 1 && styles.silverBadge,
               index === 2 && styles.bronzeBadge
             ]}>
-              <Text style={styles.topRankText}>{index + 1}</Text>
+              <Text style={styles.topRankText}>{item.rank || index + 1}</Text>
             </View>
           ) : (
-            <Text style={styles.rankNumber}>{index + 1}</Text>
+            <Text style={styles.rankNumber}>{item.rank || index + 1}</Text>
           )}
         </View>
         
-        <View style={styles.userAvatarContainer}>
-          {item.avatarUrl ? (
-            <Image
-              source={{ uri: item.avatarUrl }}
-              style={styles.userAvatar}
-            />
-          ) : (
-            <View style={styles.placeholderAvatar}>
-              <Text style={styles.avatarInitial}>
-                {item.username.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
+        {/* Avatar placeholder instead of trying to load images */}
+        <View style={styles.placeholderAvatar}>
+          <Text style={styles.avatarInitial}>
+            {item.username?.charAt(0).toUpperCase() || '?'}
+          </Text>
         </View>
         
         <View style={styles.userInfoContainer}>
@@ -167,7 +137,7 @@ const LeaderboardScreen = () => {
           <View style={styles.xpContainer}>
             <Text style={styles.xpLabel}>XP</Text>
             <Text style={[styles.xpValue, isCurrentUser && styles.currentUserStats]}>
-              {item.xp.toLocaleString()}
+              {item.xp?.toLocaleString() || '0'}
             </Text>
           </View>
         </View>
@@ -202,62 +172,6 @@ const LeaderboardScreen = () => {
     );
   };
   
-  // Find the user's position in the leaderboard if not directly visible
-  const renderUserPosition = () => {
-    if (!userRank || loading) return null;
-    
-    // Check if the user's rank is already visible in the current page
-    const isUserVisible = leaderboardData.some(item => item.username === username);
-    
-    // If user is not visible in the current page, show their rank separately
-    if (!isUserVisible && userRank.rank > 0) {
-      return (
-        <View style={styles.userPositionCard}>
-          <LinearGradient
-            colors={['#6543CC', '#8956FF']}
-            style={styles.userPositionGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <View style={styles.userPositionContent}>
-              <View style={styles.userRankInfo}>
-                <Text style={styles.yourRankLabel}>Your Rank</Text>
-                <Text style={styles.yourRankValue}>{userRank.rank}</Text>
-              </View>
-              
-              <View style={styles.userPositionDetails}>
-                <View style={styles.userPositionAvatar}>
-                  {userRank.avatarUrl ? (
-                    <Image
-                      source={{ uri: userRank.avatarUrl }}
-                      style={styles.userPositionAvatarImage}
-                    />
-                  ) : (
-                    <View style={styles.userPositionPlaceholder}>
-                      <Text style={styles.userPositionInitial}>
-                        {username.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                
-                <View style={styles.userPositionStats}>
-                  <Text style={styles.userPositionUsername}>{username}</Text>
-                  <View style={styles.userPositionValues}>
-                    <Text style={styles.userPositionLevel}>Level {level}</Text>
-                    <Text style={styles.userPositionXp}>{xp.toLocaleString()} XP</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </LinearGradient>
-        </View>
-      );
-    }
-    
-    return null;
-  };
-  
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -267,32 +181,31 @@ const LeaderboardScreen = () => {
         </Text>
       </View>
       
-      {renderUserPosition()}
-      
-      <FlatList
-        data={leaderboardData}
-        renderItem={renderRankItem}
-        keyExtractor={(item, index) => `${item.username}-${index}`}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#6543CC']}
-            tintColor="#6543CC"
-          />
-        }
-        ListEmptyComponent={renderEmpty}
-        ListFooterComponent={renderFooter}
-        onEndReached={loadMoreData}
-        onEndReachedThreshold={0.2}
-      />
-      
-      {loading && !refreshing && (
-        <View style={styles.loadingOverlay}>
+      {loading && !refreshing ? (
+        <View style={styles.mainLoadingContainer}>
           <ActivityIndicator size="large" color="#6543CC" />
+          <Text style={styles.loadingText}>Loading leaderboard...</Text>
         </View>
+      ) : (
+        <FlatList
+          data={leaderboardData}
+          renderItem={renderRankItem}
+          keyExtractor={(item, index) => `${item._id || item.username}-${index}`}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={true}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#6543CC']}
+              tintColor="#6543CC"
+            />
+          }
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={loadMoreData}
+          onEndReachedThreshold={0.2}
+        />
       )}
     </SafeAreaView>
   );
@@ -321,6 +234,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 20,
+    minHeight: 400, // Ensure content is scrollable
   },
   rankItem: {
     flexDirection: 'row',
@@ -338,6 +252,19 @@ const styles = StyleSheet.create({
       },
       android: {
         elevation: 2,
+      },
+    }),
+  },
+  topRankItem: {
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FFD700',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
       },
     }),
   },
@@ -377,15 +304,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000000',
   },
-  userAvatarContainer: {
-    marginRight: 12,
-  },
-  userAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#2A2A2A',
-  },
   placeholderAvatar: {
     width: 44,
     height: 44,
@@ -393,6 +311,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2A2A2A',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   avatarInitial: {
     fontSize: 18,
@@ -448,16 +367,22 @@ const styles = StyleSheet.create({
   currentUserStats: {
     color: '#6543CC',
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  mainLoadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#AAAAAA',
+    fontSize: 16,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
+    marginTop: 20,
   },
   emptyText: {
     fontSize: 16,
@@ -485,96 +410,7 @@ const styles = StyleSheet.create({
   footerText: {
     color: '#AAAAAA',
     marginLeft: 8,
-  },
-  userPositionCard: {
-    margin: 16,
-    marginTop: 8,
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#6543CC',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-  userPositionGradient: {
-    width: '100%',
-    height: '100%',
-  },
-  userPositionContent: {
-    padding: 16,
-  },
-  userRankInfo: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  yourRankLabel: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 4,
-  },
-  yourRankValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  userPositionDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  userPositionAvatar: {
-    marginRight: 12,
-  },
-  userPositionAvatarImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  userPositionPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  userPositionInitial: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  userPositionStats: {
-    flex: 1,
-  },
-  userPositionUsername: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  userPositionValues: {
-    flexDirection: 'row',
-  },
-  userPositionLevel: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    marginRight: 12,
-  },
-  userPositionXp: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
+  }
 });
 
 export default LeaderboardScreen;

@@ -13,7 +13,8 @@ export const fetchTestsByCategory = async (category) => {
     return response.data;
   } catch (error) {
     console.error(`Error fetching tests for ${category}:`, error);
-    throw error;
+    const errorMsg = error?.response?.data?.error || error.message || 'Network error';
+    throw new Error(errorMsg);
   }
 };
 
@@ -29,7 +30,8 @@ export const fetchTestById = async (category, testId) => {
     return response.data;
   } catch (error) {
     console.error(`Error fetching test ${testId}:`, error);
-    throw error;
+    const errorMsg = error?.response?.data?.error || error.message || 'Network error';
+    throw new Error(errorMsg);
   }
 };
 
@@ -50,7 +52,8 @@ export const fetchTestAttempt = async (userId, testId, status) => {
     return response.data;
   } catch (error) {
     console.error(`Error fetching test attempt:`, error);
-    throw error;
+    const errorMsg = error?.response?.data?.error || error.message || 'Network error';
+    throw new Error(errorMsg);
   }
 };
 
@@ -70,7 +73,8 @@ export const createOrUpdateAttempt = async (userId, testId, attemptData) => {
     return response.data;
   } catch (error) {
     console.error(`Error creating/updating test attempt:`, error);
-    throw error;
+    const errorMsg = error?.response?.data?.error || error.message || 'Network error';
+    throw new Error(errorMsg);
   }
 };
 
@@ -90,7 +94,8 @@ export const finishTestAttempt = async (userId, testId, finishData) => {
     return response.data;
   } catch (error) {
     console.error(`Error finishing test attempt:`, error);
-    throw error;
+    const errorMsg = error?.response?.data?.error || error.message || 'Network error';
+    throw new Error(errorMsg);
   }
 };
 
@@ -109,7 +114,8 @@ export const submitAnswer = async (userId, answerData) => {
     return response.data;
   } catch (error) {
     console.error(`Error submitting answer:`, error);
-    throw error;
+    const errorMsg = error?.response?.data?.error || error.message || 'Network error';
+    throw new Error(errorMsg);
   }
 };
 
@@ -129,7 +135,8 @@ export const updateAnswer = async (userId, testId, answerData) => {
     return response.data;
   } catch (error) {
     console.error(`Error updating answer:`, error);
-    throw error;
+    const errorMsg = error?.response?.data?.error || error.message || 'Network error';
+    throw new Error(errorMsg);
   }
 };
 
@@ -149,7 +156,8 @@ export const updatePosition = async (userId, testId, positionData) => {
     return response.data;
   } catch (error) {
     console.error(`Error updating position:`, error);
-    throw error;
+    const errorMsg = error?.response?.data?.error || error.message || 'Network error';
+    throw new Error(errorMsg);
   }
 };
 
@@ -168,6 +176,22 @@ export const listTestAttempts = async (userId, page = 1, pageSize = 50) => {
     return response.data;
   } catch (error) {
     console.error(`Error listing test attempts:`, error);
-    throw error;
+    const errorMsg = error?.response?.data?.error || error.message || 'Network error';
+    throw new Error(errorMsg);
   }
 };
+
+
+const testService = {
+  fetchTestsByCategory,
+  fetchTestById,
+  fetchTestAttempt,
+  createOrUpdateAttempt,
+  finishTestAttempt,
+  submitAnswer,
+  updateAnswer,
+  updatePosition,
+  listTestAttempts,
+};
+
+export default testService;

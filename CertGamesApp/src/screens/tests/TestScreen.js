@@ -16,6 +16,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
+import testService from '../../api/testService';
 
 import FormattedQuestion from '../../components/FormattedQuestion';
 

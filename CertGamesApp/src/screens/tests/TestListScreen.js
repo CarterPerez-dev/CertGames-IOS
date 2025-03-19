@@ -15,6 +15,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
+import testService from '../../api/testService';
 
 /**
  * TestListScreen displays a list of tests for a particular certification category
@@ -71,66 +72,62 @@ const TestListScreen = ({ route, navigation }) => {
       setLoading(true);
       
       // First, fetch all tests for this category
-      const testsResponse = await fetch(`/api/tests/${category}`);
-      if (!testsResponse.ok) {
-        throw new Error('Failed to fetch tests');
-      }
-      const testsData = await testsResponse.json();
+      const testsData = await testService.fetchTestsByCategory(category);
       setTests(testsData);
       
       // Then fetch user's attempts if logged in
       if (userId) {
-        const attemptsResponse = await fetch(`/api/test/attempts/${userId}/list`);
-        if (!attemptsResponse.ok) {
-          throw new Error('Failed to fetch attempts');
-        }
-        
-        const attemptsData = await attemptsResponse.json();
-        const attemptsList = attemptsData.attempts || [];
-        
-        // Filter attempts for this category
-        const relevantAttempts = attemptsList.filter(a => a.category === category);
-        
-        // Process attempts to get best attempt per test
-        const bestAttempts = {};
-        for (let att of relevantAttempts) {
-          const testKey = att.testId;
+        try {
+          const attemptsData = await testService.listTestAttempts(userId);
+          const attemptsList = attemptsData.attempts || [];
           
-          // Skip attempts that don't have a valid testId
-          if (testKey === undefined || testKey === null) continue;
+          // Filter attempts for this category
+          const relevantAttempts = attemptsList.filter(a => a.category === category);
           
-          if (!bestAttempts[testKey]) {
-            bestAttempts[testKey] = att;
-          } else {
-            const existing = bestAttempts[testKey];
+          // Process attempts to get best attempt per test
+          const bestAttempts = {};
+          for (let att of relevantAttempts) {
+            const testKey = att.testId;
             
-            // If existing is finished and new is unfinished, keep finished
-            if (existing.finished && !att.finished) {
-              // Keep existing (finished beats unfinished)
-            } 
-            // If existing is unfinished and new is finished, use new
-            else if (!existing.finished && att.finished) {
+            // Skip attempts that don't have a valid testId
+            if (testKey === undefined || testKey === null) continue;
+            
+            if (!bestAttempts[testKey]) {
               bestAttempts[testKey] = att;
-            }
-            // If both are finished or both are unfinished, pick newest
-            else {
-              const existingTime = new Date(existing.finishedAt || existing.updatedAt || 0).getTime();
-              const newTime = new Date(att.finishedAt || att.updatedAt || 0).getTime();
+            } else {
+              const existing = bestAttempts[testKey];
               
-              if (newTime > existingTime) {
+              // If existing is finished and new is unfinished, keep finished
+              if (existing.finished && !att.finished) {
+                // Keep existing (finished beats unfinished)
+              } 
+              // If existing is unfinished and new is finished, use new
+              else if (!existing.finished && att.finished) {
                 bestAttempts[testKey] = att;
+              }
+              // If both are finished or both are unfinished, pick newest
+              else {
+                const existingTime = new Date(existing.finishedAt || existing.updatedAt || 0).getTime();
+                const newTime = new Date(att.finishedAt || att.updatedAt || 0).getTime();
+                
+                if (newTime > existingTime) {
+                  bestAttempts[testKey] = att;
+                }
               }
             }
           }
+          
+          setAttemptsData(bestAttempts);
+        } catch (attemptErr) {
+          console.error('Error fetching attempts:', attemptErr);
+          // Continue with empty attempts - don't fail the whole screen
         }
-        
-        setAttemptsData(bestAttempts);
       }
       
       setError(null);
     } catch (err) {
       console.error('Error fetching tests:', err);
-      setError(err.message);
+      setError(err.message || 'Failed to fetch tests');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -231,24 +228,20 @@ const TestListScreen = ({ route, navigation }) => {
   // Create a new attempt with selected length
   const createNewAttempt = async (testNumber, selectedLength) => {
     try {
-      const response = await fetch(`/api/test/attempts/${userId}/${testNumber}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          category,
-          answers: [],
-          score: 0,
-          totalQuestions: 100,
-          selectedLength,
-          currentQuestionIndex: 0,
-          shuffleOrder: [], // Will be generated on the test screen
-          answerOrder: [],  // Will be generated on the test screen
-          finished: false,
-          examMode,
-        })
+      const response = await testService.createOrUpdateAttempt(userId, testNumber, {
+        category,
+        answers: [],
+        score: 0,
+        totalQuestions: 100,
+        selectedLength,
+        currentQuestionIndex: 0,
+        shuffleOrder: [], // Will be generated on the test screen
+        answerOrder: [],  // Will be generated on the test screen
+        finished: false,
+        examMode,
       });
       
-      if (!response.ok) {
+      if (!response) {
         throw new Error("Failed to create attempt document");
       }
       

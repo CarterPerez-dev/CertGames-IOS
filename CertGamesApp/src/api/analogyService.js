@@ -14,13 +14,7 @@ export const streamAnalogy = async (analogyType, concept1, concept2 = '', concep
         category
       },
       {
-        responseType: 'text',
-        // For streaming responses
-        onDownloadProgress: progressEvent => {
-          const text = progressEvent.currentTarget.response;
-          // You can implement a callback here to handle partial text
-          // Or return a promise that resolves with chunks
-        }
+        responseType: 'text'
       }
     );
     

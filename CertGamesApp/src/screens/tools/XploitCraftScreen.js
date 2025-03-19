@@ -22,13 +22,65 @@ const XploitCraftScreen = () => {
   const [evasionTechnique, setEvasionTechnique] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPayload, setGeneratedPayload] = useState(null);
+  const [codeBlocks, setCodeBlocks] = useState([]);
+  const [explanations, setExplanations] = useState([]);
   
   const scrollViewRef = useRef();
   const toast = useToast();
 
+  const parsePayload = (text) => {
+    const codeRegex = /Example \d+:?\s*```python([\s\S]*?)```/g;
+    const extractedCode = [];
+    let match;
+    
+    // Extract all code blocks
+    while ((match = codeRegex.exec(text)) !== null) {
+      const codeIndex = extractedCode.length + 1;
+      extractedCode.push({
+        title: `Example ${codeIndex}`,
+        code: match[1].trim()
+      });
+    }
+    
+    // Extract explanations section
+    let explanationsText = "";
+    const explanationsIndex = text.indexOf("EXPLANATIONS:");
+    if (explanationsIndex !== -1) {
+      explanationsText = text.substring(explanationsIndex);
+    } else {
+      // If there's no explicit "EXPLANATIONS:", try after the last code block
+      const lastCodeEnd = text.lastIndexOf("```");
+      if (lastCodeEnd !== -1) {
+        explanationsText = text.substring(lastCodeEnd + 3).trim();
+      }
+    }
+    
+    // Extract individual explanations
+    const explanationBlocks = [];
+    if (explanationsText) {
+      const explRegex = /Explanation for Example \d+:?\s*([\s\S]*?)(?=Explanation for Example \d+:|$)/g;
+      let explMatch;
+      
+      while ((explMatch = explRegex.exec(explanationsText)) !== null) {
+        explanationBlocks.push({
+          text: explMatch[1].trim()
+        });
+      }
+      
+      if (explanationBlocks.length === 0 && explanationsText) {
+        explanationBlocks.push({
+          text: explanationsText.replace("EXPLANATIONS:", "").trim()
+        });
+      }
+    }
+    
+    setCodeBlocks(extractedCode);
+    setExplanations(explanationBlocks);
+  };
+
   const handleGeneratePayload = async () => {
-    if (!vulnerability.trim()) {
-      toast.show('Please enter a vulnerability', {
+    if (!vulnerability.trim() && !evasionTechnique.trim()) {
+      toast.show('Please enter at least one of vulnerability or evasion technique', {
         type: 'danger',
         duration: 3000,
       });
@@ -37,31 +89,14 @@ const XploitCraftScreen = () => {
 
     setIsLoading(true);
     setGeneratedPayload(null);
+    setCodeBlocks([]);
+    setExplanations([]);
 
     try {
       const result = await generatePayload(vulnerability, evasionTechnique, true);
       
-      // Parse the result if it's in a usable format
-      if (typeof result === 'string') {
-        // If the API just returns a string
-        setGeneratedPayload({
-          code_examples: [
-            { 
-              title: 'Payload', 
-              code: result 
-            }
-          ],
-          explanations: [
-            {
-              title: 'Explanation',
-              content: 'Payload generated successfully.'
-            }
-          ]
-        });
-      } else if (typeof result === 'object') {
-        // If the API returns a structured object
-        setGeneratedPayload(result);
-      }
+      setGeneratedPayload(result);
+      parsePayload(result);
       
       // Scroll to bottom to show results
       setTimeout(() => {
@@ -81,7 +116,7 @@ const XploitCraftScreen = () => {
     }
   };
 
-  const copyToClipboard = async (text) => {
+  const handleCopyClick = async (text) => {
     try {
       await Clipboard.setStringAsync(text);
       toast.show('Copied to clipboard!', {
@@ -101,23 +136,7 @@ const XploitCraftScreen = () => {
     if (!generatedPayload) return;
     
     try {
-      let allText = '';
-      
-      // Add code examples
-      if (generatedPayload.code_examples && generatedPayload.code_examples.length > 0) {
-        generatedPayload.code_examples.forEach(example => {
-          allText += `### ${example.title} ###\n\n${example.code}\n\n`;
-        });
-      }
-      
-      // Add explanations
-      if (generatedPayload.explanations && generatedPayload.explanations.length > 0) {
-        generatedPayload.explanations.forEach(explanation => {
-          allText += `### ${explanation.title} ###\n\n${explanation.content}\n\n`;
-        });
-      }
-      
-      await Clipboard.setStringAsync(allText);
+      await Clipboard.setStringAsync(generatedPayload);
       toast.show('All content copied to clipboard!', {
         type: 'success',
         duration: 2000,
@@ -185,27 +204,27 @@ const XploitCraftScreen = () => {
         </View>
         
         {/* Results Container */}
-        {generatedPayload && (
+        {codeBlocks.length > 0 || explanations.length > 0 ? (
           <View style={styles.resultsContainer}>
             {/* Code Examples Section */}
-            {generatedPayload.code_examples && generatedPayload.code_examples.length > 0 && (
+            {codeBlocks.length > 0 && (
               <View style={styles.sectionContainer}>
                 <Text style={styles.sectionTitle}>Code Examples</Text>
                 
-                {generatedPayload.code_examples.map((example, index) => (
+                {codeBlocks.map((block, index) => (
                   <View key={`code-${index}`} style={styles.codeBlock}>
                     <View style={styles.codeHeader}>
-                      <Text style={styles.codeTitle}>{example.title}</Text>
+                      <Text style={styles.codeTitle}>{block.title}</Text>
                       <TouchableOpacity
                         style={styles.copyButton}
-                        onPress={() => copyToClipboard(example.code)}
+                        onPress={() => handleCopyClick(block.code)}
                       >
                         <Ionicons name="copy-outline" size={16} color="#fff" />
                         <Text style={styles.copyText}>Copy</Text>
                       </TouchableOpacity>
                     </View>
                     <ScrollView style={styles.codeContent}>
-                      <Text style={styles.codeText}>{example.code}</Text>
+                      <Text style={styles.codeText}>{block.code}</Text>
                     </ScrollView>
                   </View>
                 ))}
@@ -213,14 +232,20 @@ const XploitCraftScreen = () => {
             )}
             
             {/* Explanations Section */}
-            {generatedPayload.explanations && generatedPayload.explanations.length > 0 && (
+            {explanations.length > 0 && (
               <View style={styles.sectionContainer}>
                 <Text style={styles.sectionTitle}>Explanations</Text>
                 
-                {generatedPayload.explanations.map((explanation, index) => (
+                {explanations.map((explanation, index) => (
                   <View key={`exp-${index}`} style={styles.explanationBlock}>
-                    <Text style={styles.explanationTitle}>{explanation.title}</Text>
-                    <Text style={styles.explanationText}>{explanation.content}</Text>
+                    <Text style={styles.explanationTitle}>
+                      {explanations.length > 1 ? `Explanation for Example ${index + 1}` : 'Explanation'}
+                    </Text>
+                    <Text style={styles.explanationText}>
+                      {explanation.text.split('\n').map((paragraph, pIndex) => (
+                        <Text key={pIndex}>{paragraph}{'\n\n'}</Text>
+                      ))}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -235,7 +260,21 @@ const XploitCraftScreen = () => {
               <Text style={styles.copyAllText}>Copy All Content</Text>
             </TouchableOpacity>
           </View>
-        )}
+        ) : generatedPayload ? (
+          <View style={styles.resultsContainer}>
+            <View style={styles.explanationBlock}>
+              <Text style={styles.explanationText}>{generatedPayload}</Text>
+            </View>
+            
+            <TouchableOpacity
+              style={styles.copyAllButton}
+              onPress={copyAllToClipboard}
+            >
+              <Ionicons name="copy-outline" size={20} color="#fff" />
+              <Text style={styles.copyAllText}>Copy All Content</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

@@ -8,11 +8,7 @@ export const streamGRCQuestion = async (category = 'Random', difficulty = 'Easy'
       API.GRC.STREAM_QUESTION,
       { category, difficulty },
       {
-        responseType: 'json',
-        onDownloadProgress: progressEvent => {
-          const jsonChunks = progressEvent.currentTarget.response;
-          // Process JSON chunks here
-        }
+        responseType: 'json'
       }
     );
     

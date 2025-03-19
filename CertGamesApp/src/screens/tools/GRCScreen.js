@@ -7,8 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  SafeAreaView,
-  Dimensions
+  SafeAreaView
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +24,7 @@ const GRCScreen = () => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   
   const toast = useToast();
   
@@ -68,12 +68,21 @@ const GRCScreen = () => {
     setQuestionData(null);
     setSelectedOption(null);
     setShowExplanation(false);
+    setErrorMessage("");
 
     try {
       const data = await streamGRCQuestion(category, difficulty);
+      console.log("GRC Question Response:", data);
+      
+      // Basic validation of the data structure
+      if (!data || !data.question || !data.options || !data.correct_answer_index) {
+        throw new Error("Invalid question data received");
+      }
+      
       setQuestionData(data);
     } catch (error) {
       console.error('Error fetching question:', error);
+      setErrorMessage("Failed to load question. Please try again.");
       toast.show('Error fetching question. Please try again.', {
         type: 'danger',
         duration: 3000,
@@ -87,7 +96,15 @@ const GRCScreen = () => {
     if (!questionData) return;
     
     setSelectedOption(optionIndex);
+    const correctIndex = questionData.correct_answer_index;
+    const isCorrect = optionIndex === correctIndex;
+    
     setShowExplanation(true);
+    
+    toast.show(isCorrect ? "Correct!" : "Incorrect", {
+      type: isCorrect ? 'success' : 'danger',
+      duration: 2000,
+    });
   };
   
   const handleCopy = async () => {
@@ -197,6 +214,13 @@ const GRCScreen = () => {
           </View>
         </View>
         
+        {errorMessage ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="warning" size={20} color="#ff4e4e" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+        
         {questionData && (
           <View style={styles.questionCard}>
             <View style={styles.questionHeader}>
@@ -219,7 +243,7 @@ const GRCScreen = () => {
               <Text style={styles.questionText}>{questionData.question}</Text>
               
               <View style={styles.optionsContainer}>
-                {questionData.options.map((option, index) => {
+                {questionData.options && questionData.options.map((option, index) => {
                   const isCorrect = index === questionData.correct_answer_index;
                   const isSelected = selectedOption === index;
                   
@@ -255,7 +279,7 @@ const GRCScreen = () => {
               </View>
             </View>
             
-            {showExplanation && (
+            {showExplanation && selectedOption !== null && (
               <View style={styles.explanationContainer}>
                 <View style={styles.explanationHeader}>
                   <Text style={styles.explanationTitle}>
@@ -280,7 +304,9 @@ const GRCScreen = () => {
                 <View style={styles.explanationContent}>
                   <View style={styles.explanationSection}>
                     <Text style={styles.explanationSectionTitle}>Explanation</Text>
-                    <Text style={styles.explanationText}>{questionData.explanations[selectedOption.toString()]}</Text>
+                    <Text style={styles.explanationText}>
+                      {questionData.explanations && questionData.explanations[selectedOption.toString()]}
+                    </Text>
                   </View>
                   
                   <View style={styles.explanationSection}>
@@ -417,6 +443,22 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 78, 78, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 78, 78, 0.3)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 15,
+  },
+  errorText: {
+    color: '#ff4e4e',
+    marginLeft: 10,
+    flex: 1,
+    fontSize: 14,
   },
   questionCard: {
     backgroundColor: '#171a23',

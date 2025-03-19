@@ -13,11 +13,7 @@ export const streamScenario = async (industry, attackType, skillLevel, threatInt
         threat_intensity: threatIntensity
       },
       {
-        responseType: 'text',
-        onDownloadProgress: progressEvent => {
-          const text = progressEvent.currentTarget.response;
-          // Process text chunks here
-        }
+        responseType: 'text'
       }
     );
     
@@ -34,11 +30,7 @@ export const streamScenarioQuestions = async (scenarioText) => {
       API.SCENARIO.STREAM_QUESTIONS,
       { scenario_text: scenarioText },
       {
-        responseType: 'json',
-        onDownloadProgress: progressEvent => {
-          const jsonChunks = progressEvent.currentTarget.response;
-          // Process JSON chunks here
-        }
+        responseType: 'json'
       }
     );
     

@@ -12,11 +12,7 @@ export const generatePayload = async (vulnerability, evasionTechnique, stream = 
         stream
       },
       {
-        responseType: stream ? 'text' : 'json',
-        onDownloadProgress: stream ? (progressEvent => {
-          const text = progressEvent.currentTarget.response;
-          // Process text chunks here
-        }) : undefined
+        responseType: stream ? 'text' : 'json'
       }
     );
     

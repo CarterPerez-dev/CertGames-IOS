@@ -3,22 +3,20 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
+  TouchableOpacity,
   ScrollView,
+  TextInput,
   ActivityIndicator,
-  Keyboard,
-  Platform,
   SafeAreaView,
-  Dimensions
+  Keyboard
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Clipboard from 'expo-clipboard';
-import { streamAnalogy } from '../../api/analogyService';
 import { useToast } from 'react-native-toast-notifications';
+import { streamAnalogy } from '../../api/analogyService';
 
 const AnalogyHubScreen = () => {
   const [analogyType, setAnalogyType] = useState('single');
@@ -26,7 +24,7 @@ const AnalogyHubScreen = () => {
   const [analogyCategory, setAnalogyCategory] = useState('real-world');
   const [isStreaming, setIsStreaming] = useState(false);
   const [generatedAnalogy, setGeneratedAnalogy] = useState('');
-  
+
   const toast = useToast();
   const scrollViewRef = useRef();
 
@@ -50,47 +48,32 @@ const AnalogyHubScreen = () => {
     setInputValues(newValues);
   };
 
-  const handleGenerateAnalogy = async () => {
+  const handleGenerateClick = async () => {
     Keyboard.dismiss();
     setIsStreaming(true);
     setGeneratedAnalogy('');
 
     try {
-      const data = {
-        analogy_type: analogyType,
-        category: analogyCategory,
-        concept1: inputValues[0] || '',
-        concept2: inputValues[1] || '',
-        concept3: inputValues[2] || ''
-      };
-      
-      // Use the service to stream the analogy
-      const textChunks = await streamAnalogy(
+      // Get analogy from the API
+      const analogyData = await streamAnalogy(
         analogyType,
-        inputValues[0],
+        inputValues[0] || '',
         inputValues[1] || '',
         inputValues[2] || '',
         analogyCategory
       );
       
-      let accumulatedText = '';
+      setGeneratedAnalogy(analogyData);
       
-      // Simulate streaming by updating the text in chunks
-      for (const chunk of textChunks.split('\n')) {
-        accumulatedText += chunk + '\n';
-        setGeneratedAnalogy(accumulatedText);
-        
-        // Scroll to bottom as text comes in
+      // Scroll to output using React Native method
+      setTimeout(() => {
         if (scrollViewRef.current) {
           scrollViewRef.current.scrollToEnd({ animated: true });
         }
-        
-        // Add a small delay to simulate streaming
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
+      }, 300);
     } catch (error) {
       console.error('Error generating analogy:', error);
-      toast.show('An error occurred while generating the analogy', {
+      toast.show('Error generating analogy. Please try again.', {
         type: 'danger',
         duration: 3000,
       });
@@ -99,13 +82,21 @@ const AnalogyHubScreen = () => {
     }
   };
 
-  const copyToClipboard = async () => {
+  const handleCopyClick = async () => {
     if (generatedAnalogy) {
-      await Clipboard.setStringAsync(generatedAnalogy);
-      toast.show('Copied to clipboard!', {
-        type: 'success',
-        duration: 2000,
-      });
+      try {
+        await Clipboard.setStringAsync(generatedAnalogy);
+        toast.show('Copied to clipboard!', {
+          type: 'success',
+          duration: 2000,
+        });
+      } catch (error) {
+        console.error('Error copying to clipboard:', error);
+        toast.show('Failed to copy to clipboard', {
+          type: 'danger',
+          duration: 3000,
+        });
+      }
     }
   };
 
@@ -113,7 +104,7 @@ const AnalogyHubScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       
-      <View style={styles.headerContainer}>
+      <View style={styles.header}>
         <Text style={styles.title}>Analogy Hub</Text>
         <Text style={styles.subtitle}>runtime-error.r00</Text>
       </View>
@@ -122,10 +113,11 @@ const AnalogyHubScreen = () => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollViewContent}
         keyboardShouldPersistTaps="handled"
+        ref={scrollViewRef}
       >
         <View style={styles.formContainer}>
-          {/* Analogy Type Picker */}
-          <View style={styles.pickerContainer}>
+          {/* Analogy Type Selector */}
+          <View style={styles.selectorContainer}>
             <Text style={styles.label}>Analogy Type</Text>
             <View style={styles.pickerWrapper}>
               <Picker
@@ -159,7 +151,7 @@ const AnalogyHubScreen = () => {
           </View>
           
           {/* Category Picker */}
-          <View style={styles.pickerContainer}>
+          <View style={styles.selectorContainer}>
             <Text style={styles.label}>Category</Text>
             <View style={styles.pickerWrapper}>
               <Picker
@@ -202,13 +194,13 @@ const AnalogyHubScreen = () => {
           {/* Generate Button */}
           <TouchableOpacity 
             style={[styles.generateButton, isStreaming && styles.generateButtonDisabled]} 
-            onPress={handleGenerateAnalogy}
+            onPress={handleGenerateClick}
             disabled={isStreaming}
           >
             {isStreaming ? (
               <View style={styles.buttonContent}>
                 <ActivityIndicator color="#fff" size="small" />
-                <Text style={styles.buttonText}>Streaming...</Text>
+                <Text style={styles.buttonText}>Generating...</Text>
               </View>
             ) : (
               <Text style={styles.buttonText}>Generate Analogy</Text>
@@ -225,14 +217,13 @@ const AnalogyHubScreen = () => {
                   <Text style={styles.outputTitle}>Generated Analogy</Text>
                   <TouchableOpacity 
                     style={styles.copyButton}
-                    onPress={copyToClipboard}
+                    onPress={handleCopyClick}
                   >
                     <Ionicons name="copy-outline" size={16} color="#fff" />
                     <Text style={styles.copyText}>Copy</Text>
                   </TouchableOpacity>
                 </View>
                 <ScrollView 
-                  ref={scrollViewRef}
                   style={styles.analogyTextContainer}
                   contentContainerStyle={styles.analogyTextContent}
                 >
@@ -257,7 +248,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#121212',
   },
-  headerContainer: {
+  header: {
     alignItems: 'center',
     padding: 20,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -289,7 +280,7 @@ const styles = StyleSheet.create({
   formContainer: {
     marginBottom: 20,
   },
-  pickerContainer: {
+  selectorContainer: {
     marginBottom: 16,
   },
   label: {

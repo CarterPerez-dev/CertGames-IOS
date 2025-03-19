@@ -6,7 +6,6 @@ import {
   ScrollView, 
   StyleSheet, 
   TouchableOpacity, 
-  Image,
   RefreshControl
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
@@ -44,45 +43,47 @@ const HomeScreen = ({ navigation }) => {
     const now = new Date();
     
     // Check if last claim was more than 24 hours ago
-    return now - lastClaim > 24 * 60 * 60 * 1000;
+    return (now - lastClaim) > (24 * 60 * 60 * 1000);
   };
   
   // Complete list of all certification options
   const allCertOptions = [
     // Main certifications
-    { id: 'aplus', name: 'A+ Core 1 (1101)', color: '#6543CC', icon: 'desktop-outline', primary: true },
-    { id: 'aplus2', name: 'A+ Core 2 (1102)', color: '#1ABC9C', icon: 'desktop-outline', primary: false },
-    { id: 'nplus', name: 'Network+ (N10-009)', color: '#FF4C8B', icon: 'wifi-outline', primary: true },
-    { id: 'secplus', name: 'Security+ (SY0-701)', color: '#2ECC71', icon: 'shield-checkmark-outline', primary: true },
-    { id: 'cysa', name: 'CySA+ (CS0-003)', color: '#3498DB', icon: 'analytics-outline', primary: true },
-    { id: 'penplus', name: 'PenTest+ (PT0-003)', color: '#E67E22', icon: 'bug-outline', primary: true },
-    { id: 'linuxplus', name: 'Linux+ (XK0-005)', color: '#9B59B6', icon: 'terminal-outline', primary: true },
+    { id: 'aplus',     name: 'A+ Core 1 (1101)',    color: '#6543CC', icon: 'desktop-outline',  primary: true,  screenName: 'APlusTests' },
+    { id: 'aplus2',    name: 'A+ Core 2 (1102)',    color: '#1ABC9C', icon: 'desktop-outline',  primary: false, screenName: 'APlus2Tests' },
+    { id: 'nplus',     name: 'Network+ (N10-009)',  color: '#FF4C8B', icon: 'wifi-outline',     primary: true,  screenName: 'NetworkPlusTests' },
+    { id: 'secplus',   name: 'Security+ (SY0-701)', color: '#2ECC71', icon: 'shield-checkmark-outline', primary: true,  screenName: 'SecurityPlusTests' },
+    { id: 'cysa',      name: 'CySA+ (CS0-003)',     color: '#3498DB', icon: 'analytics-outline', primary: true,  screenName: 'CySAPlusTests' },
+    { id: 'penplus',   name: 'PenTest+ (PT0-003)',  color: '#E67E22', icon: 'bug-outline',       primary: true,  screenName: 'PenPlusTests' },
+    { id: 'linuxplus', name: 'Linux+ (XK0-005)',    color: '#9B59B6', icon: 'terminal-outline',  primary: true,  screenName: 'LinuxPlusTests' },
     // Additional certifications
-    { id: 'caspplus', name: 'CASP+ (CAS-005)', color: '#E74C3C', icon: 'shield-outline', primary: false },
-    { id: 'cloudplus', name: 'Cloud+ (CV0-004)', color: '#3498DB', icon: 'cloud-outline', primary: false },
-    { id: 'dataplus', name: 'Data+ (DA0-001)', color: '#1ABC9C', icon: 'bar-chart-outline', primary: false },
-    { id: 'serverplus', name: 'Server+ (SK0-005)', color: '#9B59B6', icon: 'server-outline', primary: false },
-    { id: 'cissp', name: 'CISSP', color: '#34495E', icon: 'lock-closed-outline', primary: false },
-    { id: 'awscloud', name: 'AWS Cloud Practitioner', color: '#F39C12', icon: 'cloud-outline', primary: false },
+    { id: 'caspplus',  name: 'CASP+ (CAS-005)',     color: '#E74C3C', icon: 'shield-outline',    primary: false, screenName: 'CaspPlusTests' },
+    { id: 'cloudplus', name: 'Cloud+ (CV0-004)',    color: '#3498DB', icon: 'cloud-outline',     primary: false, screenName: 'CloudPlusTests' },
+    { id: 'dataplus',  name: 'Data+ (DA0-001)',     color: '#1ABC9C', icon: 'bar-chart-outline', primary: false, screenName: 'DataPlusTests' },
+    { id: 'serverplus',name: 'Server+ (SK0-005)',   color: '#9B59B6', icon: 'server-outline',    primary: false, screenName: 'ServerPlusTests' },
+    { id: 'cissp',     name: 'CISSP',               color: '#34495E', icon: 'lock-closed-outline',primary: false,screenName: 'CisspTests' },
+    { id: 'awscloud',  name: 'AWS Cloud Practitioner', color: '#F39C12', icon: 'cloud-outline',   primary: false, screenName: 'AWSCloudTests' },
   ];
   
-  // Filter for primary certifications (for the main Practice Tests section)
+  // Filter for primary certifications
   const primaryCertOptions = allCertOptions.filter(cert => cert.primary);
-  
-  // Filter for secondary certifications (for the Other Practice Tests section)
+  // Filter for secondary certifications
   const secondaryCertOptions = allCertOptions.filter(cert => !cert.primary);
   
-  // Updated navigation function to use TestNavigator
-  const navigateToTests = (certId, title) => {
-    // Instead of directly going to TestList, go to the appropriate screen in TestNavigator
-    navigation.navigate('Tests', { 
-      screen: `${certId}Tests`, // e.g., APlusTests, NetworkPlusTests, etc.
-      params: { category: certId, title }
+  // This function navigates to the correct stack screen + passes category param
+  const navigateToTests = (cert) => {
+    // e.g., { id: 'aplus', screenName: 'APlusTests', name: 'A+ Core 1 (1101)' }
+    navigation.navigate('Tests', {
+      screen: cert.screenName,  // e.g. 'APlusTests'
+      params: {
+        category: cert.id,      // e.g. 'aplus'
+        title: cert.name,
+      },
     });
   };
   
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       refreshControl={
         <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
@@ -115,27 +116,33 @@ const HomeScreen = ({ navigation }) => {
         </View>
       </View>
       
-      {/* Daily Bonus Card - Now shows even when can't claim, but as a link to Daily Station */}
-      <TouchableOpacity 
+      {/* Daily Bonus Card */}
+      <TouchableOpacity
         style={styles.dailyBonusCard}
         onPress={() => navigation.navigate('DailyStation')}
       >
         <View style={styles.dailyBonusContent}>
-          <Ionicons name={canClaimDaily() ? "gift-outline" : "calendar-outline"} size={24} color="#FFFFFF" />
+          <Ionicons
+            name={canClaimDaily() ? 'gift-outline' : 'calendar-outline'}
+            size={24}
+            color="#FFFFFF"
+          />
           <View style={styles.dailyBonusTextContainer}>
             <Text style={styles.dailyBonusTitle}>
-              {canClaimDaily() ? "Daily Bonus Available!" : "Daily Station"}
+              {canClaimDaily() ? 'Daily Bonus Available!' : 'Daily Station'}
             </Text>
             <Text style={styles.dailyBonusSubtitle}>
-              {canClaimDaily() ? "Claim 250 coins and answer daily challenge" : "Check daily challenge and return tomorrow for bonus"}
+              {canClaimDaily()
+                ? 'Claim 250 coins and answer daily challenge'
+                : 'Check daily challenge and return tomorrow for bonus'}
             </Text>
           </View>
         </View>
         <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
       </TouchableOpacity>
       
-      {/* Newsletter Card - New addition */}
-      <TouchableOpacity 
+      {/* Newsletter Card */}
+      <TouchableOpacity
         style={styles.newsletterCard}
         onPress={() => navigation.navigate('Newsletter')}
       >
@@ -151,13 +158,14 @@ const HomeScreen = ({ navigation }) => {
         <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
       </TouchableOpacity>
       
+      {/* Primary certs */}
       <Text style={styles.sectionTitle}>Practice Tests</Text>
       <View style={styles.certGrid}>
         {primaryCertOptions.map((cert) => (
           <TouchableOpacity
             key={cert.id}
             style={[styles.certCard, { backgroundColor: cert.color }]}
-            onPress={() => navigateToTests(cert.id, cert.name)}
+            onPress={() => navigateToTests(cert)}
           >
             <Ionicons name={cert.icon} size={28} color="#FFFFFF" />
             <Text style={styles.certName}>{cert.name}</Text>
@@ -165,13 +173,14 @@ const HomeScreen = ({ navigation }) => {
         ))}
       </View>
       
+      {/* Secondary certs */}
       <Text style={styles.sectionTitle}>Other Practice Tests</Text>
       <View style={styles.certGrid}>
         {secondaryCertOptions.map((cert) => (
           <TouchableOpacity
             key={cert.id}
             style={[styles.certCard, { backgroundColor: cert.color }]}
-            onPress={() => navigateToTests(cert.id, cert.name)}
+            onPress={() => navigateToTests(cert)}
           >
             <Ionicons name={cert.icon} size={28} color="#FFFFFF" />
             <Text style={styles.certName}>{cert.name}</Text>
@@ -244,6 +253,8 @@ const HomeScreen = ({ navigation }) => {
     </ScrollView>
   );
 };
+
+export default HomeScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -369,7 +380,7 @@ const styles = StyleSheet.create({
   },
   toolsContainer: {
     padding: 10,
-    paddingBottom: 30, // Extra padding at bottom
+    paddingBottom: 30,
   },
   toolButton: {
     flexDirection: 'row',
@@ -394,4 +405,3 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HomeScreen;

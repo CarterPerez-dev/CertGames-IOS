@@ -16,9 +16,12 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
+
+// Replace all direct fetch calls with testService
 import testService from '../../api/testService';
+
 import { fetchShopItems } from '../../store/slices/shopSlice';
-import { fetchAchievements } from '../../store/slices/achievementsSlice'
+import { fetchAchievements } from '../../store/slices/achievementsSlice';
 
 import FormattedQuestion from '../../components/FormattedQuestion';
 
@@ -39,21 +42,28 @@ const shuffleIndices = (length) => {
 
 /**
  * TestScreen shows a test with questions and handles user interactions
- * 
+ *
  * @param {Object} props - Component props
  * @param {Object} props.route - Route object containing params
  * @param {Object} props.navigation - Navigation object
  * @returns {JSX.Element} - TestScreen component
  */
 const TestScreen = ({ route, navigation }) => {
-  const { testId, category, examMode: initialExamMode, review, resuming, restarting, selectedLength: initialSelectedLength } = route.params || {};
-  
+  const {
+    testId,
+    category,
+    examMode: initialExamMode,
+    review,
+    resuming,
+    restarting,
+    selectedLength: initialSelectedLength
+  } = route.params || {};
+
   const dispatch = useDispatch();
   const { userId, xp, level, coins, xpBoost, currentAvatar } = useSelector(state => state.user);
   const { items: shopItems = [], status: shopStatus } = useSelector(state => state.shop || { items: [], status: 'idle' });
   const { all: achievements = [] } = useSelector(state => state.achievements || { all: [] });
 
-  
   // State for test data
   const [testData, setTestData] = useState(null);
   const [shuffleOrder, setShuffleOrder] = useState([]);
@@ -64,14 +74,14 @@ const TestScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [examMode, setExamMode] = useState(initialExamMode || false);
-  
+
   // UI state
   const [isAnswered, setIsAnswered] = useState(false);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(null);
   const [isFinished, setIsFinished] = useState(false);
   const [flaggedQuestions, setFlaggedQuestions] = useState([]);
   const [reviewFilter, setReviewFilter] = useState('all');
-  
+
   // Modals
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [showReviewMode, setShowReviewMode] = useState(review || false);
@@ -79,96 +89,90 @@ const TestScreen = ({ route, navigation }) => {
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  
+
   // Animation
   const [showLevelUpAnimation, setShowLevelUpAnimation] = useState(false);
   const [localLevel, setLocalLevel] = useState(level);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  
+
   // Selected test length
   const [activeTestLength, setActiveTestLength] = useState(initialSelectedLength || 100);
-  
 
   useEffect(() => {
     if (userId && shopStatus === 'idle') {
       dispatch(fetchShopItems());
     }
   }, [userId, shopStatus, dispatch]);
-  
 
   useEffect(() => {
     if (userId && !achievements.length) {
       dispatch(fetchAchievements());
     }
   }, [userId, achievements.length, dispatch]);
-  
 
   // Fetch test data and attempt
   const fetchTestAndAttempt = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       let attemptDoc = null;
-      
+
       // If user is logged in, fetch attempt data
       if (userId) {
         // For restarting, we fetch a fresh attempt
         if (restarting) {
           console.log('Restarting test, using fresh attempt');
-        } 
+        }
         // For resuming or reviewing, fetch the existing attempt
         else if (resuming || review) {
           const status = review ? 'finished' : 'unfinished';
-          const attemptRes = await fetch(`/api/test/attempts/${userId}/${testId}?status=${status}`);
-          const attemptData = await attemptRes.json();
-          
-          if (attemptData.attempt) {
-            attemptDoc = attemptData.attempt;
+          try {
+            const attemptData = await testService.fetchTestAttempt(userId, testId, status);
+            if (attemptData?.attempt) {
+              attemptDoc = attemptData.attempt;
+            }
+          } catch (err) {
+            // If no attempt found, attemptDoc remains null
           }
-        } 
+        }
         // Otherwise check for any unfinished attempt first
         else {
-          const unfinishedRes = await fetch(`/api/test/attempts/${userId}/${testId}?status=unfinished`);
-          const unfinishedData = await unfinishedRes.json();
-          
-          if (unfinishedData.attempt) {
-            attemptDoc = unfinishedData.attempt;
-          } else if (review) {
-            // If in review mode but no unfinished attempt, check for finished
-            const finishedRes = await fetch(`/api/test/attempts/${userId}/${testId}?status=finished`);
-            const finishedData = await finishedRes.json();
-            attemptDoc = finishedData.attempt;
+          try {
+            const unfinishedData = await testService.fetchTestAttempt(userId, testId, 'unfinished');
+            if (unfinishedData?.attempt) {
+              attemptDoc = unfinishedData.attempt;
+            } else if (review) {
+              const finishedData = await testService.fetchTestAttempt(userId, testId, 'finished');
+              if (finishedData?.attempt) {
+                attemptDoc = finishedData.attempt;
+              }
+            }
+          } catch (err) {
+            // If no attempt found, attemptDoc remains null
           }
         }
       }
-      
-      // Fetch test data
-      const testRes = await fetch(`/api/test/tests/${category}/${testId}`);
-      if (!testRes.ok) {
-        const errData = await testRes.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to fetch test data');
-      }
-      
-      const testDoc = await testRes.json();
+
+      // Fetch the test data from the service
+      const testDoc = await testService.fetchTestById(category, testId);
       setTestData(testDoc);
-      
       const totalQ = testDoc.questions.length;
-      
-      // Process attempt if it exists
+
+      // If we found an existing attemptDoc
       if (attemptDoc) {
         setAnswers(attemptDoc.answers || []);
         setScore(attemptDoc.score || 0);
         setIsFinished(attemptDoc.finished === true);
-        
+
         // Use the exam mode from the attempt doc
         const attemptExam = attemptDoc.examMode === true;
         setExamMode(attemptExam);
-        
+
         // Use the chosen length if available
         const chosenLength = attemptDoc.selectedLength || totalQ;
         setActiveTestLength(chosenLength);
-        
+
         // Use saved shuffleOrder if valid
         if (
           attemptDoc.shuffleOrder &&
@@ -180,28 +184,24 @@ const TestScreen = ({ route, navigation }) => {
           // Create new shuffle order
           const newQOrder = shuffleIndices(chosenLength);
           setShuffleOrder(newQOrder);
-          
-          // Save immediately
+
+          // Immediately save the new order if not in review mode
           if (userId && !review) {
-            await fetch(`/api/test/attempts/${userId}/${testId}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                category,
-                answers: attemptDoc.answers || [],
-                score: attemptDoc.score || 0,
-                totalQuestions: totalQ,
-                selectedLength: chosenLength,
-                currentQuestionIndex: attemptDoc.currentQuestionIndex || 0,
-                shuffleOrder: newQOrder,
-                answerOrder: attemptDoc.answerOrder || [],
-                finished: attemptDoc.finished === true,
-                examMode: attemptExam
-              })
+            await testService.createOrUpdateAttempt(userId, testId, {
+              category,
+              answers: attemptDoc.answers || [],
+              score: attemptDoc.score || 0,
+              totalQuestions: totalQ,
+              selectedLength: chosenLength,
+              currentQuestionIndex: attemptDoc.currentQuestionIndex || 0,
+              shuffleOrder: newQOrder,
+              answerOrder: attemptDoc.answerOrder || [],
+              finished: attemptDoc.finished === true,
+              examMode: attemptExam
             });
           }
         }
-        
+
         // Use saved answerOrder if valid
         if (
           attemptDoc.answerOrder &&
@@ -218,31 +218,27 @@ const TestScreen = ({ route, navigation }) => {
               return shuffleArray([...Array(numOptions).keys()]);
             });
           setAnswerOrder(generatedAnswerOrder);
-          
+
           // Save immediately
           if (userId && !review) {
-            await fetch(`/api/test/attempts/${userId}/${testId}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                category,
-                answers: attemptDoc.answers || [],
-                score: attemptDoc.score || 0,
-                totalQuestions: totalQ,
-                selectedLength: chosenLength,
-                currentQuestionIndex: attemptDoc.currentQuestionIndex || 0,
-                shuffleOrder: attemptDoc.shuffleOrder || [],
-                answerOrder: generatedAnswerOrder,
-                finished: attemptDoc.finished === true,
-                examMode: attemptExam
-              })
+            await testService.createOrUpdateAttempt(userId, testId, {
+              category,
+              answers: attemptDoc.answers || [],
+              score: attemptDoc.score || 0,
+              totalQuestions: totalQ,
+              selectedLength: chosenLength,
+              currentQuestionIndex: attemptDoc.currentQuestionIndex || 0,
+              shuffleOrder: attemptDoc.shuffleOrder || [],
+              answerOrder: generatedAnswerOrder,
+              finished: attemptDoc.finished === true,
+              examMode: attemptExam
             });
           }
         }
-        
+
         setCurrentQuestionIndex(attemptDoc.currentQuestionIndex || 0);
-        
-        // If in review mode, show the score overlay
+
+        // If in review mode and the attempt is finished, show review
         if (review && attemptDoc.finished) {
           setShowReviewMode(true);
         }
@@ -250,10 +246,10 @@ const TestScreen = ({ route, navigation }) => {
         // For a restart, create new shuffle and answer orders
         const selectedLength = initialSelectedLength || 100;
         setActiveTestLength(selectedLength);
-        
+
         const newQOrder = shuffleIndices(selectedLength);
         setShuffleOrder(newQOrder);
-        
+
         const newAnswerOrder = testDoc.questions
           .slice(0, selectedLength)
           .map((q) => {
@@ -261,28 +257,24 @@ const TestScreen = ({ route, navigation }) => {
             return shuffleArray([...Array(numOptions).keys()]);
           });
         setAnswerOrder(newAnswerOrder);
-        
+
         // Save the new attempt
         if (userId) {
-          await fetch(`/api/test/attempts/${userId}/${testId}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              category,
-              answers: [],
-              score: 0,
-              totalQuestions: totalQ,
-              selectedLength,
-              currentQuestionIndex: 0,
-              shuffleOrder: newQOrder,
-              answerOrder: newAnswerOrder,
-              finished: false,
-              examMode
-            })
+          await testService.createOrUpdateAttempt(userId, testId, {
+            category,
+            answers: [],
+            score: 0,
+            totalQuestions: totalQ,
+            selectedLength,
+            currentQuestionIndex: 0,
+            shuffleOrder: newQOrder,
+            answerOrder: newAnswerOrder,
+            finished: false,
+            examMode
           });
         }
       } else {
-        // No attempt exists, unexpected state
+        // No attempt doc found, show error
         setError('No test attempt found. Please return to the test list and start a new test.');
       }
     } catch (err) {
@@ -291,53 +283,74 @@ const TestScreen = ({ route, navigation }) => {
     } finally {
       setLoading(false);
     }
-  }, [userId, testId, category, review, resuming, restarting, initialSelectedLength, initialExamMode, examMode]);
-  
+  }, [
+    userId,
+    testId,
+    category,
+    review,
+    resuming,
+    restarting,
+    initialSelectedLength,
+    initialExamMode,
+    examMode
+  ]);
+
   // Load data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchTestAndAttempt();
     }, [fetchTestAndAttempt])
   );
-  
+
   // Save progress when unmounting
   useEffect(() => {
     return () => {
       if (userId && testId && testData && !loading && !isFinished && !review) {
         const saveProgressOnExit = async () => {
           try {
-            await fetch(`/api/test/attempts/${userId}/${testId}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                category,
-                answers,
-                score,
-                totalQuestions: testData?.questions?.length || 0,
-                selectedLength: activeTestLength,
-                currentQuestionIndex,
-                shuffleOrder,
-                answerOrder,
-                finished: isFinished,
-                examMode
-              })
+            await testService.createOrUpdateAttempt(userId, testId, {
+              category,
+              answers,
+              score,
+              totalQuestions: testData?.questions?.length || 0,
+              selectedLength: activeTestLength,
+              currentQuestionIndex,
+              shuffleOrder,
+              answerOrder,
+              finished: isFinished,
+              examMode
             });
           } catch (err) {
             console.error("Failed to save progress on exit", err);
           }
         };
-        
+
         saveProgressOnExit();
       }
     };
-  }, [userId, testId, testData, loading, category, answers, score, activeTestLength, currentQuestionIndex, shuffleOrder, answerOrder, isFinished, examMode, review]);
-  
+  }, [
+    userId,
+    testId,
+    testData,
+    loading,
+    category,
+    answers,
+    score,
+    activeTestLength,
+    currentQuestionIndex,
+    shuffleOrder,
+    answerOrder,
+    isFinished,
+    examMode,
+    review
+  ]);
+
   // Watch for level up
   useEffect(() => {
     if (level > localLevel) {
       setLocalLevel(level);
       setShowLevelUpAnimation(true);
-      
+
       // Animate the level up message
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -351,7 +364,7 @@ const TestScreen = ({ route, navigation }) => {
           useNativeDriver: true,
         })
       ]).start();
-      
+
       // Hide the animation after 3 seconds
       const timer = setTimeout(() => {
         Animated.parallel([
@@ -367,11 +380,11 @@ const TestScreen = ({ route, navigation }) => {
           })
         ]).start(() => setShowLevelUpAnimation(false));
       }, 3000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [level, localLevel, fadeAnim, slideAnim]);
-  
+
   // Get the shuffled index for the current question
   const getShuffledIndex = useCallback(
     (i) => {
@@ -380,26 +393,25 @@ const TestScreen = ({ route, navigation }) => {
     },
     [shuffleOrder]
   );
-  
 
   // Total number of questions in this test
   const effectiveTotal = activeTestLength || (testData ? testData.questions.length : 0);
-  
+
   // Get the current question based on shuffled index
   const realIndex = getShuffledIndex(currentQuestionIndex);
   const questionObject = useMemo(() => {
     if (!testData || !testData.questions || !testData.questions.length) return null;
     return testData.questions[realIndex];
   }, [testData, realIndex]);
-  
+
   // Check if the current question is answered
   useEffect(() => {
     if (!questionObject) return;
-    
+
     const existing = answers.find(a => a.questionId === questionObject.id);
     if (existing) {
       setSelectedOptionIndex(null);
-      
+
       if (existing.userAnswerIndex !== null && existing.userAnswerIndex !== undefined) {
         const displayIndex = answerOrder[realIndex].indexOf(existing.userAnswerIndex);
         if (displayIndex >= 0) {
@@ -416,128 +428,125 @@ const TestScreen = ({ route, navigation }) => {
       setIsAnswered(false);
     }
   }, [questionObject, answers, realIndex, answerOrder]);
-  
+
   // Update progress on server
   const updateServerProgress = useCallback(
     async (updatedAnswers, updatedScore, finished = false, singleAnswer = null) => {
       if (!userId) return;
-      
+
       try {
+        // If we're submitting a single answer
         if (singleAnswer) {
-          const res = await fetch(`/api/test/user/${userId}/submit-answer`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              testId,
-              questionId: singleAnswer.questionId,
-              correctAnswerIndex: singleAnswer.correctAnswerIndex,
-              selectedIndex: singleAnswer.userAnswerIndex,
-              xpPerCorrect: (testData?.xpPerCorrect || 10) * xpBoost,
-              coinsPerCorrect: 5
-            })
+          // Replace direct fetch with testService.submitAnswer
+          const data = await testService.submitAnswer(userId, {
+            testId,
+            questionId: singleAnswer.questionId,
+            correctAnswerIndex: singleAnswer.correctAnswerIndex,
+            selectedIndex: singleAnswer.userAnswerIndex,
+            xpPerCorrect: (testData?.xpPerCorrect || 10) * xpBoost,
+            coinsPerCorrect: 5
           });
-          
-          const data = await res.json();
-          
-          // For exam mode, also update the full attempt
+
+          // In exam mode, also update the full attempt
           if (examMode) {
-            await fetch(`/api/test/attempts/${userId}/${testId}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                category,
-                answers: updatedAnswers,
-                score: updatedScore,
-                totalQuestions: testData?.questions?.length || 0,
-                selectedLength: activeTestLength,
-                currentQuestionIndex,
-                shuffleOrder,
-                answerOrder,
-                finished,
-                examMode
-              })
+            await testService.createOrUpdateAttempt(userId, testId, {
+              category,
+              answers: updatedAnswers,
+              score: updatedScore,
+              totalQuestions: testData?.questions?.length || 0,
+              selectedLength: activeTestLength,
+              currentQuestionIndex,
+              shuffleOrder,
+              answerOrder,
+              finished,
+              examMode
             });
           }
-          
+
           return data;
         }
-        
-        // Position update (for navigation)
-        await fetch(`/api/test/attempts/${userId}/${testId}/position`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            currentQuestionIndex,
-            finished
-          })
+
+        // Update current position (question index, etc.)
+        await testService.updatePosition(userId, testId, {
+          currentQuestionIndex,
+          finished
         });
-        
-        // Full attempt update
-        await fetch(`/api/test/attempts/${userId}/${testId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            category,
-            answers: updatedAnswers,
-            score: updatedScore,
-            totalQuestions: testData?.questions?.length || 0,
-            selectedLength: activeTestLength,
-            currentQuestionIndex,
-            shuffleOrder,
-            answerOrder,
-            finished,
-            examMode
-          })
+
+        // Then update the entire attempt
+        await testService.createOrUpdateAttempt(userId, testId, {
+          category,
+          answers: updatedAnswers,
+          score: updatedScore,
+          totalQuestions: testData?.questions?.length || 0,
+          selectedLength: activeTestLength,
+          currentQuestionIndex,
+          shuffleOrder,
+          answerOrder,
+          finished,
+          examMode
         });
       } catch (err) {
         console.error("Failed to update test attempt on backend", err);
       }
     },
-    [userId, testId, testData, xpBoost, currentQuestionIndex, category, activeTestLength, shuffleOrder, answerOrder, examMode]
+    [
+      userId,
+      testId,
+      testData,
+      xpBoost,
+      currentQuestionIndex,
+      category,
+      activeTestLength,
+      shuffleOrder,
+      answerOrder,
+      examMode
+    ]
   );
-  
+
   // Handle option selection
   const handleOptionClick = useCallback(
     async (displayOptionIndex) => {
       if (!questionObject) return;
       if (!examMode && isAnswered) return; // Block if already answered in non-exam mode
-      
+
       const actualAnswerIndex = answerOrder[realIndex][displayOptionIndex];
       setSelectedOptionIndex(displayOptionIndex);
-      
-      // Mark as answered but allow changes in exam mode
+
+      // Mark as answered (in exam mode, user can change until finishing)
       setIsAnswered(true);
-      
+
       try {
         const newAnswerObj = {
           questionId: questionObject.id,
           userAnswerIndex: actualAnswerIndex,
           correctAnswerIndex: questionObject.correctAnswerIndex
         };
-        
+
         const updatedAnswers = [...answers];
         const idx = updatedAnswers.findIndex(a => a.questionId === questionObject.id);
-        
+
         if (idx >= 0) {
           updatedAnswers[idx] = newAnswerObj;
         } else {
           updatedAnswers.push(newAnswerObj);
         }
-        
+
         setAnswers(updatedAnswers);
-        
+
+        // Submit single answer
         const awardData = await updateServerProgress(
           updatedAnswers,
           score,
           false,
           newAnswerObj
         );
-        
+
+        // If not exam mode, update local score and XP
         if (!examMode && awardData && awardData.examMode === false) {
           if (awardData.isCorrect) {
             setScore(prev => prev + 1);
           }
-          
+
           if (awardData.isCorrect && !awardData.alreadyCorrect && awardData.awardedXP) {
             dispatch({
               type: 'user/setXPAndCoins',
@@ -552,43 +561,51 @@ const TestScreen = ({ route, navigation }) => {
         console.error("Failed to submit answer to backend", err);
       }
     },
-    [isAnswered, questionObject, examMode, testData, xpBoost, userId, testId, dispatch, score, answers, updateServerProgress, realIndex, answerOrder]
+    [
+      isAnswered,
+      questionObject,
+      examMode,
+      testData,
+      xpBoost,
+      userId,
+      testId,
+      dispatch,
+      score,
+      answers,
+      updateServerProgress,
+      realIndex,
+      answerOrder
+    ]
   );
-  
+
   // Finish the test
   const finishTestProcess = useCallback(async () => {
     let finalScore = 0;
-    
+
     // Calculate final score
     answers.forEach(ans => {
       if (ans.userAnswerIndex === ans.correctAnswerIndex) {
         finalScore++;
       }
     });
-    
+
     setScore(finalScore);
     setIsFinished(true);
-    
+
     try {
-      const res = await fetch(`/api/test/attempts/${userId}/${testId}/finish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          score: finalScore,
-          totalQuestions: effectiveTotal,
-          testId,
-          category
-        })
+      // Replace direct fetch with testService.finishTestAttempt
+      const finishData = await testService.finishTestAttempt(userId, testId, {
+        score: finalScore,
+        totalQuestions: effectiveTotal,
+        testId,
+        category
       });
-      
-      const finishData = await res.json();
-      
+
       // Handle achievement unlocks
       if (finishData.newlyUnlocked && finishData.newlyUnlocked.length > 0) {
-        // You'd implement achievement toasts here
         console.log('New achievements unlocked:', finishData.newlyUnlocked);
       }
-      
+
       // Update user XP and coins
       if (typeof finishData.newXP !== "undefined" && typeof finishData.newCoins !== "undefined") {
         dispatch({
@@ -603,27 +620,36 @@ const TestScreen = ({ route, navigation }) => {
     } catch (err) {
       console.error("Failed to finish test attempt:", err);
     }
-    
+
     setShowScoreModal(true);
   }, [answers, userId, testId, effectiveTotal, dispatch, category]);
-  
+
   // Navigation between questions
   const handleNextQuestion = useCallback(() => {
     if (!isAnswered && !examMode) {
       setShowWarningModal(true);
       return;
     }
-    
+
     if (currentQuestionIndex === effectiveTotal - 1) {
       finishTestProcess();
       return;
     }
-    
+
     const nextIndex = currentQuestionIndex + 1;
     setCurrentQuestionIndex(nextIndex);
     updateServerProgress(answers, score, false);
-  }, [isAnswered, examMode, currentQuestionIndex, effectiveTotal, finishTestProcess, updateServerProgress, answers, score]);
-  
+  }, [
+    isAnswered,
+    examMode,
+    currentQuestionIndex,
+    effectiveTotal,
+    finishTestProcess,
+    updateServerProgress,
+    answers,
+    score
+  ]);
+
   const handlePreviousQuestion = useCallback(() => {
     if (currentQuestionIndex > 0) {
       const prevIndex = currentQuestionIndex - 1;
@@ -631,44 +657,44 @@ const TestScreen = ({ route, navigation }) => {
       updateServerProgress(answers, score, false);
     }
   }, [currentQuestionIndex, updateServerProgress, answers, score]);
-  
+
   // Skip the current question
   const handleSkipQuestion = () => {
     if (!questionObject) return;
-    
+
     const updatedAnswers = [...answers];
     const idx = updatedAnswers.findIndex(a => a.questionId === questionObject.id);
-    
+
     const skipObj = {
       questionId: questionObject.id,
       userAnswerIndex: null,
       correctAnswerIndex: questionObject.correctAnswerIndex
     };
-    
+
     if (idx >= 0) {
       updatedAnswers[idx] = skipObj;
     } else {
       updatedAnswers.push(skipObj);
     }
-    
+
     setAnswers(updatedAnswers);
     setIsAnswered(false);
     setSelectedOptionIndex(null);
-    
+
     updateServerProgress(updatedAnswers, score, false, skipObj);
-    
+
     if (currentQuestionIndex === effectiveTotal - 1) {
       finishTestProcess();
       return;
     }
-    
+
     setCurrentQuestionIndex(currentQuestionIndex + 1);
   };
-  
+
   // Flag the current question
   const handleFlagQuestion = () => {
     if (!questionObject) return;
-    
+
     const qId = questionObject.id;
     if (flaggedQuestions.includes(qId)) {
       setFlaggedQuestions(flaggedQuestions.filter(x => x !== qId));
@@ -676,7 +702,7 @@ const TestScreen = ({ route, navigation }) => {
       setFlaggedQuestions([...flaggedQuestions, qId]);
     }
   };
-  
+
   // Restart the test
   const handleRestartTest = useCallback(async () => {
     setCurrentQuestionIndex(0);
@@ -688,47 +714,50 @@ const TestScreen = ({ route, navigation }) => {
     setIsFinished(false);
     setShowReviewMode(false);
     setShowScoreModal(false);
-    
+
     if (testData?.questions?.length && activeTestLength) {
       const newQOrder = shuffleIndices(activeTestLength);
       setShuffleOrder(newQOrder);
-      
+
       const newAnswerOrder = testData.questions
         .slice(0, activeTestLength)
         .map(q => {
           const numOpts = q.options.length;
           return shuffleArray([...Array(numOpts).keys()]);
         });
-      
+
       setAnswerOrder(newAnswerOrder);
-      
+
       if (userId) {
-        await fetch(`/api/test/attempts/${userId}/${testId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            answers: [],
-            score: 0,
-            totalQuestions: testData.questions.length,
-            selectedLength: activeTestLength,
-            category: testData.category || category,
-            currentQuestionIndex: 0,
-            shuffleOrder: newQOrder,
-            answerOrder: newAnswerOrder,
-            finished: false,
-            examMode
-          })
+        await testService.createOrUpdateAttempt(userId, testId, {
+          answers: [],
+          score: 0,
+          totalQuestions: testData.questions.length,
+          selectedLength: activeTestLength,
+          category: testData.category || category,
+          currentQuestionIndex: 0,
+          shuffleOrder: newQOrder,
+          answerOrder: newAnswerOrder,
+          finished: false,
+          examMode
         });
       }
     }
-  }, [testData, userId, testId, category, examMode, activeTestLength]);
-  
+  }, [
+    testData,
+    userId,
+    testId,
+    category,
+    examMode,
+    activeTestLength
+  ]);
+
   // Show review mode
   const handleReviewAnswers = () => {
     setShowReviewMode(true);
     setReviewFilter('all');
   };
-  
+
   // Close review mode
   const handleCloseReview = () => {
     if (!isFinished) {
@@ -738,62 +767,62 @@ const TestScreen = ({ route, navigation }) => {
       navigation.goBack();
     }
   };
-  
+
   // Filter questions for review mode
   const filteredQuestions = useMemo(() => {
     if (!testData || !testData.questions) return [];
-    
+
     return testData.questions.slice(0, effectiveTotal).filter(q => {
       const userAns = answers.find(a => a.questionId === q.id);
       const isFlagged = flaggedQuestions.includes(q.id);
-      
+
       if (!userAns) {
         // Not answered => count it as "skipped" or "all"
         return reviewFilter === 'skipped' || reviewFilter === 'all';
       }
-      
+
       const isSkipped = userAns.userAnswerIndex === null;
       const isCorrect = userAns.userAnswerIndex === q.correctAnswerIndex;
-      
+
       if (reviewFilter === 'all') return true;
       if (reviewFilter === 'skipped' && isSkipped) return true;
       if (reviewFilter === 'flagged' && isFlagged) return true;
       if (reviewFilter === 'incorrect' && !isCorrect && !isSkipped) return true;
       if (reviewFilter === 'correct' && isCorrect && !isSkipped) return true;
-      
+
       return false;
     });
   }, [testData, answers, flaggedQuestions, reviewFilter, effectiveTotal]);
-  
+
   // Select a specific question from the dropdown
   const handleQuestionSelect = (index) => {
     setCurrentQuestionIndex(index);
     updateServerProgress(answers, score, false);
     setShowDropdown(false);
   };
-  
+
   // Get the status of a question for the dropdown
   const getQuestionStatus = (index) => {
     const realIndex = shuffleOrder[index];
-    if (!testData || !testData.questions || !realIndex) return {};
-    
+    if (!testData || !testData.questions || realIndex === undefined) return {};
+
     const question = testData.questions[realIndex];
     if (!question) return {};
-    
+
     const answer = answers.find(a => a.questionId === question.id);
     const isFlagged = flaggedQuestions.includes(question.id);
     const isAnswered = answer?.userAnswerIndex !== undefined;
     const isSkipped = answer?.userAnswerIndex === null;
     const isCorrect = answer && answer.userAnswerIndex === question.correctAnswerIndex;
-    
+
     return { isAnswered, isSkipped, isCorrect, isFlagged };
   };
-  
+
   // Calculate progress percentage
   const progressPercentage = effectiveTotal
     ? Math.round(((currentQuestionIndex + 1) / effectiveTotal) * 100)
     : 0;
-  
+
   // Get avatar URL
   const avatarUrl = useMemo(() => {
     let url = 'https://via.placeholder.com/60';
@@ -805,22 +834,21 @@ const TestScreen = ({ route, navigation }) => {
     }
     return url;
   }, [currentAvatar, shopItems]);
-  
+
   // Get shuffled options for current question
   const displayedOptions = useMemo(() => {
     if (!questionObject || !answerOrder[realIndex]) return [];
-    
     return answerOrder[realIndex].map(
       optionIdx => questionObject.options[optionIdx]
     );
   }, [questionObject, answerOrder, realIndex]);
-  
+
   // Render level up animation
   const renderLevelUpAnimation = () => {
     if (!showLevelUpAnimation) return null;
-    
+
     return (
-      <Animated.View 
+      <Animated.View
         style={[
           styles.levelUpOverlay,
           {
@@ -835,11 +863,11 @@ const TestScreen = ({ route, navigation }) => {
       </Animated.View>
     );
   };
-  
+
   // Render warning modal
   const renderWarningModal = () => {
     if (!showWarningModal) return null;
-    
+
     return (
       <Modal
         visible={showWarningModal}
@@ -854,7 +882,7 @@ const TestScreen = ({ route, navigation }) => {
             <Text style={styles.modalText}>
               You haven't answered this question yet. Please select an answer or skip the question.
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.modalButton}
               onPress={() => setShowWarningModal(false)}
             >
@@ -865,11 +893,11 @@ const TestScreen = ({ route, navigation }) => {
       </Modal>
     );
   };
-  
+
   // Render restart modal
   const renderRestartModal = () => {
     if (!showRestartModal) return null;
-    
+
     return (
       <Modal
         visible={showRestartModal}
@@ -885,7 +913,7 @@ const TestScreen = ({ route, navigation }) => {
               Are you sure you want to restart the test? All progress will be lost and you'll start from the beginning.
             </Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.confirmButton]}
                 onPress={() => {
                   setShowRestartModal(false);
@@ -894,7 +922,7 @@ const TestScreen = ({ route, navigation }) => {
               >
                 <Text style={styles.modalButtonText}>Yes, Restart</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowRestartModal(false)}
               >
@@ -906,11 +934,11 @@ const TestScreen = ({ route, navigation }) => {
       </Modal>
     );
   };
-  
+
   // Render finish modal
   const renderFinishModal = () => {
     if (!showFinishModal) return null;
-    
+
     return (
       <Modal
         visible={showFinishModal}
@@ -926,7 +954,7 @@ const TestScreen = ({ route, navigation }) => {
               Are you sure you want to finish the test now? Any unanswered questions will be marked as skipped.
             </Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.confirmButton]}
                 onPress={() => {
                   setShowFinishModal(false);
@@ -935,7 +963,7 @@ const TestScreen = ({ route, navigation }) => {
               >
                 <Text style={styles.modalButtonText}>Yes, Finish</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowFinishModal(false)}
               >
@@ -947,19 +975,19 @@ const TestScreen = ({ route, navigation }) => {
       </Modal>
     );
   };
-  
+
   // Render score modal
   const renderScoreModal = () => {
     if (!showScoreModal) return null;
-    
+
     const percentage = effectiveTotal
       ? Math.round((score / effectiveTotal) * 100)
       : 0;
-    
+
     // Determine grade based on percentage
     let grade = "";
     let gradeClass = "";
-    
+
     if (percentage >= 90) {
       grade = "Outstanding!";
       gradeClass = "gradeAPlus";
@@ -976,7 +1004,7 @@ const TestScreen = ({ route, navigation }) => {
       grade = "Keep Practicing!";
       gradeClass = "gradeD";
     }
-    
+
     return (
       <Modal
         visible={showScoreModal}
@@ -987,18 +1015,18 @@ const TestScreen = ({ route, navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, styles.scoreModalContent]}>
             <Text style={styles.scoreTitle}>Test Complete!</Text>
-            
+
             <View style={styles.scoreGradeContainer}>
               <View style={[styles.scoreGrade, styles[gradeClass]]}>
                 <Text style={styles.percentageDisplay}>{percentage}%</Text>
                 <Text style={styles.gradeLabel}>{grade}</Text>
               </View>
-              
+
               <View style={styles.scoreDetailsContainer}>
                 <Text style={styles.scoreDetails}>
                   You answered <Text style={styles.scoreHighlight}>{score}</Text> out of <Text style={styles.scoreHighlight}>{effectiveTotal}</Text> questions correctly.
                 </Text>
-                
+
                 {examMode && (
                   <View style={styles.examModeNote}>
                     <Ionicons name="trophy" size={20} color="#FFD700" />
@@ -1007,25 +1035,25 @@ const TestScreen = ({ route, navigation }) => {
                 )}
               </View>
             </View>
-            
+
             <View style={styles.scoreButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.scoreButton, styles.restartScoreButton]}
                 onPress={() => setShowRestartModal(true)}
               >
                 <Ionicons name="refresh" size={18} color="#FFFFFF" />
                 <Text style={styles.scoreButtonText}>Restart Test</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={[styles.scoreButton, styles.reviewScoreButton]}
                 onPress={handleReviewAnswers}
               >
                 <Ionicons name="eye" size={18} color="#FFFFFF" />
                 <Text style={styles.scoreButtonText}>Review Answers</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={[styles.scoreButton, styles.backScoreButton]}
                 onPress={() => navigation.goBack()}
               >
@@ -1038,11 +1066,11 @@ const TestScreen = ({ route, navigation }) => {
       </Modal>
     );
   };
-  
+
   // Render review mode
   const renderReviewMode = () => {
     if (!showReviewMode) return null;
-    
+
     return (
       <Modal
         visible={showReviewMode}
@@ -1053,56 +1081,56 @@ const TestScreen = ({ route, navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, styles.reviewModalContent]}>
             <View style={styles.reviewHeader}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeReviewButton}
                 onPress={handleCloseReview}
               >
                 <Ionicons name="close" size={24} color="#AAAAAA" />
               </TouchableOpacity>
               <Text style={styles.reviewTitle}>Review Mode</Text>
-              
+
               {isFinished && (
                 <Text style={styles.reviewScoreSummary}>
                   Your score: {score}/{effectiveTotal} ({effectiveTotal ? Math.round((score / effectiveTotal) * 100) : 0}%)
                 </Text>
               )}
             </View>
-            
+
             <View style={styles.reviewFilters}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reviewFiltersScroll}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.filterButton, reviewFilter === 'all' && styles.activeFilter]}
                   onPress={() => setReviewFilter('all')}
                 >
                   <Ionicons name="list" size={18} color={reviewFilter === 'all' ? "#FFFFFF" : "#AAAAAA"} />
                   <Text style={[styles.filterButtonText, reviewFilter === 'all' && styles.activeFilterText]}>All</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   style={[styles.filterButton, reviewFilter === 'skipped' && styles.activeFilter]}
                   onPress={() => setReviewFilter('skipped')}
                 >
                   <Ionicons name="play-skip-forward" size={18} color={reviewFilter === 'skipped' ? "#FFFFFF" : "#AAAAAA"} />
                   <Text style={[styles.filterButtonText, reviewFilter === 'skipped' && styles.activeFilterText]}>Skipped</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   style={[styles.filterButton, reviewFilter === 'flagged' && styles.activeFilter]}
                   onPress={() => setReviewFilter('flagged')}
                 >
                   <Ionicons name="flag" size={18} color={reviewFilter === 'flagged' ? "#FFFFFF" : "#AAAAAA"} />
                   <Text style={[styles.filterButtonText, reviewFilter === 'flagged' && styles.activeFilterText]}>Flagged</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   style={[styles.filterButton, reviewFilter === 'incorrect' && styles.activeFilter]}
                   onPress={() => setReviewFilter('incorrect')}
                 >
                   <Ionicons name="close-circle" size={18} color={reviewFilter === 'incorrect' ? "#FFFFFF" : "#AAAAAA"} />
                   <Text style={[styles.filterButtonText, reviewFilter === 'incorrect' && styles.activeFilterText]}>Incorrect</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   style={[styles.filterButton, reviewFilter === 'correct' && styles.activeFilter]}
                   onPress={() => setReviewFilter('correct')}
                 >
@@ -1110,26 +1138,26 @@ const TestScreen = ({ route, navigation }) => {
                   <Text style={[styles.filterButtonText, reviewFilter === 'correct' && styles.activeFilterText]}>Correct</Text>
                 </TouchableOpacity>
               </ScrollView>
-              
+
               <Text style={styles.filterCount}>
                 Showing {filteredQuestions.length} questions
               </Text>
             </View>
-            
+
             <FlatList
               data={filteredQuestions}
               keyExtractor={item => item.id}
               renderItem={({ item, index }) => {
                 const userAns = answers.find(a => a.questionId === item.id);
                 const isFlagged = flaggedQuestions.includes(item.id);
-                
+
                 // Determine answer status
                 let answerStatus = { type: 'unanswered', label: 'Not Answered', color: '#FFC107', icon: 'alert' };
-                
+
                 if (userAns) {
                   const isSkipped = userAns.userAnswerIndex === null;
                   const isCorrect = userAns.userAnswerIndex === item.correctAnswerIndex;
-                  
+
                   if (isSkipped) {
                     answerStatus = { type: 'skipped', label: 'Skipped', color: '#FF9800', icon: 'play-skip-forward' };
                   } else if (isCorrect) {
@@ -1138,7 +1166,7 @@ const TestScreen = ({ route, navigation }) => {
                     answerStatus = { type: 'incorrect', label: 'Incorrect', color: '#FF4E4E', icon: 'close-circle' };
                   }
                 }
-                
+
                 return (
                   <View style={[styles.reviewQuestionCard, styles[`${answerStatus.type}Card`]]}>
                     <View style={styles.reviewQuestionHeader}>
@@ -1147,11 +1175,11 @@ const TestScreen = ({ route, navigation }) => {
                         <Ionicons name="flag" size={18} color="#FFC107" style={styles.flaggedIcon} />
                       )}
                     </View>
-                    
+
                     <View style={styles.reviewQuestionContent}>
                       <FormattedQuestion questionText={item.question} />
                     </View>
-                    
+
                     <View style={[styles.answerSection, styles[`${answerStatus.type}Section`]]}>
                       <View style={styles.answerStatusRow}>
                         <Ionicons name={answerStatus.icon} size={20} color={answerStatus.color} />
@@ -1159,20 +1187,20 @@ const TestScreen = ({ route, navigation }) => {
                           {answerStatus.label}
                         </Text>
                       </View>
-                      
+
                       {userAns && userAns.userAnswerIndex !== null && (
                         <Text style={styles.yourAnswerText}>
                           <Text style={styles.answerLabel}>Your Answer: </Text>
                           {item.options[userAns.userAnswerIndex]}
                         </Text>
                       )}
-                      
+
                       <Text style={styles.correctAnswerText}>
                         <Text style={styles.answerLabel}>Correct Answer: </Text>
                         {item.options[item.correctAnswerIndex]}
                       </Text>
                     </View>
-                    
+
                     <View style={styles.explanationSection}>
                       <Text style={styles.explanationText}>{item.explanation}</Text>
                     </View>
@@ -1181,9 +1209,9 @@ const TestScreen = ({ route, navigation }) => {
               }}
               contentContainerStyle={styles.reviewList}
             />
-            
+
             {!isFinished && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeReviewButtonBottom}
                 onPress={handleCloseReview}
               >
@@ -1195,11 +1223,11 @@ const TestScreen = ({ route, navigation }) => {
       </Modal>
     );
   };
-  
+
   // Render dropdown for question selection
   const renderQuestionDropdown = () => {
     if (!showDropdown) return null;
-    
+
     return (
       <Modal
         visible={showDropdown}
@@ -1207,7 +1235,7 @@ const TestScreen = ({ route, navigation }) => {
         animationType="fade"
         onRequestClose={() => setShowDropdown(false)}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.dropdownOverlay}
           activeOpacity={1}
           onPress={() => setShowDropdown(false)}
@@ -1218,9 +1246,9 @@ const TestScreen = ({ route, navigation }) => {
               keyExtractor={item => item.toString()}
               renderItem={({ item: index }) => {
                 const status = getQuestionStatus(index);
-                
+
                 return (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[
                       styles.dropdownItem,
                       index === currentQuestionIndex && styles.activeDropdownItem
@@ -1238,10 +1266,10 @@ const TestScreen = ({ route, navigation }) => {
                         <Ionicons name="flag" size={18} color="#FFC107" />
                       )}
                       {!examMode && status.isAnswered && !status.isSkipped && (
-                        <Ionicons 
-                          name={status.isCorrect ? "checkmark-circle" : "close-circle"} 
-                          size={18} 
-                          color={status.isCorrect ? "#2EBB77" : "#FF4E4E"} 
+                        <Ionicons
+                          name={status.isCorrect ? "checkmark-circle" : "close-circle"}
+                          size={18}
+                          color={status.isCorrect ? "#2EBB77" : "#FF4E4E"}
                         />
                       )}
                     </View>
@@ -1250,7 +1278,7 @@ const TestScreen = ({ route, navigation }) => {
               }}
               style={styles.dropdownList}
             />
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.closeDropdownButton}
               onPress={() => setShowDropdown(false)}
             >
@@ -1261,7 +1289,7 @@ const TestScreen = ({ route, navigation }) => {
       </Modal>
     );
   };
-  
+
   // Show loading spinner while data is loading
   if (loading) {
     return (
@@ -1271,7 +1299,7 @@ const TestScreen = ({ route, navigation }) => {
       </View>
     );
   }
-  
+
   // Show error screen if there's an error
   if (error) {
     return (
@@ -1280,13 +1308,13 @@ const TestScreen = ({ route, navigation }) => {
         <Text style={styles.errorTitle}>Error Loading Test</Text>
         <Text style={styles.errorMessage}>{error}</Text>
         <View style={styles.errorButtons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.errorButton}
             onPress={() => fetchTestAndAttempt()}
           >
             <Text style={styles.errorButtonText}>Try Again</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.errorButton, styles.errorBackButton]}
             onPress={() => navigation.goBack()}
           >
@@ -1296,7 +1324,7 @@ const TestScreen = ({ route, navigation }) => {
       </View>
     );
   }
-  
+
   // Show error if test data or questions are missing
   if (!testData || !testData.questions || testData.questions.length === 0) {
     return (
@@ -1304,7 +1332,7 @@ const TestScreen = ({ route, navigation }) => {
         <Ionicons name="alert-circle" size={50} color="#FF4E4E" />
         <Text style={styles.errorTitle}>No Questions Found</Text>
         <Text style={styles.errorMessage}>This test doesn't have any questions yet.</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.errorButton}
           onPress={() => navigation.goBack()}
         >
@@ -1313,12 +1341,12 @@ const TestScreen = ({ route, navigation }) => {
       </View>
     );
   }
-  
+
   return (
     <View style={styles.container}>
       {/* Level up animation */}
       {renderLevelUpAnimation()}
-      
+
       {/* Modals */}
       {renderWarningModal()}
       {renderRestartModal()}
@@ -1326,7 +1354,7 @@ const TestScreen = ({ route, navigation }) => {
       {renderScoreModal()}
       {renderReviewMode()}
       {renderQuestionDropdown()}
-      
+
       {/* Upper controls */}
       <View style={styles.topBar}>
         <View style={styles.userInfoSection}>
@@ -1348,16 +1376,16 @@ const TestScreen = ({ route, navigation }) => {
             </View>
           </View>
         </View>
-        
+
         <View style={styles.testControls}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.restartTestButton}
             onPress={() => setShowRestartModal(true)}
           >
             <Ionicons name="refresh" size={18} color="#FFFFFF" />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
@@ -1365,7 +1393,7 @@ const TestScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
-      
+
       {/* Title bar */}
       <View style={styles.titleBar}>
         <Text style={styles.testTitle}>{testData.testName}</Text>
@@ -1376,24 +1404,28 @@ const TestScreen = ({ route, navigation }) => {
           </View>
         )}
       </View>
-      
+
       {/* Question controls */}
       <View style={styles.questionControlBar}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
             styles.flagButton,
             questionObject && flaggedQuestions.includes(questionObject.id) && styles.flaggedButton
           ]}
           onPress={handleFlagQuestion}
         >
-          <Ionicons 
-            name="flag" 
-            size={18} 
-            color={questionObject && flaggedQuestions.includes(questionObject.id) ? "#FFC107" : "#AAAAAA"} 
+          <Ionicons
+            name="flag"
+            size={18}
+            color={
+              questionObject && flaggedQuestions.includes(questionObject.id)
+                ? "#FFC107"
+                : "#AAAAAA"
+            }
           />
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.questionDropdownButton}
           onPress={() => setShowDropdown(true)}
         >
@@ -1402,20 +1434,20 @@ const TestScreen = ({ route, navigation }) => {
           </Text>
           <Ionicons name="chevron-down" size={18} color="#FFFFFF" />
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.finishButton}
           onPress={() => setShowFinishModal(true)}
         >
           <Ionicons name="flag-checkered" size={18} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
-      
+
       {/* Progress bar */}
       <View style={styles.progressBarContainer}>
-        <View 
+        <View
           style={[
-            styles.progressBar, 
+            styles.progressBar,
             {
               width: `${progressPercentage}%`,
               backgroundColor: `hsl(${(progressPercentage * 120) / 100}, 100%, 50%)`
@@ -1423,7 +1455,7 @@ const TestScreen = ({ route, navigation }) => {
           ]}
         />
       </View>
-      
+
       {/* Question content */}
       <ScrollView style={styles.questionScrollView} contentContainerStyle={styles.questionContainer}>
         <View style={styles.questionCard}>
@@ -1433,19 +1465,19 @@ const TestScreen = ({ route, navigation }) => {
               <FormattedQuestion questionText={questionObject.question} />
             )}
           </View>
-          
+
           {/* Answer options */}
           <View style={styles.optionsContainer}>
             {displayedOptions.map((option, displayIdx) => {
               let optionStyle = [styles.optionButton];
               let textStyle = [styles.optionText];
-              
+
               // Add styles based on answer status
               if (!examMode) {
                 if (isAnswered && questionObject) {
                   const correctIndex = questionObject.correctAnswerIndex;
                   const actualIndex = answerOrder[realIndex][displayIdx];
-                  
+
                   if (actualIndex === correctIndex) {
                     optionStyle.push(styles.correctOption);
                     textStyle.push(styles.correctOptionText);
@@ -1464,7 +1496,7 @@ const TestScreen = ({ route, navigation }) => {
                   textStyle.push(styles.chosenOptionText);
                 }
               }
-              
+
               return (
                 <TouchableOpacity
                   key={displayIdx}
@@ -1482,7 +1514,7 @@ const TestScreen = ({ route, navigation }) => {
               );
             })}
           </View>
-          
+
           {/* Explanation (shown after answering in non-exam mode) */}
           {isAnswered && questionObject && !examMode && (
             <>
@@ -1494,28 +1526,29 @@ const TestScreen = ({ route, navigation }) => {
                   : styles.incorrectExplanation
               ]}>
                 <View style={styles.explanationHeader}>
-                  <Ionicons 
+                  <Ionicons
                     name={
                       selectedOptionIndex !== null &&
                       answerOrder[realIndex][selectedOptionIndex] === questionObject.correctAnswerIndex
                         ? "checkmark-circle"
                         : "close-circle"
-                    } 
-                    size={20} 
+                    }
+                    size={20}
                     color={
                       selectedOptionIndex !== null &&
                       answerOrder[realIndex][selectedOptionIndex] === questionObject.correctAnswerIndex
                         ? "#2EBB77"
                         : "#FF4E4E"
-                    } 
+                    }
                   />
                   <Text style={[
                     styles.explanationHeaderText,
                     {
-                      color: selectedOptionIndex !== null &&
-                      answerOrder[realIndex][selectedOptionIndex] === questionObject.correctAnswerIndex
-                        ? "#2EBB77"
-                        : "#FF4E4E"
+                      color:
+                        selectedOptionIndex !== null &&
+                        answerOrder[realIndex][selectedOptionIndex] === questionObject.correctAnswerIndex
+                          ? "#2EBB77"
+                          : "#FF4E4E"
                     }
                   ]}>
                     {selectedOptionIndex !== null &&
@@ -1527,7 +1560,7 @@ const TestScreen = ({ route, navigation }) => {
                 </View>
                 <Text style={styles.explanationText}>{questionObject.explanation}</Text>
               </View>
-              
+
               {/* Exam tip if available */}
               {questionObject.examTip && (
                 <View style={styles.examTip}>
@@ -1542,7 +1575,7 @@ const TestScreen = ({ route, navigation }) => {
           )}
         </View>
       </ScrollView>
-      
+
       {/* Navigation buttons */}
       <View style={styles.navigationContainer}>
         <View style={styles.navigationRow}>
@@ -1554,7 +1587,7 @@ const TestScreen = ({ route, navigation }) => {
             <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
             <Text style={styles.navButtonText}>Previous</Text>
           </TouchableOpacity>
-          
+
           {currentQuestionIndex === effectiveTotal - 1 ? (
             <TouchableOpacity
               style={[styles.navButton, styles.finishNavButton]}
@@ -1573,7 +1606,7 @@ const TestScreen = ({ route, navigation }) => {
             </TouchableOpacity>
           )}
         </View>
-        
+
         <TouchableOpacity
           style={styles.skipButton}
           onPress={handleSkipQuestion}
@@ -1585,6 +1618,9 @@ const TestScreen = ({ route, navigation }) => {
     </View>
   );
 };
+
+
+
 
 const styles = StyleSheet.create({
   container: {

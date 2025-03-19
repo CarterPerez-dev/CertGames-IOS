@@ -21,7 +21,7 @@ export const API = {
     OAUTH_APPLE: `${BASE_URL}/oauth/login/apple`,
   },
   
-    RESOURCES: {
+  RESOURCES: {
     CATEGORIES: `${BASE_URL}/resources/categories`,
     BY_CATEGORY: `${BASE_URL}/resources/category`,
     TRACK_CLICK: `${BASE_URL}/resources/track-click`,
@@ -39,7 +39,7 @@ export const API = {
   
   // Test endpoints
   TESTS: {
-    LIST: (category) => `${BASE_URL}/test/tests/${category}`,
+    // No LIST endpoint - we generate test objects programmatically in testService.js
     DETAILS: (category, testId) => `${BASE_URL}/test/tests/${category}/${testId}`,
     ATTEMPT: (userId, testId) => `${BASE_URL}/test/attempts/${userId}/${testId}`,
     FINISH: (userId, testId) => `${BASE_URL}/test/attempts/${userId}/${testId}/finish`,

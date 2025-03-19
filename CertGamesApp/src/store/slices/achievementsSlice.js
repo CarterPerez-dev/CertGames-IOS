@@ -1,15 +1,11 @@
 // src/store/slices/achievementsSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import * as achievementService from '../../api/achievementService';
+import achievementService from '../../api/achievementService';
 
-/**
- * Async thunk to fetch all achievements
- */
 export const fetchAchievements = createAsyncThunk(
   'achievements/fetchAchievements',
   async (_, { rejectWithValue }) => {
     try {
-      // Ensure we're calling the correct method
       const response = await achievementService.fetchAchievements();
       return response;
     } catch (error) {
@@ -18,9 +14,6 @@ export const fetchAchievements = createAsyncThunk(
   }
 );
 
-/**
- * Achievements slice for Redux store
- */
 const achievementsSlice = createSlice({
   name: 'achievements',
   initialState: {
@@ -39,7 +32,6 @@ const achievementsSlice = createSlice({
       .addCase(fetchAchievements.fulfilled, (state, action) => {
         state.all = action.payload;
         state.status = 'succeeded';
-        state.error = null;
       })
       .addCase(fetchAchievements.rejected, (state, action) => {
         state.status = 'failed';

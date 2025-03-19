@@ -1,37 +1,30 @@
 // src/screens/tests/categories/APlusScreen.js
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import TestListScreen from '../TestListScreen';
 
 /**
  * A+ Core 1 (1101) Test List Screen
- * 
- * @param {Object} props - Component props
- * @param {Object} props.navigation - Navigation object
- * @param {Object} props.route - Route object with params
- * @returns {JSX.Element} - APlusScreen component
  */
 const APlusScreen = ({ navigation, route }) => {
-  // Ensure we have a default category even if not in route params
+  // Provide fallback
   const params = {
     ...route.params,
+    // If route.params.category is missing, default to 'aplus'
     category: route.params?.category || 'aplus',
-    title: 'CompTIA A+ Core 1 (1101) 💻'
+    // If route.params.title is missing, default:
+    title: route.params?.title || 'CompTIA A+ Core 1 (1101)',
   };
   
   return (
     <TestListScreen
       navigation={navigation}
-      route={{
-        ...route,
-        params
-      }}
+      route={{ ...route, params }}
     />
   );
 };
 
-const styles = StyleSheet.create({
-  // Add styles if needed
-});
-
 export default APlusScreen;
+
+const styles = StyleSheet.create({});
+

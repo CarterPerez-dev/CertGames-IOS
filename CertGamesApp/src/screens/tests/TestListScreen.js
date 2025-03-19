@@ -9,16 +9,14 @@ import {
   ActivityIndicator, 
   Alert, 
   RefreshControl,
-  Modal,
-  SafeAreaView,
-  Platform,
+  Modal
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import testService from '../../api/testService';
-import TestProgressComponent from '../../components/TestProgressComponent';
+import { DIFFICULTY_CATEGORIES, TEST_LENGTHS } from '../../constants/testConstants';
 
 /**
  * TestListScreen displays a list of tests for a particular certification category
@@ -29,11 +27,7 @@ import TestProgressComponent from '../../components/TestProgressComponent';
  * @returns {JSX.Element} - TestListScreen component
  */
 const TestListScreen = ({ route, navigation }) => {
-  // Get the category and title from route params, with fallbacks
-  const { category: paramCategory, title: paramTitle } = route.params || {};
-  const category = paramCategory || 'unknown';
-  const title = paramTitle || 'Practice Tests';
-  
+  const { category, title } = route.params || {};
   const { userId } = useSelector(state => state.user);
   
   const [loading, setLoading] = useState(true);
@@ -51,60 +45,28 @@ const TestListScreen = ({ route, navigation }) => {
   const [selectedTest, setSelectedTest] = useState(null);
   
   // Test length
-  const allowedTestLengths = [25, 50, 75, 100];
+  const allowedTestLengths = TEST_LENGTHS;
   const [selectedLengths, setSelectedLengths] = useState({});
   const [showTestLengthModal, setShowTestLengthModal] = useState(false);
   const [testForLength, setTestForLength] = useState(null);
   
   // Difficulty categories with colors and levels
-  const difficultyCategories = [
-    { label: "Normal", color: "#fff9e6", textColor: "#4a4a4a" },
-    { label: "Very Easy", color: "#adebad", textColor: "#0b3800" },
-    { label: "Easy", color: "#87cefa", textColor: "#000000" },
-    { label: "Moderate", color: "#ffc765", textColor: "#4a2700" },
-    { label: "Intermediate", color: "#ff5959", textColor: "#ffffff" },
-    { label: "Formidable", color: "#dc3545", textColor: "#ffffff" },
-    { label: "Challenging", color: "#b108f6", textColor: "#ffffff" },
-    { label: "Very Challenging", color: "#4b0082", textColor: "#ffffff" },
-    { label: "Ruthless", color: "#370031", textColor: "#ffffff" },
-    { label: "Ultra Level", color: "#000000", textColor: "#00ffff" }
-  ];
-  
-  // Load exam mode from storage
-  useEffect(() => {
-    const loadExamMode = async () => {
-      try {
-        const storedMode = await SecureStore.getItemAsync('examMode');
-        setExamMode(storedMode === 'true');
-      } catch (err) {
-        console.error('Error loading exam mode:', err);
-      }
-    };
-    
-    loadExamMode();
-  }, []);
+  const difficultyCategories = DIFFICULTY_CATEGORIES;
   
   // Fetch tests and attempts
   const fetchTestsAndAttempts = useCallback(async () => {
     try {
-      console.log(`Fetching tests for category: ${category}`);
       setLoading(true);
       
-      // First, fetch all tests for this category
+      // First, fetch generated test data for this category (similar to web app)
       try {
         const testsData = await testService.fetchTestsByCategory(category);
-        console.log(`Received ${testsData?.length || 0} tests for ${category}`);
         setTests(testsData);
       } catch (testErr) {
-        console.warn('Error fetching tests, using fallback method:', testErr);
-        // Fallback: Create basic test structures for numbers 1-10
-        const fallbackTests = Array.from({ length: 10 }, (_, i) => ({
-          testId: i + 1,
-          testName: `${category.toUpperCase()} Test ${i + 1}`,
-          category: category,
-          questionCount: 100
-        }));
-        setTests(fallbackTests);
+        console.error('Error generating tests:', testErr);
+        setError(testErr.message || 'Failed to load tests');
+        setLoading(false);
+        return;
       }
       
       // Then fetch user's attempts if logged in
@@ -170,6 +132,18 @@ const TestListScreen = ({ route, navigation }) => {
   useFocusEffect(
     useCallback(() => {
       fetchTestsAndAttempts();
+      
+      // Load the exam mode from storage
+      const loadExamMode = async () => {
+        try {
+          const storedMode = await SecureStore.getItemAsync('examMode');
+          setExamMode(storedMode === 'true');
+        } catch (err) {
+          console.error('Error loading exam mode:', err);
+        }
+      };
+      
+      loadExamMode();
     }, [fetchTestsAndAttempts])
   );
   
@@ -248,27 +222,12 @@ const TestListScreen = ({ route, navigation }) => {
   // Create a new attempt with selected length
   const createNewAttempt = async (testNumber, selectedLength) => {
     try {
-      if (!userId) {
-        // If no user ID, just navigate with parameters 
-        // The test page will handle creation of a new attempt
-        navigation.navigate('Test', {
-          testId: testNumber,
-          category,
-          title: `${title} - Test ${testNumber}`,
-          examMode,
-          restarting: true,
-          selectedLength
-        });
-        return;
-      }
-      
-      // Otherwise create attempt first then navigate
       const response = await testService.createOrUpdateAttempt(userId, testNumber, {
+        category,
         answers: [],
         score: 0,
         totalQuestions: 100,
         selectedLength,
-        category: category,
         currentQuestionIndex: 0,
         shuffleOrder: [], // Will be generated on the test screen
         answerOrder: [],  // Will be generated on the test screen
@@ -276,6 +235,11 @@ const TestListScreen = ({ route, navigation }) => {
         examMode,
       });
       
+      if (!response) {
+        throw new Error("Failed to create attempt document");
+      }
+      
+      // Navigate to test screen
       navigation.navigate('Test', {
         testId: testNumber,
         category,
@@ -286,17 +250,7 @@ const TestListScreen = ({ route, navigation }) => {
       });
     } catch (err) {
       console.error("Failed to create new attempt:", err);
-      
-      // Navigate anyway, but with error notice
-      navigation.navigate('Test', {
-        testId: testNumber,
-        category,
-        title: `${title} - Test ${testNumber}`,
-        examMode,
-        restarting: true,
-        selectedLength,
-        error: "Failed to create attempt on server"
-      });
+      Alert.alert("Error", "Failed to start test. Please try again.");
     }
   };
   
@@ -467,19 +421,10 @@ const TestListScreen = ({ route, navigation }) => {
     startTest(selectedTest, true, attemptDoc);
   };
   
-  // Render the progress component if we have test data
-  const renderProgressComponent = () => {
-    // Only render if tests and userId are available
-    if (tests.length > 0 && userId) {
-      return <TestProgressComponent category={category} />;
-    }
-    return null;
-  };
-  
   // If no userId, show login prompt
   if (!userId) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.authMessage}>
           <Ionicons name="lock-closed" size={50} color="#6543CC" />
           <Text style={styles.authTitle}>Login Required</Text>
@@ -491,12 +436,39 @@ const TestListScreen = ({ route, navigation }) => {
             <Text style={styles.loginButtonText}>Go to Login</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
+    );
+  }
+  
+  // If loading, show spinner
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6543CC" />
+        <Text style={styles.loadingText}>Loading tests...</Text>
+      </View>
+    );
+  }
+  
+  // If error, show error message
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle" size={50} color="#FF4E4E" />
+        <Text style={styles.errorTitle}>Error Loading Tests</Text>
+        <Text style={styles.errorMessage}>{error}</Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={fetchTestsAndAttempts}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
   
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleSection}>
           <Text style={styles.title}>{title}</Text>
@@ -523,49 +495,20 @@ const TestListScreen = ({ route, navigation }) => {
         </View>
       </View>
       
-      {/* Progress Component */}
-      {renderProgressComponent()}
-      
-      {/* Loading Indicator */}
-      {loading && !refreshing && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6543CC" />
-          <Text style={styles.loadingText}>Loading tests...</Text>
-        </View>
-      )}
-      
-      {/* Error Message */}
-      {error && (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={50} color="#FF4E4E" />
-          <Text style={styles.errorTitle}>Error Loading Tests</Text>
-          <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={fetchTestsAndAttempts}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      
-      {/* Test List */}
-      {!loading && !error && (
-        <FlatList
-          data={tests.length > 0 ? tests : Array.from({ length: 10 }, (_, i) => i + 1)}
-          keyExtractor={item => (typeof item === 'object' ? item.testId.toString() : item.toString())}
-          renderItem={renderTestItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={handleRefresh} 
-              colors={["#6543CC"]}
-              tintColor="#6543CC"
-            />
-          }
-        />
-      )}
+      <FlatList
+        data={tests}
+        keyExtractor={item => (typeof item === 'object' ? item.testId.toString() : item.toString())}
+        renderItem={renderTestItem}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={handleRefresh} 
+            colors={["#6543CC"]}
+            tintColor="#6543CC"
+          />
+        }
+      />
       
       {/* Info Modal */}
       <Modal
@@ -680,7 +623,7 @@ const TestListScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -756,7 +699,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 15,
-    paddingBottom: 50, // Extra padding at bottom
   },
   testCard: {
     backgroundColor: '#1E1E1E',

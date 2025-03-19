@@ -59,7 +59,10 @@ const TestNavigator = () => {
         component={TestScreen} 
         options={({ route }) => ({ 
           title: route.params?.title || 'Test',
-          headerBackTitleVisible: false
+          headerBackTitleVisible: false,
+          // Add this to make header behave better
+          headerLeft: null, // This removes the back button
+          gestureEnabled: false // This prevents swipe back gesture 
         })}
       />
       

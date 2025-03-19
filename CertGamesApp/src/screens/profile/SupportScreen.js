@@ -15,6 +15,7 @@ import {
   StatusBar,
   Keyboard
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,7 +35,7 @@ import {
   sendSupportMessage, 
   closeSupportThread 
 } from '../../api/supportService';
-import { API } from '../../api/apiConfig';
+import { BASE_URL } from '../../api/apiConfig';
 
 // Global socket instance
 let socket = null;
@@ -78,7 +79,10 @@ const SupportScreen = ({ navigation }) => {
     const getUserId = async () => {
       try {
         const id = await SecureStore.getItemAsync('userId');
-        if (id) setUserId(id);
+        if (id) {
+          console.log("Retrieved userId from SecureStore:", id);
+          setUserId(id);
+        }
       } catch (err) {
         console.error("Error retrieving userId from SecureStore:", err);
       }
@@ -87,13 +91,45 @@ const SupportScreen = ({ navigation }) => {
     getUserId();
   }, []);
   
+  // This effect runs when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log("Support screen is focused");
+      if (userId) {
+        // Fetch threads whenever the screen comes into focus
+        fetchUserThreads();
+        
+        // Restore previously selected thread
+        const restoreSelectedThread = async () => {
+          try {
+            const storedThreadId = await AsyncStorage.getItem(SELECTED_THREAD_KEY);
+            if (storedThreadId) {
+              console.log("Restoring selected thread:", storedThreadId);
+              setSelectedThreadId(storedThreadId);
+              loadMessagesForThread(storedThreadId);
+            }
+          } catch (err) {
+            console.error("Error restoring selected thread:", err);
+          }
+        };
+        
+        restoreSelectedThread();
+      }
+      
+      return () => {
+        // This runs when the screen loses focus
+        console.log("Support screen is losing focus");
+      };
+    }, [userId])
+  );
+  
   // Initialize Socket.IO connection
   useEffect(() => {
     console.log("Setting up socket connection...");
     
     if (!socket) {
       // Get the base URL from your API config
-      const baseUrl = API.BASE_URL.replace('/api', '');
+      const baseUrl = BASE_URL ? BASE_URL.replace(/\/api\/?$/, '') : 'https://certgames.com';
       console.log(`Initializing socket to: ${baseUrl}`);
       
       socket = io(baseUrl, {
@@ -121,6 +157,12 @@ const SupportScreen = ({ navigation }) => {
         socket.emit('join_thread', { threadId: selectedThreadId });
         console.log(`Rejoined thread room on connect: ${selectedThreadId}`);
       }
+      
+      // Also, when connection is established, join rooms for all threads
+      threads.forEach(thread => {
+        socket.emit('join_thread', { threadId: thread._id });
+        console.log(`Joined thread room for thread: ${thread._id}`);
+      });
     };
     
     const handleDisconnect = () => {
@@ -148,7 +190,7 @@ const SupportScreen = ({ navigation }) => {
       socket.off('disconnect', handleDisconnect);
       socket.off('connect_error', handleConnectError);
     };
-  }, [userId, selectedThreadId]);
+  }, [userId, selectedThreadId, threads]);
   
   // Setup message listeners when selectedThreadId changes
   useEffect(() => {
@@ -159,7 +201,7 @@ const SupportScreen = ({ navigation }) => {
       console.log("Received new_message event:", payload);
       const { threadId, message } = payload;
       
-      // Only process if it's for the currently selected thread
+      // Add message to current thread if it's selected
       if (threadId === selectedThreadId) {
         // Create a signature to avoid duplicates
         const messageSignature = `${message.sender}:${message.content}:${message.timestamp}`;
@@ -221,10 +263,35 @@ const SupportScreen = ({ navigation }) => {
       }
     };
     
+    // Handle new thread creation
+    const handleNewThread = (threadData) => {
+      console.log("Received new_thread event:", threadData);
+      
+      // Add to threads list if not already there
+      setThreads(prevThreads => {
+        if (prevThreads.some(t => t._id === threadData._id)) {
+          return prevThreads;
+        }
+        const updatedThreads = [threadData, ...prevThreads];
+        
+        // Save updated threads to AsyncStorage
+        AsyncStorage.setItem(
+          THREADS_STORAGE_KEY, 
+          JSON.stringify(updatedThreads)
+        ).catch(err => console.error("Error saving threads:", err));
+        
+        return updatedThreads;
+      });
+      
+      // Join the thread room
+      socket.emit('join_thread', { threadId: threadData._id });
+    };
+    
     // Register listeners
     socket.on('new_message', handleNewMessage);
     socket.on('admin_typing', handleAdminTyping);
     socket.on('admin_stop_typing', handleAdminStopTyping);
+    socket.on('new_thread', handleNewThread);
     
     // Join the thread room if we have a selected thread
     if (selectedThreadId) {
@@ -237,6 +304,7 @@ const SupportScreen = ({ navigation }) => {
       socket.off('new_message', handleNewMessage);
       socket.off('admin_typing', handleAdminTyping);
       socket.off('admin_stop_typing', handleAdminStopTyping);
+      socket.off('new_thread', handleNewThread);
       
       // Leave the thread room if we have a selected thread
       if (selectedThreadId) {
@@ -261,17 +329,20 @@ const SupportScreen = ({ navigation }) => {
         // Load threads
         const storedThreads = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
         if (storedThreads) {
+          console.log("Loaded threads from AsyncStorage");
           setThreads(JSON.parse(storedThreads));
         }
         
         // Load selected thread ID
         const storedThreadId = await AsyncStorage.getItem(SELECTED_THREAD_KEY);
         if (storedThreadId) {
+          console.log("Loaded selected thread ID from AsyncStorage:", storedThreadId);
           setSelectedThreadId(storedThreadId);
           
           // Load messages for this thread
           const storedMessages = await AsyncStorage.getItem(MESSAGES_STORAGE_KEY(storedThreadId));
           if (storedMessages) {
+            console.log("Loaded messages from AsyncStorage for thread:", storedThreadId);
             const parsedMessages = JSON.parse(storedMessages);
             setMessages(parsedMessages);
             
@@ -290,8 +361,10 @@ const SupportScreen = ({ navigation }) => {
     loadPersistedData();
     
     // Initial fetch of threads from server
-    fetchUserThreads();
-  }, []);
+    if (userId) {
+      fetchUserThreads();
+    }
+  }, [userId]);
   
   // Format timestamps
   const formatTimestamp = (ts) => {
@@ -339,8 +412,9 @@ const SupportScreen = ({ navigation }) => {
   // FETCH THREADS - Get user's support threads
   //////////////////////////////////////////////////////////////////////////
   const fetchUserThreads = useCallback(async () => {
-    if (!isComponentMounted.current) return;
+    if (!isComponentMounted.current || !userId) return;
     
+    console.log("Fetching user threads");
     setLoadingThreads(true);
     setError(null);
     
@@ -348,6 +422,8 @@ const SupportScreen = ({ navigation }) => {
       const threadsData = await fetchSupportThreads();
       
       if (!isComponentMounted.current) return;
+      
+      console.log(`Fetched ${threadsData.length} threads from server`);
       
       // Update threads in state
       setThreads(threadsData);
@@ -370,23 +446,28 @@ const SupportScreen = ({ navigation }) => {
     } catch (err) {
       if (!isComponentMounted.current) return;
       
-      setError(err.message || "Failed to load conversations");
       console.error('Error fetching threads:', err);
+      setError(err.message || "Failed to load conversations");
     } finally {
       if (isComponentMounted.current) {
         setLoadingThreads(false);
       }
     }
-  }, [selectedThreadId]);
+  }, [selectedThreadId, userId]);
   
   // Load messages for a specific thread
   const loadMessagesForThread = async (threadId) => {
+    if (!threadId) return;
+    
+    console.log(`Loading messages for thread ${threadId}`);
     try {
       const threadData = await fetchSupportThread(threadId);
       
       if (!isComponentMounted.current) return;
       
-      if (threadData.messages) {
+      if (threadData && threadData.messages) {
+        console.log(`Loaded ${threadData.messages.length} messages from server`);
+        
         // Clear processed messages set
         processedMessagesRef.current.clear();
         
@@ -422,10 +503,12 @@ const SupportScreen = ({ navigation }) => {
       return;
     }
     
+    console.log("Creating new thread:", newThreadSubject);
     setError(null);
     
     try {
       const newThread = await createSupportThread(newThreadSubject.trim());
+      console.log("New thread created:", newThread);
       
       // Add new thread to state
       setThreads(prev => [newThread, ...prev]);
@@ -447,8 +530,8 @@ const SupportScreen = ({ navigation }) => {
         console.log(`Joined new thread: ${newThread._id}`);
       }
     } catch (err) {
-      setError(err.message || "Failed to create thread");
       console.error('Error creating thread:', err);
+      setError(err.message || "Failed to create thread");
     }
   };
   
@@ -462,6 +545,8 @@ const SupportScreen = ({ navigation }) => {
       setMobileThreadsVisible(false);
       return;
     }
+    
+    console.log(`Selecting thread: ${threadId}`);
     
     // Leave current thread room if any
     if (selectedThreadId && socket && socket.connected) {
@@ -496,6 +581,7 @@ const SupportScreen = ({ navigation }) => {
       // First check if we have cached messages
       const cachedMessages = await AsyncStorage.getItem(MESSAGES_STORAGE_KEY(threadId));
       if (cachedMessages) {
+        console.log("Using cached messages while fetching from server");
         const parsedMessages = JSON.parse(cachedMessages);
         setMessages(parsedMessages);
         
@@ -514,7 +600,9 @@ const SupportScreen = ({ navigation }) => {
       
       if (!isComponentMounted.current) return;
       
-      if (threadData.messages) {
+      if (threadData && threadData.messages) {
+        console.log(`Fetched ${threadData.messages.length} messages from server`);
+        
         // Clear processed messages and rebuild
         processedMessagesRef.current.clear();
         
@@ -543,8 +631,8 @@ const SupportScreen = ({ navigation }) => {
     } catch (err) {
       if (!isComponentMounted.current) return;
       
-      setError(err.message || "Failed to load messages");
       console.error('Error loading thread messages:', err);
+      setError(err.message || "Failed to load messages");
     } finally {
       if (isComponentMounted.current) {
         setLoadingMessages(false);
@@ -565,6 +653,7 @@ const SupportScreen = ({ navigation }) => {
       return;
     }
     
+    console.log(`Sending message to thread ${selectedThreadId}`);
     setError(null);
     const messageToSend = userMessage.trim();
     
@@ -597,6 +686,7 @@ const SupportScreen = ({ navigation }) => {
     try {
       // Send to server
       await sendSupportMessage(selectedThreadId, messageToSend);
+      console.log("Message sent successfully");
       
       // Update the thread's last updated time
       const updatedThreads = threads.map(t => {
@@ -663,6 +753,7 @@ const SupportScreen = ({ navigation }) => {
           text: 'Close',
           onPress: async () => {
             try {
+              console.log(`Closing thread ${selectedThreadId}`);
               await closeSupportThread(selectedThreadId);
               
               // Update thread status in the list
@@ -681,8 +772,8 @@ const SupportScreen = ({ navigation }) => {
               // Reload messages to show closure message
               await loadMessagesForThread(selectedThreadId);
             } catch (err) {
-              setError(err.message || "Failed to close thread");
               console.error('Error closing thread:', err);
+              setError(err.message || "Failed to close thread");
             }
           },
           style: 'destructive'

@@ -112,3 +112,18 @@ Touch Bank: [{"touchActive":false,"startPageX":304.3333282470703,"startPageY":52
 
 --
 
+achivenmtns dont update unless refrersh occurs liek if refresh through shop or osmething or refrsh teh app
+
+
+--
+
+support is only bale ot comminiate but is still wacky and im not sure teh messages even save on teh server anymore when on ios app
+
+--
+
+no achievemtn popups or antyhing but achievemtnb still work
+
+--
+
+
+

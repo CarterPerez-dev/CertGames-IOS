@@ -39,14 +39,14 @@ export const API = {
   
   // Test endpoints
   TESTS: {
-    LIST: (category) => `${BASE_URL}/tests/${category}`,
-    DETAILS: (category, testId) => `${BASE_URL}/tests/${category}/${testId}`,
-    ATTEMPT: (userId, testId) => `${BASE_URL}/attempts/${userId}/${testId}`,
-    FINISH: (userId, testId) => `${BASE_URL}/attempts/${userId}/${testId}/finish`,
-    SUBMIT_ANSWER: (userId) => `${BASE_URL}/user/${userId}/submit-answer`,
-    UPDATE_ANSWER: (userId, testId) => `${BASE_URL}/attempts/${userId}/${testId}/answer`,
-    UPDATE_POSITION: (userId, testId) => `${BASE_URL}/attempts/${userId}/${testId}/position`,
-    LIST_ATTEMPTS: (userId) => `${BASE_URL}/attempts/${userId}/list`,
+    LIST: (category) => `${BASE_URL}/test/tests/${category}`,
+    DETAILS: (category, testId) => `${BASE_URL}/test/tests/${category}/${testId}`,
+    ATTEMPT: (userId, testId) => `${BASE_URL}/test/attempts/${userId}/${testId}`,
+    FINISH: (userId, testId) => `${BASE_URL}/test/attempts/${userId}/${testId}/finish`,
+    SUBMIT_ANSWER: (userId) => `${BASE_URL}/test/user/${userId}/submit-answer`,
+    UPDATE_ANSWER: (userId, testId) => `${BASE_URL}/test/attempts/${userId}/${testId}/answer`,
+    UPDATE_POSITION: (userId, testId) => `${BASE_URL}/test/attempts/${userId}/${testId}/position`,
+    LIST_ATTEMPTS: (userId) => `${BASE_URL}/test/attempts/${userId}/list`,
   },
   
   // Analogy Tool

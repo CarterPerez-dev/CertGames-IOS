@@ -72,8 +72,20 @@ const TestListScreen = ({ route, navigation }) => {
       setLoading(true);
       
       // First, fetch all tests for this category
-      const testsData = await testService.fetchTestsByCategory(category);
-      setTests(testsData);
+      try {
+        const testsData = await testService.fetchTestsByCategory(category);
+        setTests(testsData);
+      } catch (testErr) {
+        console.warn('Error fetching tests, using fallback method:', testErr);
+        // Fallback: Create basic test structures for numbers 1-10
+        const fallbackTests = Array.from({ length: 10 }, (_, i) => ({
+          testId: i + 1,
+          testName: `${category} Test ${i + 1}`,
+          category: category,
+          questionCount: 100
+        }));
+        setTests(fallbackTests);
+      }
       
       // Then fetch user's attempts if logged in
       if (userId) {
@@ -126,8 +138,8 @@ const TestListScreen = ({ route, navigation }) => {
       
       setError(null);
     } catch (err) {
-      console.error('Error fetching tests:', err);
-      setError(err.message || 'Failed to fetch tests');
+      console.error('Error in fetchTestsAndAttempts:', err);
+      setError(err.message || 'Failed to load tests');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -276,7 +288,11 @@ const TestListScreen = ({ route, navigation }) => {
   };
   
   // Render each test item in the list
-  const renderTestItem = ({ item: testNumber }) => {
+  const renderTestItem = ({ item }) => {
+    // Handle if item is a test object or just a number
+    const testNumber = typeof item === 'object' ? item.testId : item;
+    const testName = typeof item === 'object' ? item.testName : `Test ${testNumber}`;
+    
     const attemptDoc = getAttemptDoc(testNumber);
     const progress = getProgressDisplay(attemptDoc);
     const difficulty = difficultyCategories[testNumber - 1] || difficultyCategories[0];
@@ -292,7 +308,7 @@ const TestListScreen = ({ route, navigation }) => {
         inProgress && styles.progressCard
       ]}>
         <View style={styles.testCardHeader}>
-          <Text style={styles.testNumberText}>Test {testNumber}</Text>
+          <Text style={styles.testNumberText}>{testName}</Text>
           <View style={[
             styles.difficultyBadge,
             { backgroundColor: difficulty.color }
@@ -498,8 +514,8 @@ const TestListScreen = ({ route, navigation }) => {
       </View>
       
       <FlatList
-        data={Array.from({ length: 10 }, (_, i) => i + 1)}
-        keyExtractor={item => item.toString()}
+        data={tests.length > 0 ? tests : Array.from({ length: 10 }, (_, i) => i + 1)}
+        keyExtractor={item => (typeof item === 'object' ? item.testId.toString() : item.toString())}
         renderItem={renderTestItem}
         contentContainerStyle={styles.listContent}
         refreshControl={

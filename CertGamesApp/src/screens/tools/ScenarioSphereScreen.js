@@ -12,13 +12,13 @@ import {
   Modal,
   SafeAreaView,
   TouchableWithoutFeedback,
-  Keyboard
+  Keyboard,
+  Alert
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useToast } from 'react-native-toast-notifications';
 import { streamScenario, streamScenarioQuestions } from '../../api/scenarioService';
 
 // Sample attack types - in a real app, you'd import this from a separate file
@@ -99,7 +99,7 @@ const ScenarioSphereScreen = () => {
 
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
+  const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [scoreCounter, setScoreCounter] = useState(0);
 
@@ -108,7 +108,6 @@ const ScenarioSphereScreen = () => {
   const [generationComplete, setGenerationComplete] = useState(false);
   const [scenarioGenerated, setScenarioGenerated] = useState(false);
 
-  const toast = useToast();
   const scrollViewRef = useRef();
   const scenarioOutputRef = useRef();
 
@@ -121,7 +120,6 @@ const ScenarioSphereScreen = () => {
 
   const handleAttackTypeChange = (text) => {
     setAttackType(text);
-    setShowAllSuggestions(false);
     setErrorMessage("");
 
     if (text.length > 0) {
@@ -129,7 +127,12 @@ const ScenarioSphereScreen = () => {
         (attack) => attack.toLowerCase().includes(text.toLowerCase())
       );
       setSuggestions(filteredSuggestions);
-      setShowSuggestions(true);
+      
+      if (filteredSuggestions.length > 0) {
+        setShowSuggestions(true);
+      } else {
+        setShowSuggestions(false);
+      }
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -139,21 +142,26 @@ const ScenarioSphereScreen = () => {
   const selectSuggestion = (suggestion) => {
     setAttackType(suggestion);
     setShowSuggestions(false);
+    setShowSuggestionsModal(false);
   };
 
   const handleOutsideSuggestionPress = () => {
     setShowSuggestions(false);
-    setShowAllSuggestions(false);
     Keyboard.dismiss();
+  };
+
+  const handleShowAllSuggestions = () => {
+    setShowSuggestionsModal(true);
   };
 
   const handleGenerateScenario = async () => {
     if (!attackType.trim()) {
       setErrorMessage("Please enter the Type of Attack");
-      toast.show("Please enter the Type of Attack", {
-        type: 'danger',
-        duration: 3000,
-      });
+      Alert.alert(
+        "Missing Information", 
+        "Please enter the Type of Attack",
+        [{ text: "OK" }]
+      );
       return;
     }
 
@@ -184,10 +192,11 @@ const ScenarioSphereScreen = () => {
     } catch (error) {
       console.error('Error generating scenario:', error);
       setErrorMessage("An error occurred while generating the scenario");
-      toast.show("Error generating scenario. Please try again.", {
-        type: 'danger',
-        duration: 3000,
-      });
+      Alert.alert(
+        "Error", 
+        "Error generating scenario. Please try again.", 
+        [{ text: "OK" }]
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -204,10 +213,11 @@ const ScenarioSphereScreen = () => {
         if (errorObj) {
           console.error("Error in questions generation:", errorObj.error);
           setErrorMessage(`Error generating questions: ${errorObj.error}`);
-          toast.show(`Error generating questions: ${errorObj.error}`, {
-            type: 'danger',
-            duration: 3000,
-          });
+          Alert.alert(
+            "Error", 
+            `Error generating questions: ${errorObj.error}`,
+            [{ text: "OK" }]
+          );
         } else if (questionsData.length === 3) {
           setInteractiveQuestions(questionsData);
         } else {
@@ -221,10 +231,11 @@ const ScenarioSphereScreen = () => {
     } catch (error) {
       console.error("Error fetching questions:", error);
       setErrorMessage("Error fetching questions");
-      toast.show("Error fetching questions. Please try again.", {
-        type: 'danger',
-        duration: 3000,
-      });
+      Alert.alert(
+        "Error", 
+        "Error fetching questions. Please try again.",
+        [{ text: "OK" }]
+      );
     }
   };
 
@@ -235,6 +246,8 @@ const ScenarioSphereScreen = () => {
     }
     
     const question = interactiveQuestions[questionIndex];
+    if (!question) return;
+    
     const isCorrect = selectedOption === question.correct_answer;
 
     setUserAnswers((prevAnswers) => ({
@@ -252,15 +265,9 @@ const ScenarioSphereScreen = () => {
     
     if (isCorrect) {
       setScoreCounter(prev => prev + 1);
-      toast.show("Correct answer!", {
-        type: 'success',
-        duration: 2000,
-      });
+      Alert.alert("Correct!", "You selected the right answer.", [{ text: "OK" }]);
     } else {
-      toast.show("Incorrect answer.", {
-        type: 'danger',
-        duration: 2000,
-      });
+      Alert.alert("Incorrect", "That's not the right answer.", [{ text: "OK" }]);
     }
   };
 
@@ -273,391 +280,433 @@ const ScenarioSphereScreen = () => {
 
   const streamProgress = calculateStreamProgress();
 
+  // Render suggestion items for modal
+  const renderSuggestionItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.modalSuggestionItem}
+      onPress={() => selectSuggestion(item)}
+    >
+      <Text style={styles.modalSuggestionText}>{item}</Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <TouchableWithoutFeedback onPress={handleOutsideSuggestionPress}>
-      <SafeAreaView style={styles.container}>
-        <StatusBar style="light" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+      
+      <View style={styles.header}>
+        <Text style={styles.title}>
+          <Ionicons name="shield" size={24} color="#6543cc" /> Scenario Sphere
+        </Text>
+        <Text style={styles.subtitle}>
+          Immerse yourself in realistic cybersecurity scenarios and test your knowledge
+        </Text>
         
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            <Ionicons name="shield" size={24} color="#6543cc" /> Scenario Sphere
-          </Text>
-          <Text style={styles.subtitle}>
-            Immerse yourself in realistic cybersecurity scenarios and test your knowledge
-          </Text>
-          
-          {errorMessage ? (
-            <View style={styles.errorContainer}>
-              <Ionicons name="warning" size={20} color="#ff4e4e" />
-              <Text style={styles.errorText}>{errorMessage}</Text>
-              <TouchableOpacity 
-                style={styles.errorCloseButton}
-                onPress={() => setErrorMessage("")}
-              >
-                <Ionicons name="close" size={18} color="#9da8b9" />
-              </TouchableOpacity>
-            </View>
-          ) : null}
-        </View>
-        
-        <ScrollView style={styles.scrollView} ref={scrollViewRef}>
-          <View style={styles.content}>
-            <View style={styles.paramsCard}>
-              <View style={styles.paramsHeader}>
-                <View style={styles.paramsHeaderLeft}>
-                  <Ionicons name="settings" size={20} color="#6543cc" />
-                  <Text style={styles.paramsTitle}>Generation Parameters</Text>
-                </View>
-                
-                <View style={styles.scoreCounter}>
-                  <Text style={styles.scoreValue}>
-                    <Text style={styles.scoreHighlight}>{scoreCounter}</Text>/3
-                  </Text>
-                  <Text style={styles.scoreLabel}>Correct</Text>
-                </View>
+        {errorMessage ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="warning" size={20} color="#ff4e4e" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+            <TouchableOpacity 
+              style={styles.errorCloseButton}
+              onPress={() => setErrorMessage("")}
+            >
+              <Ionicons name="close" size={18} color="#9da8b9" />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </View>
+      
+      <ScrollView 
+        style={styles.scrollView}
+        ref={scrollViewRef}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.content}>
+          <View style={styles.paramsCard}>
+            <View style={styles.paramsHeader}>
+              <View style={styles.paramsHeaderLeft}>
+                <Ionicons name="settings" size={20} color="#6543cc" />
+                <Text style={styles.paramsTitle}>Generation Parameters</Text>
               </View>
               
-              <View style={styles.paramsContent}>
-                {/* Industry Picker */}
-                <View style={styles.paramGroup}>
-                  <Text style={styles.paramLabel}>
-                    <Ionicons name="business" size={16} color="#6543cc" /> Industry
-                  </Text>
-                  <View style={styles.pickerWrapper}>
-                    <Picker
-                      selectedValue={industry}
-                      onValueChange={(value) => setIndustry(value)}
-                      style={styles.picker}
-                      dropdownIconColor="#6543cc"
-                      itemStyle={styles.pickerItem}
-                      enabled={!isGenerating}
-                    >
-                      <Picker.Item label="Finance" value="Finance" />
-                      <Picker.Item label="Healthcare" value="Healthcare" />
-                      <Picker.Item label="Retail" value="Retail" />
-                      <Picker.Item label="Technology" value="Technology" />
-                      <Picker.Item label="Energy" value="Energy" />
-                      <Picker.Item label="Education" value="Education" />
-                      <Picker.Item label="Supply Chain" value="Supply Chain" />
-                      <Picker.Item label="Telecommunications" value="Telecommunications" />
-                      <Picker.Item label="Pharmaceutical" value="Pharmaceutical" />
-                      <Picker.Item label="Transportation" value="Transportation" />
-                      <Picker.Item label="Cybersecurity Company" value="Cybersecurity Company" />
-                      <Picker.Item label="Manufacturing" value="Manufacturing" />
-                      <Picker.Item label="CYBERPUNK2077" value="CYBERPUNK2077" />
-                    </Picker>
-                  </View>
-                </View>
-                
-                {/* Attack Type Input */}
-                <View style={styles.paramGroup}>
-                  <Text style={styles.paramLabel}>
-                    <Ionicons name="skull" size={16} color="#6543cc" /> Attack Type
-                  </Text>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="search" size={20} color="#6543cc" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Search or enter attack type..."
-                      placeholderTextColor="#9da8b9"
-                      value={attackType}
-                      onChangeText={handleAttackTypeChange}
-                      editable={!isGenerating}
-                    />
-                  </View>
-                  
-                  {showSuggestions && suggestions.length > 0 && (
-                    <View style={styles.suggestionsContainer}>
-                      <FlatList
-                        data={showAllSuggestions ? suggestions : suggestions.slice(0, 5)}
-                        keyExtractor={(item) => item}
-                        renderItem={({ item }) => (
-                          <TouchableOpacity
-                            style={styles.suggestionItem}
-                            onPress={() => selectSuggestion(item)}
-                          >
-                            <Text style={styles.suggestionText}>{item}</Text>
-                          </TouchableOpacity>
-                        )}
-                        style={styles.suggestionsList}
-                        nestedScrollEnabled={true}
-                      />
-                      
-                      {!showAllSuggestions && suggestions.length > 5 && (
-                        <TouchableOpacity 
-                          style={styles.showAllButton}
-                          onPress={() => setShowAllSuggestions(true)}
-                        >
-                          <Ionicons name="chevron-down" size={16} color="#6543cc" />
-                          <Text style={styles.showAllText}>
-                            Show all options ({suggestions.length})
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
-                </View>
-                
-                {/* Skill Level Picker */}
-                <View style={styles.paramGroup}>
-                  <Text style={styles.paramLabel}>
-                    <Ionicons name="person" size={16} color="#6543cc" /> Attacker Skill Level
-                  </Text>
-                  <View style={styles.pickerWrapper}>
-                    <Picker
-                      selectedValue={skillLevel}
-                      onValueChange={(value) => setSkillLevel(value)}
-                      style={styles.picker}
-                      dropdownIconColor="#6543cc"
-                      itemStyle={styles.pickerItem}
-                      enabled={!isGenerating}
-                    >
-                      <Picker.Item label="Script Kiddie" value="Script Kiddie" />
-                      <Picker.Item label="Intermediate" value="Intermediate" />
-                      <Picker.Item label="Advanced" value="Advanced" />
-                      <Picker.Item label="APT" value="APT" />
-                    </Picker>
-                  </View>
-                </View>
-                
-                {/* Threat Intensity Slider */}
-                <View style={styles.paramGroup}>
-                  <View style={styles.sliderLabelContainer}>
-                    <Text style={styles.paramLabel}>
-                      <Ionicons name="thermometer" size={16} color="#6543cc" /> Threat Intensity
-                    </Text>
-                    <View style={styles.intensityBadge}>
-                      <Text style={styles.intensityValue}>{threatIntensity}</Text>
-                    </View>
-                  </View>
-                  
-                  <Slider
-                    style={styles.slider}
-                    minimumValue={1}
-                    maximumValue={100}
-                    step={1}
-                    value={threatIntensity}
-                    onValueChange={(value) => setThreatIntensity(value)}
-                    minimumTrackTintColor="#6543cc"
-                    maximumTrackTintColor="#333333"
-                    thumbTintColor="#6543cc"
-                    disabled={isGenerating}
-                  />
-                  
-                  <View style={styles.sliderMarkers}>
-                    <Text style={styles.sliderMarker}>Low</Text>
-                    <Text style={styles.sliderMarker}>Medium</Text>
-                    <Text style={styles.sliderMarker}>High</Text>
-                  </View>
-                </View>
-                
-                {/* Generate Button */}
-                <TouchableOpacity
-                  style={[styles.generateButton, isGenerating && styles.generateButtonDisabled]}
-                  onPress={handleGenerateScenario}
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <View style={styles.buttonContent}>
-                      <ActivityIndicator color="#fff" size="small" />
-                      <Text style={styles.buttonText}>Generating...</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.buttonContent}>
-                      <Ionicons name="play" size={20} color="#fff" />
-                      <Text style={styles.buttonText}>Generate Scenario</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
+              <View style={styles.scoreCounter}>
+                <Text style={styles.scoreValue}>
+                  <Text style={styles.scoreHighlight}>{scoreCounter}</Text>/3
+                </Text>
+                <Text style={styles.scoreLabel}>Correct</Text>
               </View>
             </View>
             
-            {scenarioGenerated && (
-              <View style={styles.results}>
-                {/* Scenario Output Card */}
-                <View style={styles.outputCard}>
-                  <TouchableOpacity 
-                    style={styles.outputHeader}
-                    onPress={() => setOutputExpanded(!outputExpanded)}
+            <View style={styles.paramsContent}>
+              {/* Industry Picker */}
+              <View style={styles.paramGroup}>
+                <Text style={styles.paramLabel}>
+                  <Ionicons name="business" size={16} color="#6543cc" /> Industry
+                </Text>
+                <View style={styles.pickerWrapper}>
+                  <Picker
+                    selectedValue={industry}
+                    onValueChange={(value) => setIndustry(value)}
+                    style={styles.picker}
+                    dropdownIconColor="#6543cc"
+                    itemStyle={styles.pickerItem}
+                    enabled={!isGenerating}
                   >
-                    <View style={styles.outputHeaderLeft}>
-                      <Ionicons name="lock-closed" size={20} color="#6543cc" />
-                      <Text style={styles.outputTitle}>Generated Scenario</Text>
-                    </View>
-                    
-                    <View style={styles.outputControls}>
-                      {!generationComplete && isGenerating && (
-                        <View style={styles.progressContainer}>
-                          <View style={styles.progressBar}>
-                            <View 
-                              style={[styles.progressFill, { width: `${streamProgress}%` }]}
-                            />
-                          </View>
-                          <Text style={styles.progressLabel}>Generating...</Text>
-                        </View>
-                      )}
-                      
-                      <TouchableOpacity style={styles.toggleButton}>
-                        <Ionicons 
-                          name={outputExpanded ? "chevron-up" : "chevron-down"} 
-                          size={20} 
-                          color="#9da8b9" 
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
-                  
-                  {outputExpanded && (
-                    <ScrollView 
-                      style={styles.outputContent}
-                      ref={scenarioOutputRef}
-                    >
-                      {scenarioText ? (
-                        <Text style={styles.scenarioText}>
-                          {scenarioText}
-                          {isGenerating && <Text style={styles.cursor}>|</Text>}
-                        </Text>
-                      ) : (
-                        <View style={styles.placeholderContainer}>
-                          <ActivityIndicator 
-                            color="#6543cc" 
-                            size="large"
-                            animating={isGenerating}
-                          />
-                          <Text style={styles.placeholderText}>
-                            Scenario will appear here...
-                          </Text>
-                        </View>
-                      )}
-                    </ScrollView>
-                  )}
+                    <Picker.Item label="Finance" value="Finance" />
+                    <Picker.Item label="Healthcare" value="Healthcare" />
+                    <Picker.Item label="Retail" value="Retail" />
+                    <Picker.Item label="Technology" value="Technology" />
+                    <Picker.Item label="Energy" value="Energy" />
+                    <Picker.Item label="Education" value="Education" />
+                    <Picker.Item label="Supply Chain" value="Supply Chain" />
+                    <Picker.Item label="Telecommunications" value="Telecommunications" />
+                    <Picker.Item label="Pharmaceutical" value="Pharmaceutical" />
+                    <Picker.Item label="Transportation" value="Transportation" />
+                    <Picker.Item label="Cybersecurity Company" value="Cybersecurity Company" />
+                    <Picker.Item label="Manufacturing" value="Manufacturing" />
+                    <Picker.Item label="CYBERPUNK2077" value="CYBERPUNK2077" />
+                  </Picker>
+                </View>
+              </View>
+              
+              {/* Attack Type Input */}
+              <View style={styles.paramGroup}>
+                <Text style={styles.paramLabel}>
+                  <Ionicons name="skull" size={16} color="#6543cc" /> Attack Type
+                </Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="search" size={20} color="#6543cc" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Search or enter attack type..."
+                    placeholderTextColor="#9da8b9"
+                    value={attackType}
+                    onChangeText={handleAttackTypeChange}
+                    editable={!isGenerating}
+                  />
                 </View>
                 
-                {/* Questions Card */}
-                {interactiveQuestions && interactiveQuestions.length > 0 && (
-                  <View style={styles.questionsCard}>
-                    <TouchableOpacity 
-                      style={styles.questionsHeader}
-                      onPress={() => setQuestionsExpanded(!questionsExpanded)}
-                    >
-                      <View style={styles.questionsHeaderLeft}>
-                        <Ionicons name="help-circle" size={20} color="#6543cc" />
-                        <Text style={styles.questionsTitle}>Knowledge Assessment</Text>
-                      </View>
-                      
-                      <TouchableOpacity style={styles.toggleButton}>
-                        <Ionicons 
-                          name={questionsExpanded ? "chevron-up" : "chevron-down"} 
-                          size={20} 
-                          color="#9da8b9" 
-                        />
+                {showSuggestions && suggestions.length > 0 && (
+                  <View style={styles.suggestionsPreview}>
+                    {suggestions.slice(0, 3).map((suggestion) => (
+                      <TouchableOpacity
+                        key={suggestion}
+                        style={styles.suggestionPreviewItem}
+                        onPress={() => selectSuggestion(suggestion)}
+                      >
+                        <Text style={styles.suggestionPreviewText}>{suggestion}</Text>
                       </TouchableOpacity>
-                    </TouchableOpacity>
+                    ))}
                     
-                    {questionsExpanded && (
-                      <View style={styles.questionsContent}>
-                        {Object.keys(feedback).length === interactiveQuestions.length && (
-                          <View style={styles.assessmentComplete}>
-                            <Ionicons name="checkmark-circle" size={24} color="#2ebb77" />
-                            <View style={styles.assessmentResults}>
-                              <Text style={styles.completionMessage}>Assessment Complete</Text>
-                              <Text style={styles.scoreMessage}>
-                                You scored {scoreCounter} out of {interactiveQuestions.length} correct
-                              </Text>
-                            </View>
-                          </View>
-                        )}
-                        
-                        {interactiveQuestions.map((question, index) => {
-                          const questionFeedback = feedback[index];
-                          const isCorrect = questionFeedback?.isCorrect;
-                          
-                          return (
-                            <View key={index} style={styles.questionCard}>
-                              <View style={styles.questionHeader}>
-                                <Text style={styles.questionNumber}>Question {index + 1}</Text>
-                                {questionFeedback && (
-                                  <View style={[
-                                    styles.questionStatus,
-                                    isCorrect ? styles.correctStatus : styles.incorrectStatus
-                                  ]}>
-                                    <Ionicons 
-                                      name={isCorrect ? "checkmark" : "close"} 
-                                      size={16} 
-                                      color={isCorrect ? "#2ebb77" : "#ff4e4e"} 
-                                    />
-                                    <Text style={[
-                                      styles.statusText,
-                                      isCorrect ? styles.correctText : styles.incorrectText
-                                    ]}>
-                                      {isCorrect ? "Correct" : "Incorrect"}
-                                    </Text>
-                                  </View>
-                                )}
-                              </View>
-                              
-                              <Text style={styles.questionText}>{question.question}</Text>
-                              
-                              <View style={styles.optionsContainer}>
-                                {question.options && Object.entries(question.options).map(([optionLetter, optionText]) => {
-                                  const isSelected = userAnswers[index] === optionLetter;
-                                  const showCorrect = questionFeedback && question.correct_answer === optionLetter;
-                                  const showIncorrect = questionFeedback && isSelected && !isCorrect;
-                                  
-                                  return (
-                                    <TouchableOpacity
-                                      key={optionLetter}
-                                      style={[
-                                        styles.optionButton,
-                                        isSelected && styles.selectedOption,
-                                        showCorrect && styles.correctOption,
-                                        showIncorrect && styles.incorrectOption
-                                      ]}
-                                      onPress={() => handleAnswerSelect(index, optionLetter)}
-                                      disabled={Object.prototype.hasOwnProperty.call(userAnswers, index)}
-                                    >
-                                      <View style={[
-                                        styles.optionLetter,
-                                        showCorrect && styles.correctLetter,
-                                        showIncorrect && styles.incorrectLetter
-                                      ]}>
-                                        <Text style={styles.optionLetterText}>{optionLetter}</Text>
-                                      </View>
-                                      
-                                      <Text style={styles.optionText}>{optionText}</Text>
-                                      
-                                      {showCorrect && (
-                                        <Ionicons name="checkmark" size={20} color="#2ebb77" style={styles.optionIcon} />
-                                      )}
-                                      {showIncorrect && (
-                                        <Ionicons name="close" size={20} color="#ff4e4e" style={styles.optionIcon} />
-                                      )}
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-                              
-                              {questionFeedback && (
-                                <View style={styles.feedbackContainer}>
-                                  <Ionicons name="bulb" size={20} color="#ffc107" style={styles.feedbackIcon} />
-                                  <Text style={styles.feedbackExplanation}>
-                                    {questionFeedback.explanation}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                          );
-                        })}
-                      </View>
+                    {suggestions.length > 3 && (
+                      <TouchableOpacity 
+                        style={styles.showAllButton}
+                        onPress={handleShowAllSuggestions}
+                      >
+                        <Text style={styles.showAllText}>
+                          Show all ({suggestions.length})
+                        </Text>
+                      </TouchableOpacity>
                     )}
                   </View>
                 )}
               </View>
-            )}
+              
+              {/* Skill Level Picker */}
+              <View style={styles.paramGroup}>
+                <Text style={styles.paramLabel}>
+                  <Ionicons name="person" size={16} color="#6543cc" /> Attacker Skill Level
+                </Text>
+                <View style={styles.pickerWrapper}>
+                  <Picker
+                    selectedValue={skillLevel}
+                    onValueChange={(value) => setSkillLevel(value)}
+                    style={styles.picker}
+                    dropdownIconColor="#6543cc"
+                    itemStyle={styles.pickerItem}
+                    enabled={!isGenerating}
+                  >
+                    <Picker.Item label="Script Kiddie" value="Script Kiddie" />
+                    <Picker.Item label="Intermediate" value="Intermediate" />
+                    <Picker.Item label="Advanced" value="Advanced" />
+                    <Picker.Item label="APT" value="APT" />
+                  </Picker>
+                </View>
+              </View>
+              
+              {/* Threat Intensity Slider */}
+              <View style={styles.paramGroup}>
+                <View style={styles.sliderLabelContainer}>
+                  <Text style={styles.paramLabel}>
+                    <Ionicons name="thermometer" size={16} color="#6543cc" /> Threat Intensity
+                  </Text>
+                  <View style={styles.intensityBadge}>
+                    <Text style={styles.intensityValue}>{threatIntensity}</Text>
+                  </View>
+                </View>
+                
+                <Slider
+                  style={styles.slider}
+                  minimumValue={1}
+                  maximumValue={100}
+                  step={1}
+                  value={threatIntensity}
+                  onValueChange={(value) => setThreatIntensity(value)}
+                  minimumTrackTintColor="#6543cc"
+                  maximumTrackTintColor="#333333"
+                  thumbTintColor="#6543cc"
+                  disabled={isGenerating}
+                />
+                
+                <View style={styles.sliderMarkers}>
+                  <Text style={styles.sliderMarker}>Low</Text>
+                  <Text style={styles.sliderMarker}>Medium</Text>
+                  <Text style={styles.sliderMarker}>High</Text>
+                </View>
+              </View>
+              
+              {/* Generate Button */}
+              <TouchableOpacity
+                style={[styles.generateButton, isGenerating && styles.generateButtonDisabled]}
+                onPress={handleGenerateScenario}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <View style={styles.buttonContent}>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={styles.buttonText}>Generating...</Text>
+                  </View>
+                ) : (
+                  <View style={styles.buttonContent}>
+                    <Ionicons name="play" size={20} color="#fff" />
+                    <Text style={styles.buttonText}>Generate Scenario</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
+          
+          {scenarioGenerated && (
+            <View style={styles.results}>
+              {/* Scenario Output Card */}
+              <View style={styles.outputCard}>
+                <TouchableOpacity 
+                  style={styles.outputHeader}
+                  onPress={() => setOutputExpanded(!outputExpanded)}
+                >
+                  <View style={styles.outputHeaderLeft}>
+                    <Ionicons name="lock-closed" size={20} color="#6543cc" />
+                    <Text style={styles.outputTitle}>Generated Scenario</Text>
+                  </View>
+                  
+                  <View style={styles.outputControls}>
+                    {!generationComplete && isGenerating && (
+                      <View style={styles.progressContainer}>
+                        <View style={styles.progressBar}>
+                          <View 
+                            style={[styles.progressFill, { width: `${streamProgress}%` }]}
+                          />
+                        </View>
+                        <Text style={styles.progressLabel}>Generating...</Text>
+                      </View>
+                    )}
+                    
+                    <TouchableOpacity style={styles.toggleButton}>
+                      <Ionicons 
+                        name={outputExpanded ? "chevron-up" : "chevron-down"} 
+                        size={20} 
+                        color="#9da8b9" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+                
+                {outputExpanded && (
+                  <ScrollView 
+                    style={styles.outputContent}
+                    ref={scenarioOutputRef}
+                    contentContainerStyle={styles.outputContentContainer}
+                  >
+                    {scenarioText ? (
+                      <Text style={styles.scenarioText}>
+                        {scenarioText}
+                        {isGenerating && <Text style={styles.cursor}>|</Text>}
+                      </Text>
+                    ) : (
+                      <View style={styles.placeholderContainer}>
+                        <ActivityIndicator 
+                          color="#6543cc" 
+                          size="large"
+                          animating={isGenerating}
+                        />
+                        <Text style={styles.placeholderText}>
+                          Scenario will appear here...
+                        </Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                )}
+              </View>
+              
+              {/* Questions Card */}
+              {interactiveQuestions.length > 0 && (
+                <View style={styles.questionsCard}>
+                  <TouchableOpacity 
+                    style={styles.questionsHeader}
+                    onPress={() => setQuestionsExpanded(!questionsExpanded)}
+                  >
+                    <View style={styles.questionsHeaderLeft}>
+                      <Ionicons name="help-circle" size={20} color="#6543cc" />
+                      <Text style={styles.questionsTitle}>Knowledge Assessment</Text>
+                    </View>
+                    
+                    <TouchableOpacity style={styles.toggleButton}>
+                      <Ionicons 
+                        name={questionsExpanded ? "chevron-up" : "chevron-down"} 
+                        size={20} 
+                        color="#9da8b9" 
+                      />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                  
+                  {questionsExpanded && (
+                    <View style={styles.questionsContent}>
+                      {Object.keys(feedback).length === interactiveQuestions.length && (
+                        <View style={styles.assessmentComplete}>
+                          <Ionicons name="checkmark-circle" size={24} color="#2ebb77" />
+                          <View style={styles.assessmentResults}>
+                            <Text style={styles.completionMessage}>Assessment Complete</Text>
+                            <Text style={styles.scoreMessage}>
+                              You scored {scoreCounter} out of {interactiveQuestions.length} correct
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                      
+                      {interactiveQuestions.map((question, index) => {
+                        const questionFeedback = feedback[index];
+                        const isCorrect = questionFeedback?.isCorrect;
+                        
+                        return (
+                          <View key={index} style={styles.questionCard}>
+                            <View style={styles.questionHeader}>
+                              <Text style={styles.questionNumber}>Question {index + 1}</Text>
+                              {questionFeedback && (
+                                <View style={[
+                                  styles.questionStatus,
+                                  isCorrect ? styles.correctStatus : styles.incorrectStatus
+                                ]}>
+                                  <Ionicons 
+                                    name={isCorrect ? "checkmark" : "close"} 
+                                    size={16} 
+                                    color={isCorrect ? "#2ebb77" : "#ff4e4e"} 
+                                  />
+                                  <Text style={[
+                                    styles.statusText,
+                                    isCorrect ? styles.correctText : styles.incorrectText
+                                  ]}>
+                                    {isCorrect ? "Correct" : "Incorrect"}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                            
+                            <Text style={styles.questionText}>{question.question}</Text>
+                            
+                            <View style={styles.optionsContainer}>
+                              {question.options && Object.entries(question.options).map(([optionLetter, optionText]) => {
+                                const isSelected = userAnswers[index] === optionLetter;
+                                const showCorrect = questionFeedback && question.correct_answer === optionLetter;
+                                const showIncorrect = questionFeedback && isSelected && !isCorrect;
+                                
+                                return (
+                                  <TouchableOpacity
+                                    key={optionLetter}
+                                    style={[
+                                      styles.optionButton,
+                                      isSelected && styles.selectedOption,
+                                      showCorrect && styles.correctOption,
+                                      showIncorrect && styles.incorrectOption
+                                    ]}
+                                    onPress={() => handleAnswerSelect(index, optionLetter)}
+                                    disabled={Object.prototype.hasOwnProperty.call(userAnswers, index)}
+                                  >
+                                    <View style={[
+                                      styles.optionLetter,
+                                      showCorrect && styles.correctLetter,
+                                      showIncorrect && styles.incorrectLetter
+                                    ]}>
+                                      <Text style={styles.optionLetterText}>{optionLetter}</Text>
+                                    </View>
+                                    
+                                    <Text style={styles.optionText}>{optionText}</Text>
+                                    
+                                    {showCorrect && (
+                                      <Ionicons name="checkmark" size={20} color="#2ebb77" style={styles.optionIcon} />
+                                    )}
+                                    {showIncorrect && (
+                                      <Ionicons name="close" size={20} color="#ff4e4e" style={styles.optionIcon} />
+                                    )}
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                            
+                            {questionFeedback && (
+                              <View style={styles.feedbackContainer}>
+                                <Ionicons name="bulb" size={20} color="#ffc107" style={styles.feedbackIcon} />
+                                <Text style={styles.feedbackExplanation}>
+                                  {questionFeedback.explanation}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+      
+      {/* Suggestions Modal */}
+      <Modal
+        visible={showSuggestionsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSuggestionsModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowSuggestionsModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Attack Types</Text>
+                  <TouchableOpacity 
+                    style={styles.modalCloseButton}
+                    onPress={() => setShowSuggestionsModal(false)}
+                  >
+                    <Ionicons name="close" size={24} color="#e2e2e2" />
+                  </TouchableOpacity>
+                </View>
+                
+                <FlatList
+                  data={suggestions}
+                  renderItem={renderSuggestionItem}
+                  keyExtractor={(item) => item}
+                  style={styles.modalList}
+                  showsVerticalScrollIndicator={true}
+                  contentContainerStyle={styles.modalListContent}
+                />
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
@@ -716,6 +765,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 15,
     paddingTop: 0,
+    paddingBottom: 30,
   },
   paramsCard: {
     backgroundColor: '#171a23',
@@ -809,35 +859,27 @@ const styles = StyleSheet.create({
     height: 50,
     fontSize: 16,
   },
-  suggestionsContainer: {
+  suggestionsPreview: {
     backgroundColor: '#171a23',
     borderWidth: 1,
     borderColor: '#2a2c3d',
     borderRadius: 8,
     marginTop: 5,
-    maxHeight: 200,
-    zIndex: 1,
+    overflow: 'hidden',
   },
-  suggestionsList: {
-    padding: 5,
-    maxHeight: 150,
+  suggestionPreviewItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2c3d',
   },
-  suggestionItem: {
-    padding: 10,
-    borderRadius: 5,
-  },
-  suggestionText: {
+  suggestionPreviewText: {
     color: '#e2e2e2',
     fontSize: 14,
   },
   showAllButton: {
-    flexDirection: 'row',
+    padding: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#2a2c3d',
-    gap: 5,
+    backgroundColor: 'rgba(101, 67, 204, 0.1)',
   },
   showAllText: {
     color: '#6543cc',
@@ -970,6 +1012,9 @@ const styles = StyleSheet.create({
   outputContent: {
     padding: 15,
     maxHeight: 300,
+  },
+  outputContentContainer: {
+    minHeight: 100,
   },
   scenarioText: {
     color: '#e2e2e2',
@@ -1169,6 +1214,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9da8b9',
     lineHeight: 22,
+  },
+  
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#171a23',
+    width: '90%',
+    maxHeight: '70%',
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: '#6543cc',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2c3d',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#e2e2e2',
+  },
+  modalCloseButton: {
+    padding: 5,
+  },
+  modalList: {
+    flex: 1,
+  },
+  modalListContent: {
+    padding: 10,
+  },
+  modalSuggestionItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2c3d',
+  },
+  modalSuggestionText: {
+    fontSize: 16,
+    color: '#e2e2e2',
   },
 });
 

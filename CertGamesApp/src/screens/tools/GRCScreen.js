@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  SafeAreaView
+  SafeAreaView,
+  Alert
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { StatusBar } from 'expo-status-bar';
-import { useToast } from 'react-native-toast-notifications';
 import { streamGRCQuestion } from '../../api/grcService';
 
 const GRCScreen = () => {
@@ -26,12 +26,10 @@ const GRCScreen = () => {
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   
-  const toast = useToast();
-  
   // Categories and difficulties arrays
   const categories = [
     "Regulation",
-    "Risk Management",
+    "Risk Management", 
     "Compliance",
     "Audit",
     "Governance",
@@ -72,21 +70,21 @@ const GRCScreen = () => {
 
     try {
       const data = await streamGRCQuestion(category, difficulty);
-      console.log("GRC Question Response:", data);
       
-      // Basic validation of the data structure
-      if (!data || !data.question || !data.options || !data.correct_answer_index) {
-        throw new Error("Invalid question data received");
+      // Safe logging - only log first part of the question to avoid console overload
+      if (data && data.question) {
+        console.log("GRC Question received:", data.question.substring(0, 50) + "...");
       }
       
       setQuestionData(data);
     } catch (error) {
       console.error('Error fetching question:', error);
       setErrorMessage("Failed to load question. Please try again.");
-      toast.show('Error fetching question. Please try again.', {
-        type: 'danger',
-        duration: 3000,
-      });
+      Alert.alert(
+        "Error", 
+        "Error fetching question. Please try again.",
+        [{ text: "OK" }]
+      );
     } finally {
       setLoading(false);
     }
@@ -101,27 +99,30 @@ const GRCScreen = () => {
     
     setShowExplanation(true);
     
-    toast.show(isCorrect ? "Correct!" : "Incorrect", {
-      type: isCorrect ? 'success' : 'danger',
-      duration: 2000,
-    });
+    Alert.alert(
+      isCorrect ? "Correct!" : "Incorrect", 
+      "",
+      [{ text: "OK" }]
+    );
   };
   
   const handleCopy = async () => {
     if (!questionData || !showExplanation) return;
     
-    const correctIndex = questionData.correct_answer_index;
-    const correctExplanation = questionData.explanations[correctIndex.toString()];
-    const examTip = questionData.exam_tip;
-    
-    const textToCopy = `Question: ${questionData.question}\n\nOptions:\n${questionData.options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}\n\nCorrect Answer: ${questionData.options[correctIndex]}\n\nExplanation: ${correctExplanation}\n\nExam Tip: ${examTip}`;
-    
-    await Clipboard.setStringAsync(textToCopy);
-    setCopiedToClipboard(true);
-    toast.show('Copied to clipboard!', {
-      type: 'success',
-      duration: 2000,
-    });
+    try {
+      const correctIndex = questionData.correct_answer_index;
+      const correctExplanation = questionData.explanations[correctIndex.toString()];
+      const examTip = questionData.exam_tip;
+      
+      const textToCopy = `Question: ${questionData.question}\n\nOptions:\n${questionData.options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}\n\nCorrect Answer: ${questionData.options[correctIndex]}\n\nExplanation: ${correctExplanation}\n\nExam Tip: ${examTip}`;
+      
+      await Clipboard.setStringAsync(textToCopy);
+      setCopiedToClipboard(true);
+      Alert.alert("Success", "Copied to clipboard!", [{ text: "OK" }]);
+    } catch (error) {
+      console.error('Copy error:', error);
+      Alert.alert("Error", "Failed to copy text", [{ text: "OK" }]);
+    }
   };
   
   const getNewQuestion = () => {
@@ -225,16 +226,18 @@ const GRCScreen = () => {
           <View style={styles.questionCard}>
             <View style={styles.questionHeader}>
               <View style={styles.questionMeta}>
-                <Text style={styles.questionCategory}>
-                  <Ionicons name={category === 'Random' ? 'shuffle' : 'shield-checkmark'} size={16} color="#AAAAAA" /> {category}
-                </Text>
-                <Text style={[styles.questionDifficulty, {color: difficultyColors[difficulty]}]}>
+                <View style={styles.categoryContainer}>
+                  <Ionicons name={category === 'Random' ? 'shuffle' : 'shield-checkmark'} size={16} color="#AAAAAA" />
+                  <Text style={styles.questionCategory}> {category}</Text>
+                </View>
+                <View style={styles.difficultyContainer}>
                   <Ionicons 
                     name={difficulty === 'Easy' ? 'bulb-outline' : difficulty === 'Medium' ? 'rocket' : 'trophy'} 
                     size={16} 
                     color={difficultyColors[difficulty]} 
-                  /> {difficulty}
-                </Text>
+                  />
+                  <Text style={[styles.questionDifficulty, {color: difficultyColors[difficulty]}]}> {difficulty}</Text>
+                </View>
               </View>
               <Text style={styles.questionTitle}>Question</Text>
             </View>
@@ -282,21 +285,33 @@ const GRCScreen = () => {
             {showExplanation && selectedOption !== null && (
               <View style={styles.explanationContainer}>
                 <View style={styles.explanationHeader}>
-                  <Text style={styles.explanationTitle}>
+                  <View style={styles.explanationTitleContainer}>
                     {selectedOption === questionData.correct_answer_index ? (
-                      <><Ionicons name="checkmark" size={20} color="#2ebb77" /> Correct Answer</>
+                      <>
+                        <Ionicons name="checkmark" size={20} color="#2ebb77" />
+                        <Text style={styles.explanationTitle}> Correct Answer</Text>
+                      </>
                     ) : (
-                      <><Ionicons name="close" size={20} color="#ff4e4e" /> Incorrect Answer</>
+                      <>
+                        <Ionicons name="close" size={20} color="#ff4e4e" />
+                        <Text style={styles.explanationTitle}> Incorrect Answer</Text>
+                      </>
                     )}
-                  </Text>
+                  </View>
                   <TouchableOpacity 
                     style={[styles.copyButton, copiedToClipboard && styles.copiedButton]}
                     onPress={handleCopy}
                   >
                     {copiedToClipboard ? (
-                      <><Ionicons name="checkmark" size={16} color="#fff" /> Copied</>
+                      <View style={styles.copyButtonContent}>
+                        <Ionicons name="checkmark" size={16} color="#fff" />
+                        <Text style={styles.copyButtonText}>Copied</Text>
+                      </View>
                     ) : (
-                      <><Ionicons name="copy" size={16} color="#fff" /> Copy</>
+                      <View style={styles.copyButtonContent}>
+                        <Ionicons name="copy" size={16} color="#fff" />
+                        <Text style={styles.copyButtonText}>Copy</Text>
+                      </View>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -310,9 +325,10 @@ const GRCScreen = () => {
                   </View>
                   
                   <View style={styles.explanationSection}>
-                    <Text style={styles.explanationSectionTitle}>
-                      <Ionicons name="bulb" size={18} color="#ffc107" /> Exam Tip
-                    </Text>
+                    <View style={styles.tipTitleContainer}>
+                      <Ionicons name="bulb" size={18} color="#ffc107" />
+                      <Text style={styles.explanationSectionTitle}> Exam Tip</Text>
+                    </View>
                     <Text style={styles.tipText}>{questionData.exam_tip}</Text>
                   </View>
                 </View>
@@ -484,16 +500,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 10,
   },
+  categoryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   questionCategory: {
     fontSize: 14,
     color: '#9da8b9',
+  },
+  difficultyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   questionDifficulty: {
     fontSize: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   questionTitle: {
     fontSize: 18,
@@ -574,12 +594,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  explanationTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   explanationTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#e2e2e2',
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   copyButton: {
     flexDirection: 'row',
@@ -590,11 +612,19 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    gap: 6,
   },
   copiedButton: {
     backgroundColor: '#2ebb77',
     borderColor: 'transparent',
+  },
+  copyButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  copyButtonText: {
+    color: '#fff',
+    fontSize: 14,
   },
   explanationContent: {
     gap: 20,
@@ -606,13 +636,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 15,
   },
+  tipTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   explanationSectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#e2e2e2',
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   explanationText: {
     fontSize: 15,

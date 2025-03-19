@@ -1,6 +1,8 @@
 // src/store/index.js
 import { configureStore } from '@reduxjs/toolkit';
 import userReducer from './slices/userSlice';
+import shopReducer from './slices/shopSlice';
+import achievementsReducer from './slices/achievementsSlice';
 // Import other reducers as you create them
 // import testReducer from './slices/testSlice';
 // import achievementsReducer from './slices/achievementsSlice';
@@ -8,6 +10,8 @@ import userReducer from './slices/userSlice';
 export const store = configureStore({
   reducer: {
     user: userReducer,
+    shop: shopReducer,
+    achievements: achievementsReducer
     // Add other reducers here
     // tests: testReducer,
     // achievements: achievementsReducer,

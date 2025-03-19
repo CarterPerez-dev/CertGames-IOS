@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import testService from '../../api/testService';
+import { fetchShopItems } from '../../store/slices/shopSlice';
+import { fetchAchievements } from '../../store/slices/achievementsSlice'
 
 import FormattedQuestion from '../../components/FormattedQuestion';
 
@@ -48,8 +50,9 @@ const TestScreen = ({ route, navigation }) => {
   
   const dispatch = useDispatch();
   const { userId, xp, level, coins, xpBoost, currentAvatar } = useSelector(state => state.user);
-  const shopItems = useSelector(state => state.shop.items);
-  const achievements = useSelector(state => state.achievements.all);
+  const { items: shopItems = [], status: shopStatus } = useSelector(state => state.shop || { items: [], status: 'idle' });
+  const { all: achievements = [] } = useSelector(state => state.achievements || { all: [] });
+
   
   // State for test data
   const [testData, setTestData] = useState(null);
@@ -86,6 +89,21 @@ const TestScreen = ({ route, navigation }) => {
   // Selected test length
   const [activeTestLength, setActiveTestLength] = useState(initialSelectedLength || 100);
   
+
+  useEffect(() => {
+    if (userId && shopStatus === 'idle') {
+      dispatch(fetchShopItems());
+    }
+  }, [userId, shopStatus, dispatch]);
+  
+
+  useEffect(() => {
+    if (userId && !achievements.length) {
+      dispatch(fetchAchievements());
+    }
+  }, [userId, achievements.length, dispatch]);
+  
+
   // Fetch test data and attempt
   const fetchTestAndAttempt = useCallback(async () => {
     try {
@@ -363,6 +381,7 @@ const TestScreen = ({ route, navigation }) => {
     [shuffleOrder]
   );
   
+
   // Total number of questions in this test
   const effectiveTotal = activeTestLength || (testData ? testData.questions.length : 0);
   

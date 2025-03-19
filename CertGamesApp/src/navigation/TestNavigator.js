@@ -68,78 +68,91 @@ const TestNavigator = () => {
         name="APlusTests" 
         component={APlusScreen} 
         options={{ title: 'A+ Core 1 (1101)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'aplus' }}
       />
       
       <Stack.Screen 
         name="APlus2Tests" 
         component={APlus2Screen} 
         options={{ title: 'A+ Core 2 (1102)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'aplus2' }}
       />
       
       <Stack.Screen 
         name="NetworkPlusTests" 
         component={NetworkPlusScreen} 
         options={{ title: 'Network+ (N10-009)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'nplus' }}
       />
       
       <Stack.Screen 
         name="SecurityPlusTests" 
         component={SecurityPlusScreen} 
         options={{ title: 'Security+ (SY0-701)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'secplus' }}
       />
       
       <Stack.Screen 
         name="CySAPlusTests" 
         component={CySAPlusScreen} 
         options={{ title: 'CySA+ (CS0-003)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'cysa' }}
       />
       
       <Stack.Screen 
         name="PenPlusTests" 
         component={PenPlusScreen} 
         options={{ title: 'PenTest+ (PT0-003)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'penplus' }}
       />
       
       <Stack.Screen 
         name="CaspPlusTests" 
         component={CaspPlusScreen} 
         options={{ title: 'CASP+ (CAS-005)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'caspplus' }}
       />
       
       <Stack.Screen 
         name="LinuxPlusTests" 
         component={LinuxPlusScreen} 
         options={{ title: 'Linux+ (XK0-005)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'linuxplus' }}
       />
       
       <Stack.Screen 
         name="CloudPlusTests" 
         component={CloudPlusScreen} 
         options={{ title: 'Cloud+ (CV0-004)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'cloudplus' }}
       />
       
       <Stack.Screen 
         name="DataPlusTests" 
         component={DataPlusScreen} 
         options={{ title: 'Data+ (DA0-001)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'dataplus' }}
       />
       
       <Stack.Screen 
         name="ServerPlusTests" 
         component={ServerPlusScreen} 
         options={{ title: 'Server+ (SK0-005)', headerBackTitleVisible: false }}
+        initialParams={{ category: 'serverplus' }}
       />
       
       <Stack.Screen 
         name="CisspTests" 
         component={CisspScreen} 
         options={{ title: 'CISSP', headerBackTitleVisible: false }}
+        initialParams={{ category: 'cissp' }}
       />
       
       <Stack.Screen 
         name="AWSCloudTests" 
         component={AWSCloudScreen} 
         options={{ title: 'AWS Cloud Practitioner', headerBackTitleVisible: false }}
+        initialParams={{ category: 'awscloud' }}
       />
     </Stack.Navigator>
   );

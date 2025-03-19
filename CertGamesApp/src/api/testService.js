@@ -119,13 +119,28 @@ export const createOrUpdateAttempt = async (userId, testId, attemptData) => {
  */
 export const finishTestAttempt = async (userId, testId, finishData) => {
   try {
+    // Ensure category is included - use 'global' as fallback
+    const payload = {
+      ...finishData,
+      category: finishData.category || 'global',
+      // Make sure testId is explicitly included in both URL and payload
+      testId: testId
+    };
+    
+    console.log('Finishing test attempt with payload:', JSON.stringify(payload));
+    
     const response = await apiClient.post(
       API.TESTS.FINISH(userId, testId),
-      finishData
+      payload
     );
     return response.data;
   } catch (error) {
     console.error(`Error finishing test attempt:`, error);
+    // Log more detailed error info
+    if (error.response) {
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+    }
     const errorMsg = error?.response?.data?.error || error.message || 'Network error';
     throw new Error(errorMsg);
   }

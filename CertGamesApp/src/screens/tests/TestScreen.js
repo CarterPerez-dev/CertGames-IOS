@@ -594,14 +594,45 @@ const TestScreen = ({ route, navigation }) => {
     setIsFinished(true);
 
     try {
-      // Replace direct fetch with testService.finishTestAttempt
+    // First ensure the attempt exists with the correct category
+    // This is crucial - we want to make sure there's a valid attempt to finish
+      await testService.createOrUpdateAttempt(userId, testId, {
+        category,
+        answers,
+        score: finalScore,
+        totalQuestions: effectiveTotal,
+        selectedLength: activeTestLength,
+        currentQuestionIndex,
+        shuffleOrder,
+        answerOrder,
+        // Don't mark as finished yet - that's what the finish endpoint does
+        finished: false,
+        examMode
+      });
+
+
+
+console.log("About to finish test. Test ID:", testId);
+console.log("Category:", category);
+
+// Also add this to check for existing attempt
+try {
+  const attemptCheck = await testService.fetchTestAttempt(userId, testId, 'unfinished');
+  console.log("Current unfinished attempt:", attemptCheck?.attempt ? "FOUND" : "NOT FOUND");
+  if (attemptCheck?.attempt) {
+    console.log("Attempt category:", attemptCheck.attempt.category);
+    console.log("Attempt testId:", attemptCheck.attempt.testId);
+  }
+} catch (err) {
+  console.error("Error checking for attempt:", err);
+}
+
       const finishData = await testService.finishTestAttempt(userId, testId, {
         score: finalScore,
         totalQuestions: effectiveTotal,
         testId,
         category
       });
-
       // Handle achievement unlocks
       if (finishData.newlyUnlocked && finishData.newlyUnlocked.length > 0) {
         console.log('New achievements unlocked:', finishData.newlyUnlocked);
@@ -620,12 +651,18 @@ const TestScreen = ({ route, navigation }) => {
       }
     } catch (err) {
       console.error("Failed to finish test attempt:", err);
+      Alert.alert(
+        "Sync Warning",
+        "Your test is complete, but we couldn't sync your results to the server. Your progress might not be saved.",
+        [{ text: "OK" }]
+      );  
     }
 
     setShowScoreModal(true);
-  }, [answers, userId, testId, effectiveTotal, dispatch, category]);
-
-  // Navigation between questions
+  }, [answers, userId, testId, effectiveTotal, dispatch, category, activeTestLength, 
+      currentQuestionIndex, shuffleOrder, answerOrder, examMode]);
+  
+  // Navigation between questions 
   const handleNextQuestion = useCallback(() => {
     if (!isAnswered && !examMode) {
       setShowWarningModal(true);
@@ -1039,15 +1076,24 @@ const TestScreen = ({ route, navigation }) => {
             <View style={styles.scoreButtons}>
               <TouchableOpacity
                 style={[styles.scoreButton, styles.restartScoreButton]}
-                onPress={() => setShowRestartModal(true)}
+                onPress={() => {
+                setShowScoreModal(false); // Hide score modal first
+                setTimeout(() => setShowRestartModal(true), 300); 
+              }}
               >
                 <Ionicons name="refresh" size={18} color="#FFFFFF" />
-                <Text style={styles.scoreButtonText}>Restart Test</Text>
+                <Text style={styles.scoreButtonText}>Restart</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.scoreButton, styles.reviewScoreButton]}
-                onPress={handleReviewAnswers}
+                onPress={() => {
+                 setShowScoreModal(false);
+                 setTimeout(() => {
+                   setShowReviewMode(true);
+                   setReviewFilter('all');
+                 }, 300); 
+               }}
               >
                 <Ionicons name="eye" size={18} color="#FFFFFF" />
                 <Text style={styles.scoreButtonText}>Review Answers</Text>

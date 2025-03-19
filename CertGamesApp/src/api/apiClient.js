@@ -13,14 +13,16 @@ const apiClient = axios.create({
 });
 
 // Request interceptor to include auth info and cookies
+// CertGamesApp/src/api/apiClient.js - modify the request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
     try {
       const userId = await SecureStore.getItemAsync('userId');
       
       if (userId) {
-        // For API calls that expect the userId
-        if (config.method === 'post') {
+        // Only add userId for endpoints that don't already have it in the URL
+        // Test finish endpoint already has userId in the URL, so don't add it to data
+        if (config.method === 'post' && !config.url.includes(`/attempts/${userId}/`)) {
           if (!config.data) {
             config.data = {};
           }

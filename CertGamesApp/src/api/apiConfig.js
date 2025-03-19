@@ -5,9 +5,20 @@ import Constants from 'expo-constants';
 const DEV_URL = 'http://192.168.1.172:8080/api'; // Replace with your local IP - can it be localhost?
 const PROD_URL = 'https://certgames.com/api';
 
+// Get the domain part of the URL (for image URLs)
+const getDomain = (url) => {
+  // Extract domain from API URL (remove /api at the end if present)
+  return url.replace(/\/api\/?$/, '');
+};
+
 // Determine which URL to use
 const isProduction = !__DEV__;
 export const BASE_URL = isProduction ? PROD_URL : DEV_URL;
+
+// Export domain URL for image paths (without /api at the end)
+export const DOMAIN_URL = isProduction ? 
+  getDomain(PROD_URL) : 
+  getDomain(DEV_URL);
 
 export const API = {
   // Auth endpoints

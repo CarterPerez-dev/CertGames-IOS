@@ -1,6 +1,30 @@
 // src/api/testService.js
 import apiClient from './apiClient';
-import { API } from './apiConfig';
+import { API, BASE_URL } from './apiConfig';
+
+// Helper to format image URLs
+const formatImageUrl = (url) => {
+  if (!url) return null;
+  
+  // If it's already a complete URL, return it
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // Fix relative URLs
+  if (!url.startsWith('/') && !url.startsWith('./')) {
+    url = '/' + url;
+  }
+  
+  // Extract the domain without the "/api" path
+  const apiIndex = BASE_URL.indexOf('/api');
+  const domain = apiIndex !== -1 ? 
+    BASE_URL.substring(0, apiIndex) : 
+    BASE_URL.replace(/\/+$/, ''); // Remove trailing slashes
+    
+  url = url.replace(/^\/+/, '/'); // Ensure only one leading slash
+  return domain + url;
+};
 
 /**
  * Fetch tests by category
@@ -199,6 +223,7 @@ const testService = {
   updateAnswer,
   updatePosition,
   listTestAttempts,
+  formatImageUrl
 };
 
 export default testService;

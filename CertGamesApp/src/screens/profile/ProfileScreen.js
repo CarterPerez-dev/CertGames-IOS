@@ -21,7 +21,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 
 // Import profile service to handle API calls
-import { changeUsername, changeEmail, changePassword } from '../../api/profileService';
+import { changeUsername, changeEmail, changePassword, getAvatarUrl } from '../../api/profileService';
+import { BASE_URL } from '../../api/apiConfig';
 
 const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -45,6 +46,7 @@ const ProfileScreen = ({ navigation }) => {
   // Local state
   const [activeTab, setActiveTab] = useState('overview');
   const [refreshing, setRefreshing] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   
   // Form state
   const [showChangeUsername, setShowChangeUsername] = useState(false);
@@ -111,10 +113,17 @@ const ProfileScreen = ({ navigation }) => {
   
   const xpPercentage = calculateXpPercentage();
 
-  // Get user avatar from purchased items
-  const profilePicUrl = currentAvatar 
-    ? `/avatars/${currentAvatar}.png` 
-    : require('../../../assets/default-avatar.png');
+  // Get user avatar URL
+  const getProfilePicUrl = () => {
+    if (!currentAvatar) {
+      return null; // Will use the default local asset
+    }
+
+    // Use the helper function to get a properly formatted avatar URL
+    const avatarUrl = getAvatarUrl(currentAvatar);
+    console.log('Avatar URL:', avatarUrl); // For debugging
+    return avatarUrl;
+  };
   
   // Fetch user data
   useEffect(() => {
@@ -297,6 +306,12 @@ const ProfileScreen = ({ navigation }) => {
     navigation.navigate('Support');
   };
   
+  // Handle avatar image error
+  const handleAvatarError = () => {
+    console.log('Avatar image failed to load');
+    setAvatarError(true);
+  };
+  
   return (
     <SafeAreaView style={styles.container}>
       <StatusModal 
@@ -315,10 +330,19 @@ const ProfileScreen = ({ navigation }) => {
         {/* Profile Header */}
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            <Image 
-              source={typeof profilePicUrl === 'string' ? { uri: profilePicUrl } : profilePicUrl} 
-              style={styles.avatar}
-            />
+            {/* Use properly formatted avatar URL */}
+            {!avatarError && currentAvatar ? (
+              <Image 
+                source={{ uri: getProfilePicUrl() }}
+                style={styles.avatar}
+                onError={handleAvatarError}
+              />
+            ) : (
+              <Image 
+                source={require('../../../assets/default-avatar.png')}
+                style={styles.avatar}
+              />
+            )}
           </View>
           
           <View style={styles.userInfo}>
@@ -839,6 +863,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     borderWidth: 2,
     borderColor: '#6543CC',
+    backgroundColor: '#2A2A2A', // Background color while loading
   },
   userInfo: {
     flex: 1,

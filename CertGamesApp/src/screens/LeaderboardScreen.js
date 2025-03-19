@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   SafeAreaView,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -107,12 +108,24 @@ const LeaderboardScreen = () => {
           )}
         </View>
         
-        {/* Avatar placeholder instead of trying to load images */}
-        <View style={styles.placeholderAvatar}>
-          <Text style={styles.avatarInitial}>
-            {item.username?.charAt(0).toUpperCase() || '?'}
-          </Text>
-        </View>
+        {/* Avatar - now using Image component */}
+        {item.avatarUrl ? (
+          <Image 
+            source={{ uri: item.avatarUrl }} 
+            style={styles.avatarImage}
+            defaultSource={require('../../assets/default-avatar.png')}
+            onError={(e) => {
+              console.log('Avatar image failed to load:', item.avatarUrl);
+              // On error, we fall back to the placeholder anyway
+            }}
+          />
+        ) : (
+          <View style={styles.placeholderAvatar}>
+            <Text style={styles.avatarInitial}>
+              {item.username?.charAt(0).toUpperCase() || '?'}
+            </Text>
+          </View>
+        )}
         
         <View style={styles.userInfoContainer}>
           <Text style={[
@@ -303,6 +316,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#000000',
+  },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#2A2A2A',
+    marginRight: 12,
   },
   placeholderAvatar: {
     width: 44,

@@ -1,17 +1,33 @@
 // src/screens/shop/components/AvatarItem.js
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const AvatarItem = ({ item, isPurchased, isEquipped }) => {
+  const [imageError, setImageError] = useState(false);
+  
+  // Handle image load error
+  const handleImageError = () => {
+    setImageError(true);
+  };
+  
   return (
     <View style={styles.container}>
-      {/* Use a placeholder instead of trying to load images that don't exist */}
-      <View style={styles.placeholderContainer}>
-        <Text style={styles.placeholderText}>
-          {item.title?.charAt(0) || '?'}
-        </Text>
-      </View>
+      {/* Try to load the actual image, fallback to placeholder if it fails */}
+      {item.imageUrl && !imageError ? (
+        <Image
+          source={{ uri: item.imageUrl }}
+          style={styles.avatarImage}
+          onError={handleImageError}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.placeholderContainer}>
+          <Text style={styles.placeholderText}>
+            {item.title?.charAt(0) || '?'}
+          </Text>
+        </View>
+      )}
       
       {isPurchased && (
         <View style={styles.ownershipBadgeContainer}>
@@ -36,6 +52,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 140,
     position: 'relative',
+  },
+  avatarImage: {
+    width: '100%',
+    height: 140,
+    backgroundColor: '#2A2A2A',
   },
   placeholderContainer: {
     width: '100%',

@@ -10,7 +10,8 @@ import {
   Alert,
   Modal,
   FlatList,
-  Animated
+  Animated,
+  Image
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -825,14 +826,13 @@ const TestScreen = ({ route, navigation }) => {
 
   // Get avatar URL
   const avatarUrl = useMemo(() => {
-    let url = 'https://via.placeholder.com/60';
     if (currentAvatar && shopItems && shopItems.length > 0) {
       const avatarItem = shopItems.find(item => item._id === currentAvatar);
       if (avatarItem && avatarItem.imageUrl) {
-        url = avatarItem.imageUrl;
+        return testService.formatImageUrl(avatarItem.imageUrl);
       }
     }
-    return url;
+    return null; // Will use the default local asset
   }, [currentAvatar, shopItems]);
 
   // Get shuffled options for current question
@@ -1358,7 +1358,22 @@ const TestScreen = ({ route, navigation }) => {
       {/* Upper controls */}
       <View style={styles.topBar}>
         <View style={styles.userInfoSection}>
-          <View style={[styles.avatarImage, { backgroundImage: `url(${avatarUrl})` }]} />
+          {avatarUrl ? (
+            <Image 
+              source={{ uri: avatarUrl }} 
+              style={styles.avatarImage}
+              defaultSource={require('../../../assets/default-avatar.png')}
+              onError={(e) => {
+                console.log('Avatar image failed to load:', avatarUrl);
+                // On error, we fall back to the placeholder anyway
+              }}
+            />
+          ) : (
+            <Image 
+              source={require('../../../assets/default-avatar.png')}
+              style={styles.avatarImage}
+            />
+          )}
           <View style={styles.userStats}>
             <View style={styles.levelBadge}>
               <Ionicons name="trophy" size={12} color="#FFFFFF" />
@@ -1497,10 +1512,15 @@ const TestScreen = ({ route, navigation }) => {
                 }
               }
 
+              const debugColors = ['red', 'blue', 'green', 'purple'];
+
               return (
                 <TouchableOpacity
                   key={displayIdx}
-                  style={optionStyle}
+                  style={[
+                  styles.optionButton,
+                  { backgroundColor: debugColors[displayIdx % debugColors.length] }
+               ]}
                   onPress={() => handleOptionClick(displayIdx)}
                   disabled={examMode ? false : isAnswered}
                 >
@@ -1831,7 +1851,6 @@ const styles = StyleSheet.create({
   optionLetter: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     width: 36,
-    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 15,

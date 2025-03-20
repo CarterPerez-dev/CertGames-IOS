@@ -8,49 +8,56 @@ import {
   ScrollView,
   ActivityIndicator,
   SafeAreaView,
-  Alert
+  Alert,
+  FlatList,
+  Modal
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { StatusBar } from 'expo-status-bar';
 import { streamGRCQuestion } from '../../api/grcService';
 
+// We'll define the category list for our modal
+const CATEGORY_OPTIONS = [
+  { label: 'Regulation', value: 'Regulation' },
+  { label: 'Risk Management', value: 'Risk Management' },
+  { label: 'Compliance', value: 'Compliance' },
+  { label: 'Audit', value: 'Audit' },
+  { label: 'Governance', value: 'Governance' },
+  { label: 'Management', value: 'Management' },
+  { label: 'Policy', value: 'Policy' },
+  { label: 'Ethics', value: 'Ethics' },
+  { label: 'Threat Assessment', value: 'Threat Assessment' },
+  { label: 'Leadership', value: 'Leadership' },
+  { label: 'Business Continuity', value: 'Business Continuity' },
+  { label: 'Random', value: 'Random' },
+];
+
+// Difficulty “chips” data
+const DIFFICULTY_OPTIONS = ['Easy', 'Medium', 'Hard'];
+
+// Color map for difficulty
+const difficultyColors = {
+  Easy: '#2ebb77',
+  Medium: '#ffc107',
+  Hard: '#ff4c8b',
+};
+
 const GRCScreen = () => {
+  // States
   const [category, setCategory] = useState('Random');
   const [difficulty, setDifficulty] = useState('Easy');
+
   const [loading, setLoading] = useState(false);
   const [questionData, setQuestionData] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  
-  // Categories and difficulties arrays
-  const categories = [
-    "Regulation",
-    "Risk Management", 
-    "Compliance",
-    "Audit",
-    "Governance",
-    "Management",
-    "Policy",
-    "Ethics",
-    "Threat Assessment",
-    "Leadership",
-    "Business Continuity",
-    "Random"
-  ];
-  
-  const difficulties = ["Easy", "Medium", "Hard"];
-  
-  // Map difficulty to colors
-  const difficultyColors = {
-    "Easy": "#2ebb77",
-    "Medium": "#ffc107",
-    "Hard": "#ff4c8b"
-  };
-  
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // For category modal
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+
   // Reset copy status after 2 seconds
   useEffect(() => {
     if (copiedToClipboard) {
@@ -60,135 +67,150 @@ const GRCScreen = () => {
       return () => clearTimeout(timer);
     }
   }, [copiedToClipboard]);
-  
+
+  // The main “fetch question” logic
   const fetchQuestion = async () => {
     setLoading(true);
     setQuestionData(null);
     setSelectedOption(null);
     setShowExplanation(false);
-    setErrorMessage("");
+    setErrorMessage('');
 
     try {
       const data = await streamGRCQuestion(category, difficulty);
-      
-      // Safe logging - only log first part of the question to avoid console overload
+
+      // Safe logging - only partial
       if (data && data.question) {
-        console.log("GRC Question received:", data.question.substring(0, 50) + "...");
+        console.log('GRC Question received:', data.question.substring(0, 50) + '...');
       }
-      
+
       setQuestionData(data);
     } catch (error) {
       console.error('Error fetching question:', error);
-      setErrorMessage("Failed to load question. Please try again.");
-      Alert.alert(
-        "Error", 
-        "Error fetching question. Please try again.",
-        [{ text: "OK" }]
-      );
+      setErrorMessage('Failed to load question. Please try again.');
+      Alert.alert('Error', 'Error fetching question. Please try again.', [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
   };
-  
+
+  // Option selection
   const handleAnswer = (optionIndex) => {
     if (!questionData) return;
-    
+
     setSelectedOption(optionIndex);
     const correctIndex = questionData.correct_answer_index;
     const isCorrect = optionIndex === correctIndex;
-    
+
     setShowExplanation(true);
-    
-    Alert.alert(
-      isCorrect ? "Correct!" : "Incorrect", 
-      "",
-      [{ text: "OK" }]
-    );
+
+    Alert.alert(isCorrect ? 'Correct!' : 'Incorrect', '', [{ text: 'OK' }]);
   };
-  
+
+  // Copy entire question+explanation
   const handleCopy = async () => {
     if (!questionData || !showExplanation) return;
-    
+
     try {
       const correctIndex = questionData.correct_answer_index;
       const correctExplanation = questionData.explanations[correctIndex.toString()];
       const examTip = questionData.exam_tip;
-      
-      const textToCopy = `Question: ${questionData.question}\n\nOptions:\n${questionData.options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}\n\nCorrect Answer: ${questionData.options[correctIndex]}\n\nExplanation: ${correctExplanation}\n\nExam Tip: ${examTip}`;
-      
+
+      const textToCopy = `Question: ${questionData.question}\n\nOptions:\n${questionData.options
+        .map((opt, i) => `${i + 1}. ${opt}`)
+        .join('\n')}\n\nCorrect Answer: ${
+        questionData.options[correctIndex]
+      }\n\nExplanation: ${correctExplanation}\n\nExam Tip: ${examTip}`;
+
       await Clipboard.setStringAsync(textToCopy);
       setCopiedToClipboard(true);
-      Alert.alert("Success", "Copied to clipboard!", [{ text: "OK" }]);
+      Alert.alert('Success', 'Copied to clipboard!', [{ text: 'OK' }]);
     } catch (error) {
       console.error('Copy error:', error);
-      Alert.alert("Error", "Failed to copy text", [{ text: "OK" }]);
+      Alert.alert('Error', 'Failed to copy text', [{ text: 'OK' }]);
     }
   };
-  
+
+  // Load a new question
   const getNewQuestion = () => {
     fetchQuestion();
   };
-  
-  // Get the letter representation (A, B, C, D) from index
+
+  // Returns letter label (A, B, C, D, etc.)
   const getLetterFromIndex = (index) => {
     return String.fromCharCode(65 + index);
   };
-  
+
+  // Handle selecting a category from the modal
+  const handleCategorySelect = (value) => {
+    setCategory(value);
+    setShowCategoryModal(false);
+  };
+
+  // Render each category item in the modal list
+  const renderCategoryItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.categoryItem}
+      onPress={() => handleCategorySelect(item.value)}
+    >
+      <Text style={styles.categoryItemText}>{item.label}</Text>
+    </TouchableOpacity>
+  );
+
+  // Render the row of difficulty “chips”
+  const renderDifficultyChips = () => (
+    <View style={styles.chipRow}>
+      {DIFFICULTY_OPTIONS.map((diff) => {
+        const active = difficulty === diff;
+        return (
+          <TouchableOpacity
+            key={diff}
+            style={[styles.chip, active && styles.chipActive]}
+            onPress={() => !loading && setDifficulty(diff)}
+            disabled={loading}
+          >
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{diff}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      
+
       <View style={styles.header}>
         <Text style={styles.title}>GRC Wizard</Text>
         <Text style={styles.subtitle}>Master the art of Governance, Risk, and Compliance</Text>
       </View>
-      
-      <ScrollView style={styles.scrollView}>
+
+      {/* ScrollView for entire content */}
+      <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
+        {/* Card for generating a question */}
         <View style={styles.wizardCard}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Generate a Question</Text>
             <Text style={styles.cardSubtitle}>Select a category and difficulty level</Text>
           </View>
-          
+
           <View style={styles.controls}>
-            {/* Category Picker */}
-            <View style={styles.controlGroup}>
-              <Text style={styles.label}>Category</Text>
-              <View style={styles.pickerWrapper}>
-                <Picker
-                  selectedValue={category}
-                  onValueChange={(value) => setCategory(value)}
-                  style={styles.picker}
-                  dropdownIconColor="#6543cc"
-                  itemStyle={styles.pickerItem}
-                  enabled={!loading}
-                >
-                  {categories.map((cat) => (
-                    <Picker.Item key={cat} label={cat} value={cat} />
-                  ))}
-                </Picker>
-              </View>
-            </View>
-            
-            {/* Difficulty Picker */}
-            <View style={styles.controlGroup}>
-              <Text style={styles.label}>Difficulty</Text>
-              <View style={styles.pickerWrapper}>
-                <Picker
-                  selectedValue={difficulty}
-                  onValueChange={(value) => setDifficulty(value)}
-                  style={styles.picker}
-                  dropdownIconColor={difficultyColors[difficulty]}
-                  itemStyle={styles.pickerItem}
-                  enabled={!loading}
-                >
-                  {difficulties.map((level) => (
-                    <Picker.Item key={level} label={level} value={level} />
-                  ))}
-                </Picker>
-              </View>
-            </View>
-            
+            {/* Category selection */}
+            <Text style={styles.label}>Category</Text>
+            <TouchableOpacity
+              style={styles.categoryButton}
+              onPress={() => !loading && setShowCategoryModal(true)}
+              disabled={loading}
+            >
+              <Ionicons name="list" size={16} color="#fff" />
+              <Text style={styles.categoryButtonText}>{category}</Text>
+              <Ionicons name="chevron-down" size={16} color="#fff" />
+            </TouchableOpacity>
+
+            {/* Difficulty row of chips */}
+            <Text style={styles.label}>Difficulty</Text>
+            {renderDifficultyChips()}
+
             {/* Generate Button */}
             <TouchableOpacity
               style={styles.generateButton}
@@ -214,74 +236,95 @@ const GRCScreen = () => {
             </TouchableOpacity>
           </View>
         </View>
-        
+
+        {/* Error message box */}
         {errorMessage ? (
           <View style={styles.errorContainer}>
             <Ionicons name="warning" size={20} color="#ff4e4e" />
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
         ) : null}
-        
+
+        {/* If question loaded, show it */}
         {questionData && (
           <View style={styles.questionCard}>
+            {/* Top info */}
             <View style={styles.questionHeader}>
               <View style={styles.questionMeta}>
                 <View style={styles.categoryContainer}>
-                  <Ionicons name={category === 'Random' ? 'shuffle' : 'shield-checkmark'} size={16} color="#AAAAAA" />
+                  <Ionicons
+                    name={category === 'Random' ? 'shuffle' : 'shield-checkmark'}
+                    size={16}
+                    color="#AAAAAA"
+                  />
                   <Text style={styles.questionCategory}> {category}</Text>
                 </View>
                 <View style={styles.difficultyContainer}>
-                  <Ionicons 
-                    name={difficulty === 'Easy' ? 'bulb-outline' : difficulty === 'Medium' ? 'rocket' : 'trophy'} 
-                    size={16} 
-                    color={difficultyColors[difficulty]} 
+                  <Ionicons
+                    name={
+                      difficulty === 'Easy'
+                        ? 'bulb-outline'
+                        : difficulty === 'Medium'
+                        ? 'rocket'
+                        : 'trophy'
+                    }
+                    size={16}
+                    color={difficultyColors[difficulty]}
                   />
-                  <Text style={[styles.questionDifficulty, {color: difficultyColors[difficulty]}]}> {difficulty}</Text>
+                  <Text style={[styles.questionDifficulty, { color: difficultyColors[difficulty] }]}>
+                    {' '}
+                    {difficulty}
+                  </Text>
                 </View>
               </View>
               <Text style={styles.questionTitle}>Question</Text>
             </View>
-            
+
+            {/* The question itself */}
             <View style={styles.questionContent}>
               <Text style={styles.questionText}>{questionData.question}</Text>
-              
+
               <View style={styles.optionsContainer}>
-                {questionData.options && questionData.options.map((option, index) => {
-                  const isCorrect = index === questionData.correct_answer_index;
-                  const isSelected = selectedOption === index;
-                  
-                  return (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.option,
-                        isSelected && styles.selectedOption,
-                        showExplanation && isCorrect && styles.correctOption,
-                        showExplanation && isSelected && !isCorrect && styles.incorrectOption
-                      ]}
-                      onPress={() => handleAnswer(index)}
-                      disabled={selectedOption !== null}
-                    >
-                      <View style={[
-                        styles.optionLetter,
-                        showExplanation && isCorrect && styles.correctLetter,
-                        showExplanation && isSelected && !isCorrect && styles.incorrectLetter
-                      ]}>
-                        <Text style={styles.optionLetterText}>{getLetterFromIndex(index)}</Text>
-                      </View>
-                      <Text style={styles.optionText}>{option}</Text>
-                      {showExplanation && isCorrect && (
-                        <Ionicons name="checkmark" size={20} color="#2ebb77" style={styles.statusIcon} />
-                      )}
-                      {showExplanation && isSelected && !isCorrect && (
-                        <Ionicons name="close" size={20} color="#ff4e4e" style={styles.statusIcon} />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
+                {questionData.options &&
+                  questionData.options.map((option, index) => {
+                    const isCorrect = index === questionData.correct_answer_index;
+                    const isSelected = selectedOption === index;
+
+                    return (
+                      <TouchableOpacity
+                        key={index}
+                        style={[
+                          styles.option,
+                          isSelected && styles.selectedOption,
+                          showExplanation && isCorrect && styles.correctOption,
+                          showExplanation && isSelected && !isCorrect && styles.incorrectOption,
+                        ]}
+                        onPress={() => handleAnswer(index)}
+                        disabled={selectedOption !== null}
+                      >
+                        <View
+                          style={[
+                            styles.optionLetter,
+                            showExplanation && isCorrect && styles.correctLetter,
+                            showExplanation && isSelected && !isCorrect && styles.incorrectLetter,
+                          ]}
+                        >
+                          <Text style={styles.optionLetterText}>{getLetterFromIndex(index)}</Text>
+                        </View>
+                        <Text style={styles.optionText}>{option}</Text>
+                        {showExplanation && isCorrect && (
+                          <Ionicons name="checkmark" size={20} color="#2ebb77" style={styles.statusIcon} />
+                        )}
+                        {showExplanation && isSelected && !isCorrect && (
+                          <Ionicons name="close" size={20} color="#ff4e4e" style={styles.statusIcon} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
               </View>
             </View>
-            
+
+            {/* If explanation is shown */}
             {showExplanation && selectedOption !== null && (
               <View style={styles.explanationContainer}>
                 <View style={styles.explanationHeader}>
@@ -298,7 +341,7 @@ const GRCScreen = () => {
                       </>
                     )}
                   </View>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.copyButton, copiedToClipboard && styles.copiedButton]}
                     onPress={handleCopy}
                   >
@@ -315,7 +358,7 @@ const GRCScreen = () => {
                     )}
                   </TouchableOpacity>
                 </View>
-                
+
                 <View style={styles.explanationContent}>
                   <View style={styles.explanationSection}>
                     <Text style={styles.explanationSectionTitle}>Explanation</Text>
@@ -323,7 +366,7 @@ const GRCScreen = () => {
                       {questionData.explanations && questionData.explanations[selectedOption.toString()]}
                     </Text>
                   </View>
-                  
+
                   <View style={styles.explanationSection}>
                     <View style={styles.tipTitleContainer}>
                       <Ionicons name="bulb" size={18} color="#ffc107" />
@@ -332,12 +375,10 @@ const GRCScreen = () => {
                     <Text style={styles.tipText}>{questionData.exam_tip}</Text>
                   </View>
                 </View>
-                
+
+                {/* “New Question” button */}
                 <View style={styles.actionButtons}>
-                  <TouchableOpacity 
-                    style={styles.nextButton} 
-                    onPress={getNewQuestion}
-                  >
+                  <TouchableOpacity style={styles.nextButton} onPress={getNewQuestion}>
                     <Ionicons name="sync" size={20} color="#fff" />
                     <Text style={styles.nextButtonText}>New Question</Text>
                   </TouchableOpacity>
@@ -347,10 +388,47 @@ const GRCScreen = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* Category Modal */}
+      <Modal
+        visible={showCategoryModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Pick a Category</Text>
+              <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={CATEGORY_OPTIONS}
+              keyExtractor={(item) => item.value}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.categoryItem}
+                  onPress={() => {
+                    setCategory(item.value);
+                    setShowCategoryModal(false);
+                  }}
+                >
+                  <Text style={styles.categoryItemText}>{item.label}</Text>
+                </TouchableOpacity>
+              )}
+              style={styles.categoryList}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
 
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -382,6 +460,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 15,
   },
+  // “Wizard card” for the top control area
   wizardCard: {
     backgroundColor: '#171a23',
     borderRadius: 15,
@@ -412,29 +491,54 @@ const styles = StyleSheet.create({
   controls: {
     gap: 15,
   },
-  controlGroup: {
-    marginBottom: 15,
-  },
   label: {
     fontSize: 14,
     color: '#9da8b9',
-    marginBottom: 8,
     fontWeight: '500',
   },
-  pickerWrapper: {
+  // Category selection button
+  categoryButton: {
+    backgroundColor: '#333333',
     borderWidth: 1,
     borderColor: '#2a2c3d',
     borderRadius: 8,
-    backgroundColor: '#333333',
-    overflow: 'hidden',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  picker: {
-    color: '#e2e2e2',
-    height: 50,
-  },
-  pickerItem: {
+  categoryButtonText: {
+    color: '#fff',
     fontSize: 16,
+    flex: 1,
   },
+  // Difficulty chips row
+  chipRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  chip: {
+    backgroundColor: '#333333',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#2a2c3d',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  chipText: {
+    color: '#9da8b9',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  chipActive: {
+    backgroundColor: '#6543cc',
+    borderColor: '#000',
+  },
+  chipTextActive: {
+    color: '#fff',
+  },
+  // Generate Button
   generateButton: {
     backgroundColor: '#6543cc',
     borderRadius: 8,
@@ -460,6 +564,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  // Error box
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -476,6 +581,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
   },
+  // Question card
   questionCard: {
     backgroundColor: '#171a23',
     borderRadius: 15,
@@ -683,6 +789,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+
+  // Category modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#171a23',
+    width: '90%',
+    maxHeight: '70%',
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#6543cc',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#6543cc',
+    padding: 15,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  categoryList: {
+    padding: 10,
+  },
+  categoryItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2c3d',
+  },
+  categoryItemText: {
+    color: '#fff',
+    fontSize: 16,
+  },
 });
 
 export default GRCScreen;
+

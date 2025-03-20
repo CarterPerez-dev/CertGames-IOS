@@ -15,124 +15,95 @@ import {
   Keyboard,
   Alert
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { streamScenario, streamScenarioQuestions } from '../../api/scenarioService';
+import { ATTACK_TYPES } from './attackTypes'
 
-// Sample attack types - in a real app, you'd import this from a separate file
-const ATTACK_TYPES = [
-  "AI Activation Exploit",
-  "AI Algorithm Manipulation",
-  "AI Data Leakage",
-  "AI Data Poisoning",
-  "Backdoor",
-  "Brute Force",
-  "Buffer Overflow",
-  "Business Email Compromise",
-  "Cloud Service Abuse",
-  "Command Injection",
-  "Cross-Site Request Forgery",
-  "Cross-Site Scripting",
-  "Cryptojacking",
-  "DDoS Attack",
-  "DNS Hijacking",
-  "DNS Spoofing",
-  "Data Exfiltration",
-  "Deepfake",
-  "Drive-by Download",
-  "Eavesdropping",
-  "Evil Twin Attack",
-  "File Inclusion",
-  "Firmware Attack",
-  "GDPR Violation",
-  "Honey Trap",
-  "IMSI Catcher",
-  "Identity Theft",
-  "Insider Threat",
-  "IoT Botnet",
-  "Keylogger",
-  "LDAP Injection",
-  "LLM Prompt Injection",
-  "Logic Bomb",
-  "MFA Bypass",
-  "MitM Attack",
-  "OAuth Token Theft",
-  "Password Spraying",
-  "Phishing",
-  "Ping of Death",
-  "Privilege Escalation",
-  "Ransomware",
-  "Remote Code Execution",
-  "Reverse Shell",
-  "Rootkit",
-  "SAML Attack",
-  "SQL Injection",
-  "Sandbox Escape",
-  "Session Hijacking",
-  "Side-Channel Attack",
-  "Social Engineering",
-  "Software Supply Chain",
-  "Spear Phishing",
-  "Spyware",
-  "Typosquatting",
-  "USB Drop Attack",
-  "Vishing",
-  "Virtual Host Confusion",
-  "Watering Hole",
-  "Web Shell",
-  "Zero-Day Exploit"
+////////////////////////////////////////////////////////////////////////////////
+// The possible industries for the "Industry" modal
+const INDUSTRY_OPTIONS = [
+  { label: 'Finance', value: 'Finance' },
+  { label: 'Healthcare', value: 'Healthcare' },
+  { label: 'Retail', value: 'Retail' },
+  { label: 'Technology', value: 'Technology' },
+  { label: 'Energy', value: 'Energy' },
+  { label: 'Education', value: 'Education' },
+  { label: 'Supply Chain', value: 'Supply Chain' },
+  { label: 'Telecommunications', value: 'Telecommunications' },
+  { label: 'Pharmaceutical', value: 'Pharmaceutical' },
+  { label: 'Transportation', value: 'Transportation' },
+  { label: 'Cybersecurity Company', value: 'Cybersecurity Company' },
+  { label: 'Manufacturing', value: 'Manufacturing' },
+  { label: 'CYBERPUNK2077', value: 'CYBERPUNK2077' },
 ];
 
+// The skill-level “chips”
+const SKILL_LEVELS = ['Script Kiddie', 'Intermediate', 'Advanced', 'APT'];
+
+// Attack suggestions
+
 const ScenarioSphereScreen = () => {
+  // State for whether we’re generating
   const [isGenerating, setIsGenerating] = useState(false);
-  const [industry, setIndustry] = useState("Finance");
-  const [attackType, setAttackType] = useState("");
-  const [skillLevel, setSkillLevel] = useState("Script Kiddie");
+
+  // Industry selection
+  const [industry, setIndustry] = useState('Finance');
+  // Whether to show the industry modal
+  const [showIndustryModal, setShowIndustryModal] = useState(false);
+
+  // Attack type input + suggestions
+  const [attackType, setAttackType] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
+
+  // Skill level
+  const [skillLevel, setSkillLevel] = useState('Script Kiddie');
+
+  // Threat intensity
   const [threatIntensity, setThreatIntensity] = useState(50);
 
-  const [scenarioText, setScenarioText] = useState("");
+  // Scenario data
+  const [scenarioText, setScenarioText] = useState('');
   const [interactiveQuestions, setInteractiveQuestions] = useState([]);
   const [userAnswers, setUserAnswers] = useState({});
   const [feedback, setFeedback] = useState({});
 
-  const [suggestions, setSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  // Additional states
+  const [errorMessage, setErrorMessage] = useState('');
   const [scoreCounter, setScoreCounter] = useState(0);
 
+  // UI toggles
   const [outputExpanded, setOutputExpanded] = useState(true);
   const [questionsExpanded, setQuestionsExpanded] = useState(true);
   const [generationComplete, setGenerationComplete] = useState(false);
   const [scenarioGenerated, setScenarioGenerated] = useState(false);
 
+  // Refs for scrolling
   const scrollViewRef = useRef();
   const scenarioOutputRef = useRef();
 
-  // Auto-scroll scenario output
+  // Auto-scroll scenario output while generating
   useEffect(() => {
     if (scenarioText && scenarioOutputRef.current && isGenerating) {
       scenarioOutputRef.current.scrollToEnd({ animated: true });
     }
   }, [scenarioText, isGenerating]);
 
+  /////////////////////////////////////////////////////////////////////////////
+  // Attack type input + suggestion logic
   const handleAttackTypeChange = (text) => {
     setAttackType(text);
-    setErrorMessage("");
+    setErrorMessage('');
 
     if (text.length > 0) {
-      const filteredSuggestions = ATTACK_TYPES.filter(
-        (attack) => attack.toLowerCase().includes(text.toLowerCase())
+      const filteredSuggestions = ATTACK_TYPES.filter((attack) =>
+        attack.toLowerCase().includes(text.toLowerCase())
       );
       setSuggestions(filteredSuggestions);
-      
-      if (filteredSuggestions.length > 0) {
-        setShowSuggestions(true);
-      } else {
-        setShowSuggestions(false);
-      }
+      setShowSuggestions(filteredSuggestions.length > 0);
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -154,20 +125,44 @@ const ScenarioSphereScreen = () => {
     setShowSuggestionsModal(true);
   };
 
+  /////////////////////////////////////////////////////////////////////////////
+  // Industry selection
+  const handleSelectIndustry = (value) => {
+    setIndustry(value);
+    setShowIndustryModal(false);
+  };
+
+  // Skill-level “chips”
+  const renderSkillLevelChips = () => (
+    <View style={styles.chipRow}>
+      {SKILL_LEVELS.map((level) => {
+        const active = skillLevel === level;
+        return (
+          <TouchableOpacity
+            key={level}
+            style={[styles.chip, active && styles.chipActive]}
+            onPress={() => !isGenerating && setSkillLevel(level)}
+            disabled={isGenerating}
+          >
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{level}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Generation logic
   const handleGenerateScenario = async () => {
     if (!attackType.trim()) {
-      setErrorMessage("Please enter the Type of Attack");
-      Alert.alert(
-        "Missing Information", 
-        "Please enter the Type of Attack",
-        [{ text: "OK" }]
-      );
+      setErrorMessage('Please enter the Type of Attack');
+      Alert.alert('Missing Information', 'Please enter the Type of Attack', [{ text: 'OK' }]);
       return;
     }
 
-    setErrorMessage("");
+    setErrorMessage('');
     setIsGenerating(true);
-    setScenarioText("");
+    setScenarioText('');
     setInteractiveQuestions([]);
     setUserAnswers({});
     setFeedback({});
@@ -176,27 +171,18 @@ const ScenarioSphereScreen = () => {
     setGenerationComplete(false);
 
     try {
-      // Get the scenario
-      const scenarioData = await streamScenario(
-        industry,
-        attackType,
-        skillLevel,
-        threatIntensity
-      );
-      
+      // 1) Generate scenario
+      const scenarioData = await streamScenario(industry, attackType, skillLevel, threatIntensity);
+
       setScenarioText(scenarioData);
       setGenerationComplete(true);
-      
-      // Now fetch the questions based on the scenario
+
+      // 2) Then fetch questions for that scenario
       fetchQuestions(scenarioData);
     } catch (error) {
       console.error('Error generating scenario:', error);
-      setErrorMessage("An error occurred while generating the scenario");
-      Alert.alert(
-        "Error", 
-        "Error generating scenario. Please try again.", 
-        [{ text: "OK" }]
-      );
+      setErrorMessage('An error occurred while generating the scenario');
+      Alert.alert('Error', 'Error generating scenario. Please try again.', [{ text: 'OK' }]);
     } finally {
       setIsGenerating(false);
     }
@@ -207,47 +193,41 @@ const ScenarioSphereScreen = () => {
 
     try {
       const questionsData = await streamScenarioQuestions(finalScenarioText);
-      
+
       if (Array.isArray(questionsData)) {
-        const errorObj = questionsData.find(q => q.error);
+        const errorObj = questionsData.find((q) => q.error);
         if (errorObj) {
-          console.error("Error in questions generation:", errorObj.error);
+          console.error('Error in questions generation:', errorObj.error);
           setErrorMessage(`Error generating questions: ${errorObj.error}`);
-          Alert.alert(
-            "Error", 
-            `Error generating questions: ${errorObj.error}`,
-            [{ text: "OK" }]
-          );
+          Alert.alert('Error', `Error generating questions: ${errorObj.error}`, [{ text: 'OK' }]);
         } else if (questionsData.length === 3) {
           setInteractiveQuestions(questionsData);
         } else {
-          console.error("Expected exactly 3 questions, but received:", questionsData);
-          setErrorMessage("Unexpected number of questions received");
+          console.error('Expected exactly 3 questions, but received:', questionsData);
+          setErrorMessage('Unexpected number of questions received');
         }
       } else {
-        console.error("Parsed questions are not in an array format.");
-        setErrorMessage("Invalid format for interactive questions");
+        console.error('Parsed questions are not in an array format.');
+        setErrorMessage('Invalid format for interactive questions');
       }
     } catch (error) {
-      console.error("Error fetching questions:", error);
-      setErrorMessage("Error fetching questions");
-      Alert.alert(
-        "Error", 
-        "Error fetching questions. Please try again.",
-        [{ text: "OK" }]
-      );
+      console.error('Error fetching questions:', error);
+      setErrorMessage('Error fetching questions');
+      Alert.alert('Error', 'Error fetching questions. Please try again.', [{ text: 'OK' }]);
     }
   };
 
+  /////////////////////////////////////////////////////////////////////////////
+  // Answer logic
   const handleAnswerSelect = (questionIndex, selectedOption) => {
     // Already answered? do nothing
     if (Object.prototype.hasOwnProperty.call(userAnswers, questionIndex)) {
       return;
     }
-    
+
     const question = interactiveQuestions[questionIndex];
     if (!question) return;
-    
+
     const isCorrect = selectedOption === question.correct_answer;
 
     setUserAnswers((prevAnswers) => ({
@@ -262,38 +242,38 @@ const ScenarioSphereScreen = () => {
         explanation: question.explanation,
       },
     }));
-    
+
     if (isCorrect) {
-      setScoreCounter(prev => prev + 1);
-      Alert.alert("Correct!", "You selected the right answer.", [{ text: "OK" }]);
+      setScoreCounter((prev) => prev + 1);
+      Alert.alert('Correct!', 'You selected the right answer.', [{ text: 'OK' }]);
     } else {
-      Alert.alert("Incorrect", "That's not the right answer.", [{ text: "OK" }]);
+      Alert.alert('Incorrect', "That's not the right answer.", [{ text: 'OK' }]);
     }
   };
 
-  // Calculate a rough progress percentage based on paragraph count
+  /////////////////////////////////////////////////////////////////////////////
+  // Stream progress (just a visual effect)
   const calculateStreamProgress = () => {
     if (!scenarioText) return 0;
-    const paragraphs = scenarioText.split('\n\n').filter(p => p.trim().length > 0);
+    const paragraphs = scenarioText.split('\n\n').filter((p) => p.trim().length > 0);
     return Math.min(Math.ceil((paragraphs.length / 5) * 100), 90);
   };
-
   const streamProgress = calculateStreamProgress();
 
-  // Render suggestion items for modal
+  /////////////////////////////////////////////////////////////////////////////
+  // Render suggestion items for the "Show all" modal
   const renderSuggestionItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.modalSuggestionItem}
-      onPress={() => selectSuggestion(item)}
-    >
+    <TouchableOpacity style={styles.modalSuggestionItem} onPress={() => selectSuggestion(item)}>
       <Text style={styles.modalSuggestionText}>{item}</Text>
     </TouchableOpacity>
   );
 
+  // The UI
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      
+
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>
           <Ionicons name="shield" size={24} color="#6543cc" /> Scenario Sphere
@@ -301,34 +281,31 @@ const ScenarioSphereScreen = () => {
         <Text style={styles.subtitle}>
           Immerse yourself in realistic cybersecurity scenarios and test your knowledge
         </Text>
-        
+
+        {/* Error alert at top if needed */}
         {errorMessage ? (
           <View style={styles.errorContainer}>
             <Ionicons name="warning" size={20} color="#ff4e4e" />
             <Text style={styles.errorText}>{errorMessage}</Text>
-            <TouchableOpacity 
-              style={styles.errorCloseButton}
-              onPress={() => setErrorMessage("")}
-            >
+            <TouchableOpacity style={styles.errorCloseButton} onPress={() => setErrorMessage('')}>
               <Ionicons name="close" size={18} color="#9da8b9" />
             </TouchableOpacity>
           </View>
         ) : null}
       </View>
-      
-      <ScrollView 
-        style={styles.scrollView}
-        ref={scrollViewRef}
-        keyboardShouldPersistTaps="handled"
-      >
+
+      {/* Screen scroll */}
+      <ScrollView style={styles.scrollView} ref={scrollViewRef} keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
+
+          {/* Card with param controls */}
           <View style={styles.paramsCard}>
             <View style={styles.paramsHeader}>
               <View style={styles.paramsHeaderLeft}>
                 <Ionicons name="settings" size={20} color="#6543cc" />
                 <Text style={styles.paramsTitle}>Generation Parameters</Text>
               </View>
-              
+
               <View style={styles.scoreCounter}>
                 <Text style={styles.scoreValue}>
                   <Text style={styles.scoreHighlight}>{scoreCounter}</Text>/3
@@ -336,40 +313,25 @@ const ScenarioSphereScreen = () => {
                 <Text style={styles.scoreLabel}>Correct</Text>
               </View>
             </View>
-            
+
             <View style={styles.paramsContent}>
-              {/* Industry Picker */}
+              {/* 1) Industry Button */}
               <View style={styles.paramGroup}>
                 <Text style={styles.paramLabel}>
                   <Ionicons name="business" size={16} color="#6543cc" /> Industry
                 </Text>
-                <View style={styles.pickerWrapper}>
-                  <Picker
-                    selectedValue={industry}
-                    onValueChange={(value) => setIndustry(value)}
-                    style={styles.picker}
-                    dropdownIconColor="#6543cc"
-                    itemStyle={styles.pickerItem}
-                    enabled={!isGenerating}
-                  >
-                    <Picker.Item label="Finance" value="Finance" />
-                    <Picker.Item label="Healthcare" value="Healthcare" />
-                    <Picker.Item label="Retail" value="Retail" />
-                    <Picker.Item label="Technology" value="Technology" />
-                    <Picker.Item label="Energy" value="Energy" />
-                    <Picker.Item label="Education" value="Education" />
-                    <Picker.Item label="Supply Chain" value="Supply Chain" />
-                    <Picker.Item label="Telecommunications" value="Telecommunications" />
-                    <Picker.Item label="Pharmaceutical" value="Pharmaceutical" />
-                    <Picker.Item label="Transportation" value="Transportation" />
-                    <Picker.Item label="Cybersecurity Company" value="Cybersecurity Company" />
-                    <Picker.Item label="Manufacturing" value="Manufacturing" />
-                    <Picker.Item label="CYBERPUNK2077" value="CYBERPUNK2077" />
-                  </Picker>
-                </View>
+                <TouchableOpacity
+                  style={styles.industryButton}
+                  onPress={() => !isGenerating && setShowIndustryModal(true)}
+                  disabled={isGenerating}
+                >
+                  <Ionicons name="list" size={16} color="#fff" />
+                  <Text style={styles.industryButtonText}>{industry}</Text>
+                  <Ionicons name="chevron-down" size={16} color="#fff" />
+                </TouchableOpacity>
               </View>
-              
-              {/* Attack Type Input */}
+
+              {/* 2) Attack Type input + suggestions */}
               <View style={styles.paramGroup}>
                 <Text style={styles.paramLabel}>
                   <Ionicons name="skull" size={16} color="#6543cc" /> Attack Type
@@ -385,56 +347,50 @@ const ScenarioSphereScreen = () => {
                     editable={!isGenerating}
                   />
                 </View>
-                
+
                 {showSuggestions && suggestions.length > 0 && (
                   <View style={styles.suggestionsPreview}>
-                    {suggestions.slice(0, 3).map((suggestion) => (
+                    {suggestions.slice(0, 3).map((sug) => (
                       <TouchableOpacity
-                        key={suggestion}
+                        key={sug}
                         style={styles.suggestionPreviewItem}
-                        onPress={() => selectSuggestion(suggestion)}
+                        onPress={() => selectSuggestion(sug)}
                       >
-                        <Text style={styles.suggestionPreviewText}>{suggestion}</Text>
+                        <Text style={styles.suggestionPreviewText}>{sug}</Text>
                       </TouchableOpacity>
                     ))}
-                    
                     {suggestions.length > 3 && (
-                      <TouchableOpacity 
-                        style={styles.showAllButton}
-                        onPress={handleShowAllSuggestions}
-                      >
-                        <Text style={styles.showAllText}>
-                          Show all ({suggestions.length})
-                        </Text>
+                      <TouchableOpacity style={styles.showAllButton} onPress={handleShowAllSuggestions}>
+                        <Text style={styles.showAllText}>Show all ({suggestions.length})</Text>
                       </TouchableOpacity>
                     )}
                   </View>
                 )}
               </View>
-              
-              {/* Skill Level Picker */}
+
+              {/* 3) Skill Level chips */}
               <View style={styles.paramGroup}>
                 <Text style={styles.paramLabel}>
                   <Ionicons name="person" size={16} color="#6543cc" /> Attacker Skill Level
                 </Text>
-                <View style={styles.pickerWrapper}>
-                  <Picker
-                    selectedValue={skillLevel}
-                    onValueChange={(value) => setSkillLevel(value)}
-                    style={styles.picker}
-                    dropdownIconColor="#6543cc"
-                    itemStyle={styles.pickerItem}
-                    enabled={!isGenerating}
-                  >
-                    <Picker.Item label="Script Kiddie" value="Script Kiddie" />
-                    <Picker.Item label="Intermediate" value="Intermediate" />
-                    <Picker.Item label="Advanced" value="Advanced" />
-                    <Picker.Item label="APT" value="APT" />
-                  </Picker>
+                <View style={styles.chipRow}>
+                  {SKILL_LEVELS.map((level) => {
+                    const active = skillLevel === level;
+                    return (
+                      <TouchableOpacity
+                        key={level}
+                        style={[styles.chip, active && styles.chipActive]}
+                        onPress={() => !isGenerating && setSkillLevel(level)}
+                        disabled={isGenerating}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{level}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
-              
-              {/* Threat Intensity Slider */}
+
+              {/* 4) Threat Intensity Slider */}
               <View style={styles.paramGroup}>
                 <View style={styles.sliderLabelContainer}>
                   <Text style={styles.paramLabel}>
@@ -444,27 +400,27 @@ const ScenarioSphereScreen = () => {
                     <Text style={styles.intensityValue}>{threatIntensity}</Text>
                   </View>
                 </View>
-                
+
                 <Slider
                   style={styles.slider}
                   minimumValue={1}
                   maximumValue={100}
                   step={1}
                   value={threatIntensity}
-                  onValueChange={(value) => setThreatIntensity(value)}
+                  onValueChange={(val) => setThreatIntensity(val)}
                   minimumTrackTintColor="#6543cc"
                   maximumTrackTintColor="#333333"
                   thumbTintColor="#6543cc"
                   disabled={isGenerating}
                 />
-                
+
                 <View style={styles.sliderMarkers}>
                   <Text style={styles.sliderMarker}>Low</Text>
                   <Text style={styles.sliderMarker}>Medium</Text>
                   <Text style={styles.sliderMarker}>High</Text>
                 </View>
               </View>
-              
+
               {/* Generate Button */}
               <TouchableOpacity
                 style={[styles.generateButton, isGenerating && styles.generateButtonDisabled]}
@@ -485,44 +441,39 @@ const ScenarioSphereScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-          
+
+          {/* If scenario is generated */}
           {scenarioGenerated && (
             <View style={styles.results}>
               {/* Scenario Output Card */}
               <View style={styles.outputCard}>
-                <TouchableOpacity 
-                  style={styles.outputHeader}
-                  onPress={() => setOutputExpanded(!outputExpanded)}
-                >
+                <TouchableOpacity style={styles.outputHeader} onPress={() => setOutputExpanded(!outputExpanded)}>
                   <View style={styles.outputHeaderLeft}>
                     <Ionicons name="lock-closed" size={20} color="#6543cc" />
                     <Text style={styles.outputTitle}>Generated Scenario</Text>
                   </View>
-                  
+
                   <View style={styles.outputControls}>
                     {!generationComplete && isGenerating && (
                       <View style={styles.progressContainer}>
                         <View style={styles.progressBar}>
-                          <View 
-                            style={[styles.progressFill, { width: `${streamProgress}%` }]}
-                          />
+                          <View style={[styles.progressFill, { width: `${streamProgress}%` }]} />
                         </View>
                         <Text style={styles.progressLabel}>Generating...</Text>
                       </View>
                     )}
-                    
                     <TouchableOpacity style={styles.toggleButton}>
-                      <Ionicons 
-                        name={outputExpanded ? "chevron-up" : "chevron-down"} 
-                        size={20} 
-                        color="#9da8b9" 
+                      <Ionicons
+                        name={outputExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={20}
+                        color="#9da8b9"
                       />
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
-                
+
                 {outputExpanded && (
-                  <ScrollView 
+                  <ScrollView
                     style={styles.outputContent}
                     ref={scenarioOutputRef}
                     contentContainerStyle={styles.outputContentContainer}
@@ -534,24 +485,18 @@ const ScenarioSphereScreen = () => {
                       </Text>
                     ) : (
                       <View style={styles.placeholderContainer}>
-                        <ActivityIndicator 
-                          color="#6543cc" 
-                          size="large"
-                          animating={isGenerating}
-                        />
-                        <Text style={styles.placeholderText}>
-                          Scenario will appear here...
-                        </Text>
+                        <ActivityIndicator color="#6543cc" size="large" animating={isGenerating} />
+                        <Text style={styles.placeholderText}>Scenario will appear here...</Text>
                       </View>
                     )}
                   </ScrollView>
                 )}
               </View>
-              
+
               {/* Questions Card */}
               {interactiveQuestions.length > 0 && (
                 <View style={styles.questionsCard}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.questionsHeader}
                     onPress={() => setQuestionsExpanded(!questionsExpanded)}
                   >
@@ -559,18 +504,19 @@ const ScenarioSphereScreen = () => {
                       <Ionicons name="help-circle" size={20} color="#6543cc" />
                       <Text style={styles.questionsTitle}>Knowledge Assessment</Text>
                     </View>
-                    
+
                     <TouchableOpacity style={styles.toggleButton}>
-                      <Ionicons 
-                        name={questionsExpanded ? "chevron-up" : "chevron-down"} 
-                        size={20} 
-                        color="#9da8b9" 
+                      <Ionicons
+                        name={questionsExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={20}
+                        color="#9da8b9"
                       />
                     </TouchableOpacity>
                   </TouchableOpacity>
-                  
+
                   {questionsExpanded && (
                     <View style={styles.questionsContent}>
+                      {/* If user answered all questions, show "Assessment Complete" */}
                       {Object.keys(feedback).length === interactiveQuestions.length && (
                         <View style={styles.assessmentComplete}>
                           <Ionicons name="checkmark-circle" size={24} color="#2ebb77" />
@@ -582,82 +528,92 @@ const ScenarioSphereScreen = () => {
                           </View>
                         </View>
                       )}
-                      
+
                       {interactiveQuestions.map((question, index) => {
                         const questionFeedback = feedback[index];
                         const isCorrect = questionFeedback?.isCorrect;
-                        
+
                         return (
                           <View key={index} style={styles.questionCard}>
                             <View style={styles.questionHeader}>
                               <Text style={styles.questionNumber}>Question {index + 1}</Text>
                               {questionFeedback && (
-                                <View style={[
-                                  styles.questionStatus,
-                                  isCorrect ? styles.correctStatus : styles.incorrectStatus
-                                ]}>
-                                  <Ionicons 
-                                    name={isCorrect ? "checkmark" : "close"} 
-                                    size={16} 
-                                    color={isCorrect ? "#2ebb77" : "#ff4e4e"} 
+                                <View
+                                  style={[
+                                    styles.questionStatus,
+                                    isCorrect ? styles.correctStatus : styles.incorrectStatus,
+                                  ]}
+                                >
+                                  <Ionicons
+                                    name={isCorrect ? 'checkmark' : 'close'}
+                                    size={16}
+                                    color={isCorrect ? '#2ebb77' : '#ff4e4e'}
                                   />
-                                  <Text style={[
-                                    styles.statusText,
-                                    isCorrect ? styles.correctText : styles.incorrectText
-                                  ]}>
-                                    {isCorrect ? "Correct" : "Incorrect"}
+                                  <Text style={[styles.statusText, isCorrect ? styles.correctText : styles.incorrectText]}>
+                                    {isCorrect ? 'Correct' : 'Incorrect'}
                                   </Text>
                                 </View>
                               )}
                             </View>
-                            
+
                             <Text style={styles.questionText}>{question.question}</Text>
-                            
+
                             <View style={styles.optionsContainer}>
-                              {question.options && Object.entries(question.options).map(([optionLetter, optionText]) => {
-                                const isSelected = userAnswers[index] === optionLetter;
-                                const showCorrect = questionFeedback && question.correct_answer === optionLetter;
-                                const showIncorrect = questionFeedback && isSelected && !isCorrect;
-                                
-                                return (
-                                  <TouchableOpacity
-                                    key={optionLetter}
-                                    style={[
-                                      styles.optionButton,
-                                      isSelected && styles.selectedOption,
-                                      showCorrect && styles.correctOption,
-                                      showIncorrect && styles.incorrectOption
-                                    ]}
-                                    onPress={() => handleAnswerSelect(index, optionLetter)}
-                                    disabled={Object.prototype.hasOwnProperty.call(userAnswers, index)}
-                                  >
-                                    <View style={[
-                                      styles.optionLetter,
-                                      showCorrect && styles.correctLetter,
-                                      showIncorrect && styles.incorrectLetter
-                                    ]}>
-                                      <Text style={styles.optionLetterText}>{optionLetter}</Text>
-                                    </View>
-                                    
-                                    <Text style={styles.optionText}>{optionText}</Text>
-                                    
-                                    {showCorrect && (
-                                      <Ionicons name="checkmark" size={20} color="#2ebb77" style={styles.optionIcon} />
-                                    )}
-                                    {showIncorrect && (
-                                      <Ionicons name="close" size={20} color="#ff4e4e" style={styles.optionIcon} />
-                                    )}
-                                  </TouchableOpacity>
-                                );
-                              })}
+                              {question.options &&
+                                Object.entries(question.options).map(([optionLetter, optionText]) => {
+                                  const isSelected = userAnswers[index] === optionLetter;
+                                  const showCorrect = questionFeedback && question.correct_answer === optionLetter;
+                                  const showIncorrect = questionFeedback && isSelected && !isCorrect;
+
+                                  return (
+                                    <TouchableOpacity
+                                      key={optionLetter}
+                                      style={[
+                                        styles.optionButton,
+                                        isSelected && styles.selectedOption,
+                                        showCorrect && styles.correctOption,
+                                        showIncorrect && styles.incorrectOption,
+                                      ]}
+                                      onPress={() => handleAnswerSelect(index, optionLetter)}
+                                      disabled={Object.prototype.hasOwnProperty.call(userAnswers, index)}
+                                    >
+                                      <View
+                                        style={[
+                                          styles.optionLetter,
+                                          showCorrect && styles.correctLetter,
+                                          showIncorrect && styles.incorrectLetter,
+                                        ]}
+                                      >
+                                        <Text style={styles.optionLetterText}>{optionLetter}</Text>
+                                      </View>
+
+                                      <Text style={styles.optionText}>{optionText}</Text>
+
+                                      {showCorrect && (
+                                        <Ionicons
+                                          name="checkmark"
+                                          size={20}
+                                          color="#2ebb77"
+                                          style={styles.optionIcon}
+                                        />
+                                      )}
+                                      {showIncorrect && (
+                                        <Ionicons
+                                          name="close"
+                                          size={20}
+                                          color="#ff4e4e"
+                                          style={styles.optionIcon}
+                                        />
+                                      )}
+                                    </TouchableOpacity>
+                                  );
+                                })}
                             </View>
-                            
+
                             {questionFeedback && (
                               <View style={styles.feedbackContainer}>
                                 <Ionicons name="bulb" size={20} color="#ffc107" style={styles.feedbackIcon} />
-                                <Text style={styles.feedbackExplanation}>
-                                  {questionFeedback.explanation}
-                                </Text>
+                                <Text style={styles.feedbackExplanation}>{questionFeedback.explanation}</Text>
                               </View>
                             )}
                           </View>
@@ -671,8 +627,47 @@ const ScenarioSphereScreen = () => {
           )}
         </View>
       </ScrollView>
-      
-      {/* Suggestions Modal */}
+
+      {/* Industry Modal */}
+      <Modal
+        visible={showIndustryModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowIndustryModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowIndustryModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Select an Industry</Text>
+                  <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowIndustryModal(false)}>
+                    <Ionicons name="close" size={24} color="#e2e2e2" />
+                  </TouchableOpacity>
+                </View>
+
+                <FlatList
+                  data={INDUSTRY_OPTIONS}
+                  keyExtractor={(item) => item.value}
+                  style={styles.modalList}
+                  showsVerticalScrollIndicator={true}
+                  contentContainerStyle={styles.modalListContent}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.modalSuggestionItem}
+                      onPress={() => handleSelectIndustry(item.value)}
+                    >
+                      <Text style={styles.modalSuggestionText}>{item.label}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Attack type “Show all suggestions” Modal */}
       <Modal
         visible={showSuggestionsModal}
         transparent={true}
@@ -685,14 +680,11 @@ const ScenarioSphereScreen = () => {
               <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Attack Types</Text>
-                  <TouchableOpacity 
-                    style={styles.modalCloseButton}
-                    onPress={() => setShowSuggestionsModal(false)}
-                  >
+                  <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowSuggestionsModal(false)}>
                     <Ionicons name="close" size={24} color="#e2e2e2" />
                   </TouchableOpacity>
                 </View>
-                
+
                 <FlatList
                   data={suggestions}
                   renderItem={renderSuggestionItem}
@@ -710,7 +702,9 @@ const ScenarioSphereScreen = () => {
   );
 };
 
+// Styles
 const styles = StyleSheet.create({
+  /////////////////////////////////////////////////////////////////////////////
   container: {
     flex: 1,
     backgroundColor: '#0b0c15',
@@ -759,6 +753,8 @@ const styles = StyleSheet.create({
   errorCloseButton: {
     padding: 5,
   },
+
+  /////////////////////////////////////////////////////////////////////////////
   scrollView: {
     flex: 1,
   },
@@ -767,6 +763,9 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 30,
   },
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Param card (industry, attack type, skill level, threat intensity)
   paramsCard: {
     backgroundColor: '#171a23',
     borderRadius: 15,
@@ -826,21 +825,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '500',
   },
-  pickerWrapper: {
+
+  // Industry Button
+  industryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#333333',
     borderWidth: 1,
     borderColor: '#2a2c3d',
     borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    overflow: 'hidden',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    gap: 8,
   },
-  picker: {
-    color: '#e2e2e2',
-    height: 50,
-  },
-  pickerItem: {
+  industryButtonText: {
+    color: '#fff',
     fontSize: 16,
-    color: '#e2e2e2',
+    flex: 1,
   },
+
+  // Attack type input
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -859,6 +863,7 @@ const styles = StyleSheet.create({
     height: 50,
     fontSize: 16,
   },
+  // Attack type suggestions preview
   suggestionsPreview: {
     backgroundColor: '#171a23',
     borderWidth: 1,
@@ -885,6 +890,35 @@ const styles = StyleSheet.create({
     color: '#6543cc',
     fontSize: 14,
   },
+
+  // Skill level chips
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  chip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#333333',
+    backgroundColor: '#333333',
+  },
+  chipText: {
+    color: '#aaa',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  chipActive: {
+    backgroundColor: '#6543cc',
+    borderColor: '#000',
+  },
+  chipTextActive: {
+    color: '#fff',
+  },
+
+  // Threat Intensity
   sliderLabelContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -914,6 +948,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9da8b9',
   },
+
+  // Generate Button
   generateButton: {
     backgroundColor: '#6543cc',
     borderRadius: 8,
@@ -943,9 +979,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Results
   results: {
     gap: 20,
   },
+
+  // Scenario output card
   outputCard: {
     backgroundColor: '#171a23',
     borderRadius: 15,
@@ -1035,6 +1076,8 @@ const styles = StyleSheet.create({
     color: '#9da8b9',
     fontSize: 16,
   },
+
+  // Knowledge Assessment card
   questionsCard: {
     backgroundColor: '#171a23',
     borderRadius: 15,
@@ -1215,8 +1258,9 @@ const styles = StyleSheet.create({
     color: '#9da8b9',
     lineHeight: 22,
   },
-  
-  // Modal styles
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Full-screen Modals
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.75)',
@@ -1268,3 +1312,4 @@ const styles = StyleSheet.create({
 });
 
 export default ScenarioSphereScreen;
+

@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
+
 import {
   THREAD_STATUS,
   STATUS_INFO,
@@ -46,7 +47,7 @@ const MESSAGES_STORAGE_KEY = (threadId) => `support_messages_${threadId}`;
 const SELECTED_THREAD_KEY = 'support_selected_thread';
 
 const SupportScreen = ({ navigation }) => {
-  // Get user ID from SecureStore when component mounts
+  // Get user ID from SecureStore on mount
   const [userId, setUserId] = useState(null);
   
   // Thread and message states
@@ -62,7 +63,7 @@ const SupportScreen = ({ navigation }) => {
   const [showSupportInfoPopup, setShowSupportInfoPopup] = useState(true);
   const [mobileThreadsVisible, setMobileThreadsVisible] = useState(true);
   
-  // Loading and error states
+  // Loading / error / socket states
   const [loadingThreads, setLoadingThreads] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState(null);
@@ -74,61 +75,63 @@ const SupportScreen = ({ navigation }) => {
   const processedMessagesRef = useRef(new Set()); // Track processed messages
   const isComponentMounted = useRef(true);
   
-  // Get user ID from SecureStore
+  /////////////////////////////////////////////////////////////////////////
+  // 1) Load userId from SecureStore
+  /////////////////////////////////////////////////////////////////////////
   useEffect(() => {
     const getUserId = async () => {
       try {
         const id = await SecureStore.getItemAsync('userId');
         if (id) {
-          console.log("Retrieved userId from SecureStore:", id);
+          console.log('Retrieved userId from SecureStore:', id);
           setUserId(id);
         }
       } catch (err) {
-        console.error("Error retrieving userId from SecureStore:", err);
+        console.error('Error retrieving userId from SecureStore:', err);
       }
     };
-    
     getUserId();
   }, []);
   
-  // This effect runs when the screen comes into focus
+  /////////////////////////////////////////////////////////////////////////
+  // 2) useFocusEffect: fetch threads if we have a userId
+  /////////////////////////////////////////////////////////////////////////
   useFocusEffect(
     useCallback(() => {
-      console.log("Support screen is focused");
+      console.log('Support screen is focused');
       if (userId) {
-        // Fetch threads whenever the screen comes into focus
+        // Fetch threads whenever the screen is focused
         fetchUserThreads();
-        
-        // Restore previously selected thread
+
+        // Restore selected thread
         const restoreSelectedThread = async () => {
           try {
             const storedThreadId = await AsyncStorage.getItem(SELECTED_THREAD_KEY);
             if (storedThreadId) {
-              console.log("Restoring selected thread:", storedThreadId);
+              console.log('Restoring selected thread:', storedThreadId);
               setSelectedThreadId(storedThreadId);
               loadMessagesForThread(storedThreadId);
             }
           } catch (err) {
-            console.error("Error restoring selected thread:", err);
+            console.error('Error restoring selected thread:', err);
           }
         };
-        
         restoreSelectedThread();
       }
-      
       return () => {
-        // This runs when the screen loses focus
-        console.log("Support screen is losing focus");
+        console.log('Support screen losing focus');
       };
     }, [userId])
   );
   
-  // Initialize Socket.IO connection
+  /////////////////////////////////////////////////////////////////////////
+  // 3) Initialize Socket.IO
+  /////////////////////////////////////////////////////////////////////////
   useEffect(() => {
-    console.log("Setting up socket connection...");
+    console.log('Setting up socket connection...');
     
     if (!socket) {
-      // Get the base URL from your API config
+      // Derive base URL from your config
       const baseUrl = BASE_URL ? BASE_URL.replace(/\/api\/?$/, '') : 'https://certgames.com';
       console.log(`Initializing socket to: ${baseUrl}`);
       
@@ -141,12 +144,11 @@ const SupportScreen = ({ navigation }) => {
       });
     }
     
-    // Connection event handlers
     const handleConnect = () => {
-      console.log("Socket connected:", socket.id);
+      console.log('Socket connected:', socket.id);
       setSocketStatus('connected');
       
-      // Join user's personal room for notifications
+      // If we have a userId, join the personal room
       if (userId) {
         socket.emit('join_user_room', { userId });
         console.log(`Joined user room: user_${userId}`);
@@ -154,24 +156,24 @@ const SupportScreen = ({ navigation }) => {
       
       // Re-join current thread room if there is one
       if (selectedThreadId) {
-        socket.emit('join_thread', { threadId: selectedThreadId });
+        socket.emit('join_thread', { threadId: selectedThreadId, userId });
         console.log(`Rejoined thread room on connect: ${selectedThreadId}`);
       }
       
-      // Also, when connection is established, join rooms for all threads
-      threads.forEach(thread => {
-        socket.emit('join_thread', { threadId: thread._id });
+      // Also join all thread rooms if we have threads
+      threads.forEach((thread) => {
+        socket.emit('join_thread', { threadId: thread._id, userId });
         console.log(`Joined thread room for thread: ${thread._id}`);
       });
     };
     
     const handleDisconnect = () => {
-      console.log("Socket disconnected");
+      console.log('Socket disconnected');
       setSocketStatus('disconnected');
     };
     
     const handleConnectError = (err) => {
-      console.error("Socket connection error:", err);
+      console.error('Socket connection error:', err);
       setSocketStatus('error');
     };
     
@@ -179,7 +181,7 @@ const SupportScreen = ({ navigation }) => {
     socket.on('disconnect', handleDisconnect);
     socket.on('connect_error', handleConnectError);
     
-    // If socket is already connected, manually trigger connect handler
+    // If already connected, manually trigger connect logic
     if (socket.connected) {
       handleConnect();
     }
@@ -192,37 +194,31 @@ const SupportScreen = ({ navigation }) => {
     };
   }, [userId, selectedThreadId, threads]);
   
-  // Setup message listeners when selectedThreadId changes
+  /////////////////////////////////////////////////////////////////////////
+  // 4) Socket event listeners (on selectedThreadId change)
+  /////////////////////////////////////////////////////////////////////////
   useEffect(() => {
     if (!socket) return;
     
-    // Handle new messages from server
     const handleNewMessage = (payload) => {
-      console.log("Received new_message event:", payload);
+      console.log('Received new_message event:', payload);
       const { threadId, message } = payload;
       
-      // Add message to current thread if it's selected
+      // If message belongs to the currently selected thread
       if (threadId === selectedThreadId) {
-        // Create a signature to avoid duplicates
-        const messageSignature = `${message.sender}:${message.content}:${message.timestamp}`;
-        
-        // Add the message if we haven't processed it before
-        if (!processedMessagesRef.current.has(messageSignature)) {
-          processedMessagesRef.current.add(messageSignature);
+        const signature = `${message.sender}:${message.content}:${message.timestamp}`;
+        if (!processedMessagesRef.current.has(signature)) {
+          processedMessagesRef.current.add(signature);
           
-          setMessages(prevMessages => {
-            const updatedMessages = [...prevMessages, message];
-            
-            // Store updated messages in AsyncStorage
-            AsyncStorage.setItem(
-              MESSAGES_STORAGE_KEY(threadId), 
-              JSON.stringify(updatedMessages)
-            ).catch(err => console.error("Error saving messages:", err));
-            
-            return updatedMessages;
+          setMessages((prev) => {
+            const updated = [...prev, message];
+            // Cache them
+            AsyncStorage.setItem(MESSAGES_STORAGE_KEY(threadId), JSON.stringify(updated))
+              .catch(err => console.error('Error saving messages:', err));
+            return updated;
           });
           
-          // Scroll to bottom
+          // Scroll to bottom after short delay
           setTimeout(() => {
             if (chatEndRef.current) {
               chatEndRef.current.scrollToEnd({ animated: true });
@@ -231,26 +227,21 @@ const SupportScreen = ({ navigation }) => {
         }
       }
       
-      // Update thread's lastUpdated time in the threads list
-      setThreads(prevThreads => {
-        const updatedThreads = prevThreads.map(t => {
+      // Update lastUpdated in threads
+      setThreads((prevThreads) => {
+        const updated = prevThreads.map((t) => {
           if (t._id === threadId) {
             return { ...t, lastUpdated: message.timestamp };
           }
           return t;
         });
-        
-        // Save updated threads to AsyncStorage
-        AsyncStorage.setItem(
-          THREADS_STORAGE_KEY, 
-          JSON.stringify(updatedThreads)
-        ).catch(err => console.error("Error saving threads:", err));
-        
-        return updatedThreads;
+        // Cache
+        AsyncStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(updated))
+          .catch(err => console.error('Error saving threads:', err));
+        return updated;
       });
     };
     
-    // Handle admin typing indicators
     const handleAdminTyping = (data) => {
       if (data.threadId === selectedThreadId) {
         setAdminIsTyping(true);
@@ -263,191 +254,159 @@ const SupportScreen = ({ navigation }) => {
       }
     };
     
-    // Handle new thread creation
     const handleNewThread = (threadData) => {
-      console.log("Received new_thread event:", threadData);
-      
-      // Add to threads list if not already there
-      setThreads(prevThreads => {
-        if (prevThreads.some(t => t._id === threadData._id)) {
-          return prevThreads;
+      console.log('Received new_thread event:', threadData);
+      setThreads((prev) => {
+        if (prev.some((t) => t._id === threadData._id)) {
+          return prev;
         }
-        const updatedThreads = [threadData, ...prevThreads];
-        
-        // Save updated threads to AsyncStorage
-        AsyncStorage.setItem(
-          THREADS_STORAGE_KEY, 
-          JSON.stringify(updatedThreads)
-        ).catch(err => console.error("Error saving threads:", err));
-        
-        return updatedThreads;
+        const updated = [threadData, ...prev];
+        AsyncStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(updated))
+          .catch(err => console.error('Error saving threads:', err));
+        return updated;
       });
-      
-      // Join the thread room
-      socket.emit('join_thread', { threadId: threadData._id });
+      // Join the new thread
+      socket.emit('join_thread', { threadId: threadData._id, userId });
     };
     
-    // Register listeners
     socket.on('new_message', handleNewMessage);
     socket.on('admin_typing', handleAdminTyping);
     socket.on('admin_stop_typing', handleAdminStopTyping);
     socket.on('new_thread', handleNewThread);
     
-    // Join the thread room if we have a selected thread
     if (selectedThreadId) {
       console.log(`Joining thread room: ${selectedThreadId}`);
-      socket.emit('join_thread', { threadId: selectedThreadId });
+      socket.emit('join_thread', { threadId: selectedThreadId, userId });
     }
     
     return () => {
-      // Cleanup listeners when component unmounts or selectedThreadId changes
+      // Cleanup
       socket.off('new_message', handleNewMessage);
       socket.off('admin_typing', handleAdminTyping);
       socket.off('admin_stop_typing', handleAdminStopTyping);
       socket.off('new_thread', handleNewThread);
       
-      // Leave the thread room if we have a selected thread
+      // Leave the thread if we had one
       if (selectedThreadId) {
         socket.emit('leave_thread', { threadId: selectedThreadId });
       }
     };
-  }, [selectedThreadId]);
+  }, [selectedThreadId, userId]);
   
-  // Component cleanup
+  /////////////////////////////////////////////////////////////////////////
+  // 5) On mount, load persisted threads/messages from AsyncStorage
+  /////////////////////////////////////////////////////////////////////////
   useEffect(() => {
     isComponentMounted.current = true;
     
-    return () => {
-      isComponentMounted.current = false;
-    };
-  }, []);
-  
-  // Load persisted data on mount
-  useEffect(() => {
     const loadPersistedData = async () => {
       try {
         // Load threads
         const storedThreads = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
         if (storedThreads) {
-          console.log("Loaded threads from AsyncStorage");
+          console.log('Loaded threads from AsyncStorage');
           setThreads(JSON.parse(storedThreads));
         }
-        
-        // Load selected thread ID
+        // Load selected thread
         const storedThreadId = await AsyncStorage.getItem(SELECTED_THREAD_KEY);
         if (storedThreadId) {
-          console.log("Loaded selected thread ID from AsyncStorage:", storedThreadId);
+          console.log('Loaded selected thread ID:', storedThreadId);
           setSelectedThreadId(storedThreadId);
           
-          // Load messages for this thread
+          // Load messages for that thread
           const storedMessages = await AsyncStorage.getItem(MESSAGES_STORAGE_KEY(storedThreadId));
           if (storedMessages) {
-            console.log("Loaded messages from AsyncStorage for thread:", storedThreadId);
-            const parsedMessages = JSON.parse(storedMessages);
-            setMessages(parsedMessages);
-            
-            // Add to processed messages set
-            parsedMessages.forEach(msg => {
-              const signature = `${msg.sender}:${msg.content}:${msg.timestamp}`;
-              processedMessagesRef.current.add(signature);
+            console.log('Loaded messages from AsyncStorage for thread:', storedThreadId);
+            const parsed = JSON.parse(storedMessages);
+            setMessages(parsed);
+            // Add to processed messages
+            parsed.forEach((msg) => {
+              processedMessagesRef.current.add(`${msg.sender}:${msg.content}:${msg.timestamp}`);
             });
           }
         }
       } catch (err) {
-        console.error("Error loading persisted data:", err);
+        console.error('Error loading persisted data:', err);
       }
     };
     
     loadPersistedData();
-    
-    // Initial fetch of threads from server
+    // Also do an initial fetch if we have userId
     if (userId) {
       fetchUserThreads();
     }
+    
+    return () => {
+      isComponentMounted.current = false;
+    };
   }, [userId]);
   
-  // Format timestamps
+  /////////////////////////////////////////////////////////////////////////
+  // UTILS
+  /////////////////////////////////////////////////////////////////////////
   const formatTimestamp = (ts) => {
     if (!ts) return '';
     const date = new Date(ts);
-    
-    // If it's today, just show the time
     const today = new Date();
     if (date.toDateString() === today.toDateString()) {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
-    
-    // Otherwise show date and time
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
   
-  // Get thread status icon and color
   const getStatusInfo = (status = 'open') => {
-    const s = status?.toLowerCase() || 'open';
-    
+    const s = status.toLowerCase();
     if (s.includes('open')) {
-      return { icon: 'radio-button-on', label: 'Open', className: 'status-open', color: '#2ebb77' };
+      return { icon: 'radio-button-on', label: 'Open', color: '#2ebb77' };
+    } else if (s.includes('pending')) {
+      return { icon: 'hourglass', label: 'Pending', color: '#ffc107' };
+    } else if (s.includes('resolved')) {
+      return { icon: 'checkmark-circle', label: 'Resolved', color: '#3498db' };
+    } else if (s.includes('closed')) {
+      return { icon: 'lock-closed', label: 'Closed', color: '#9da8b9' };
     }
-    if (s.includes('pending')) {
-      return { icon: 'hourglass', label: 'Pending', className: 'status-pending', color: '#ffc107' };
-    }
-    if (s.includes('resolved')) {
-      return { icon: 'checkmark-circle', label: 'Resolved', className: 'status-resolved', color: '#3498db' };
-    }
-    if (s.includes('closed')) {
-      return { icon: 'lock-closed', label: 'Closed', className: 'status-closed', color: '#9da8b9' };
-    }
-    
-    return { icon: 'radio-button-on', label: 'Open', className: 'status-open', color: '#2ebb77' };
+    return { icon: 'radio-button-on', label: 'Open', color: '#2ebb77' };
   };
   
-  // Scroll to bottom of messages
   const scrollToBottom = useCallback(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollToEnd({ animated: true });
     }
   }, []);
   
-  //////////////////////////////////////////////////////////////////////////
-  // FETCH THREADS - Get user's support threads
-  //////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+  // FETCH THREADS
+  /////////////////////////////////////////////////////////////////////////
   const fetchUserThreads = useCallback(async () => {
     if (!isComponentMounted.current || !userId) return;
-    
-    console.log("Fetching user threads");
+    console.log('Fetching user threads...');
     setLoadingThreads(true);
     setError(null);
-    
     try {
-      const threadsData = await fetchSupportThreads();
-      
+      const data = await fetchSupportThreads(); // from supportService
       if (!isComponentMounted.current) return;
+      console.log(`Fetched ${data.length} threads from server`);
       
-      console.log(`Fetched ${threadsData.length} threads from server`);
+      setThreads(data);
+      await AsyncStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(data));
       
-      // Update threads in state
-      setThreads(threadsData);
-      
-      // Save threads to AsyncStorage
-      await AsyncStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(threadsData));
-      
-      // Join all thread rooms for real-time updates
+      // Join all thread rooms
       if (socket && socket.connected) {
-        threadsData.forEach((t) => {
-          socket.emit('join_thread', { threadId: t._id });
+        data.forEach((t) => {
+          socket.emit('join_thread', { threadId: t._id, userId });
           console.log(`Joined thread room on load: ${t._id}`);
         });
       }
       
-      // If we have a selected thread, refresh its messages
+      // If we have a selected thread, refresh messages
       if (selectedThreadId) {
         loadMessagesForThread(selectedThreadId);
       }
     } catch (err) {
-      if (!isComponentMounted.current) return;
-      
       console.error('Error fetching threads:', err);
-      setError(err.message || "Failed to load conversations");
+      if (isComponentMounted.current) {
+        setError(err.message || 'Failed to load conversations');
+      }
     } finally {
       if (isComponentMounted.current) {
         setLoadingThreads(false);
@@ -455,38 +414,25 @@ const SupportScreen = ({ navigation }) => {
     }
   }, [selectedThreadId, userId]);
   
-  // Load messages for a specific thread
+  /////////////////////////////////////////////////////////////////////////
+  // LOAD MESSAGES
+  /////////////////////////////////////////////////////////////////////////
   const loadMessagesForThread = async (threadId) => {
     if (!threadId) return;
-    
     console.log(`Loading messages for thread ${threadId}`);
     try {
       const threadData = await fetchSupportThread(threadId);
-      
       if (!isComponentMounted.current) return;
-      
       if (threadData && threadData.messages) {
         console.log(`Loaded ${threadData.messages.length} messages from server`);
-        
-        // Clear processed messages set
         processedMessagesRef.current.clear();
         
-        // Process new messages
-        threadData.messages.forEach(msg => {
-          const signature = `${msg.sender}:${msg.content}:${msg.timestamp}`;
-          processedMessagesRef.current.add(signature);
+        threadData.messages.forEach((m) => {
+          processedMessagesRef.current.add(`${m.sender}:${m.content}:${m.timestamp}`);
         });
         
-        // Update messages state
         setMessages(threadData.messages);
-        
-        // Save to AsyncStorage
-        await AsyncStorage.setItem(
-          MESSAGES_STORAGE_KEY(threadId), 
-          JSON.stringify(threadData.messages)
-        );
-        
-        // Scroll to bottom
+        await AsyncStorage.setItem(MESSAGES_STORAGE_KEY(threadId), JSON.stringify(threadData.messages));
         setTimeout(scrollToBottom, 100);
       }
     } catch (err) {
@@ -494,145 +440,105 @@ const SupportScreen = ({ navigation }) => {
     }
   };
   
-  //////////////////////////////////////////////////////////////////////////
-  // CREATE THREAD - Start a new support thread
-  //////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+  // CREATE NEW THREAD
+  /////////////////////////////////////////////////////////////////////////
   const createNewThread = async () => {
     if (!newThreadSubject.trim()) {
       setError('Please enter a subject for your thread');
       return;
     }
-    
-    console.log("Creating new thread:", newThreadSubject);
+    console.log('Creating new thread:', newThreadSubject);
     setError(null);
-    
     try {
       const newThread = await createSupportThread(newThreadSubject.trim());
-      console.log("New thread created:", newThread);
-      
-      // Add new thread to state
-      setThreads(prev => [newThread, ...prev]);
+      console.log('New thread created:', newThread);
+      setThreads((prev) => [newThread, ...prev]);
       setNewThreadSubject('');
       
-      // Save updated threads to AsyncStorage
-      const updatedThreads = [newThread, ...threads];
-      await AsyncStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(updatedThreads));
+      const updated = [newThread, ...threads];
+      await AsyncStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(updated));
       
-      // Select the newly created thread
+      // Select the new thread
       await selectThread(newThread._id);
-      
-      // On mobile, show the messages panel after creating a thread
       setMobileThreadsVisible(false);
       
       // Join the thread room
       if (socket && socket.connected) {
-        socket.emit('join_thread', { threadId: newThread._id });
+        socket.emit('join_thread', { threadId: newThread._id, userId });
         console.log(`Joined new thread: ${newThread._id}`);
       }
     } catch (err) {
       console.error('Error creating thread:', err);
-      setError(err.message || "Failed to create thread");
+      setError(err.message || 'Failed to create thread');
     }
   };
   
-  //////////////////////////////////////////////////////////////////////////
-  // SELECT THREAD - Load messages for a thread
-  //////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+  // SELECT THREAD
+  /////////////////////////////////////////////////////////////////////////
   const selectThread = async (threadId) => {
-    // Skip if already selected
     if (threadId === selectedThreadId) {
-      // On mobile, just toggle to messages view
       setMobileThreadsVisible(false);
       return;
     }
-    
     console.log(`Selecting thread: ${threadId}`);
     
-    // Leave current thread room if any
+    // Leave old thread
     if (selectedThreadId && socket && socket.connected) {
       socket.emit('leave_thread', { threadId: selectedThreadId });
       console.log(`Left thread room: ${selectedThreadId}`);
     }
     
-    // Update selected thread ID
     setSelectedThreadId(threadId);
-    
-    // Store selected thread ID in AsyncStorage
     await AsyncStorage.setItem(SELECTED_THREAD_KEY, threadId);
     
-    // Reset messages and show loading state
     setMessages([]);
     setLoadingMessages(true);
     setError(null);
-    
-    // On mobile, show the messages panel
     setMobileThreadsVisible(false);
     
-    // Clear the processed messages set
     processedMessagesRef.current.clear();
     
-    // Join new thread room
     if (socket && socket.connected) {
-      socket.emit('join_thread', { threadId });
+      socket.emit('join_thread', { threadId, userId });
       console.log(`Joined thread room: ${threadId}`);
     }
     
     try {
-      // First check if we have cached messages
-      const cachedMessages = await AsyncStorage.getItem(MESSAGES_STORAGE_KEY(threadId));
-      if (cachedMessages) {
-        console.log("Using cached messages while fetching from server");
-        const parsedMessages = JSON.parse(cachedMessages);
-        setMessages(parsedMessages);
-        
-        // Add to processed messages set
-        parsedMessages.forEach(msg => {
-          const signature = `${msg.sender}:${msg.content}:${msg.timestamp}`;
-          processedMessagesRef.current.add(signature);
+      const cached = await AsyncStorage.getItem(MESSAGES_STORAGE_KEY(threadId));
+      if (cached) {
+        console.log('Using cached messages while fetching server data');
+        const parsed = JSON.parse(cached);
+        setMessages(parsed);
+        parsed.forEach((msg) => {
+          processedMessagesRef.current.add(`${msg.sender}:${msg.content}:${msg.timestamp}`);
         });
-        
-        // Scroll to bottom
         setTimeout(scrollToBottom, 100);
       }
-      
-      // Then fetch fresh messages from server
+      // Then fetch from server
       const threadData = await fetchSupportThread(threadId);
-      
       if (!isComponentMounted.current) return;
-      
       if (threadData && threadData.messages) {
         console.log(`Fetched ${threadData.messages.length} messages from server`);
-        
-        // Clear processed messages and rebuild
         processedMessagesRef.current.clear();
         
-        threadData.messages.forEach(msg => {
-          const signature = `${msg.sender}:${msg.content}:${msg.timestamp}`;
-          processedMessagesRef.current.add(signature);
+        threadData.messages.forEach((msg) => {
+          processedMessagesRef.current.add(`${msg.sender}:${msg.content}:${msg.timestamp}`);
         });
-        
-        // Update messages state
         setMessages(threadData.messages);
         
-        // Save to AsyncStorage
-        await AsyncStorage.setItem(
-          MESSAGES_STORAGE_KEY(threadId), 
-          JSON.stringify(threadData.messages)
-        );
-        
-        // Scroll to bottom
+        await AsyncStorage.setItem(MESSAGES_STORAGE_KEY(threadId), JSON.stringify(threadData.messages));
         setTimeout(scrollToBottom, 100);
       }
-      
-      // Focus on message input
       if (messageInputRef.current) {
         messageInputRef.current.focus();
       }
     } catch (err) {
-      if (!isComponentMounted.current) return;
-      
       console.error('Error loading thread messages:', err);
-      setError(err.message || "Failed to load messages");
+      if (isComponentMounted.current) {
+        setError(err.message || 'Failed to load messages');
+      }
     } finally {
       if (isComponentMounted.current) {
         setLoadingMessages(false);
@@ -640,92 +546,75 @@ const SupportScreen = ({ navigation }) => {
     }
   };
   
-  //////////////////////////////////////////////////////////////////////////
-  // SEND MESSAGE - Send a message in the current thread
-  //////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+  // SEND MESSAGE
+  /////////////////////////////////////////////////////////////////////////
   const sendMessage = async () => {
     if (!selectedThreadId) {
       setError('Please select a thread first');
       return;
     }
-    
     if (!userMessage.trim()) {
       return;
     }
-    
     console.log(`Sending message to thread ${selectedThreadId}`);
     setError(null);
-    const messageToSend = userMessage.trim();
+    const toSend = userMessage.trim();
     
     // Create optimistic message
-    const optimisticMessage = {
+    const optimistic = {
       sender: 'user',
-      content: messageToSend,
+      content: toSend,
       timestamp: new Date().toISOString(),
       optimistic: true
     };
     
-    // Update UI immediately with optimistic message
-    const updatedMessages = [...messages, optimisticMessage];
-    setMessages(updatedMessages);
+    const updated = [...messages, optimistic];
+    setMessages(updated);
     setUserMessage('');
     scrollToBottom();
     
-    // Store in AsyncStorage (including the optimistic message)
-    await AsyncStorage.setItem(
-      MESSAGES_STORAGE_KEY(selectedThreadId), 
-      JSON.stringify(updatedMessages)
-    );
+    // Cache optimistically
+    await AsyncStorage.setItem(MESSAGES_STORAGE_KEY(selectedThreadId), JSON.stringify(updated));
     
-    // Stop typing indicator
+    // Stop typing
     if (socket && socket.connected) {
       socket.emit('user_stop_typing', { threadId: selectedThreadId });
     }
     setIsTyping(false);
     
     try {
-      // Send to server
-      await sendSupportMessage(selectedThreadId, messageToSend);
-      console.log("Message sent successfully");
+      await sendSupportMessage(selectedThreadId, toSend);
+      console.log('Message sent successfully');
       
-      // Update the thread's last updated time
-      const updatedThreads = threads.map(t => {
+      // Update thread lastUpdated
+      const updatedThreads = threads.map((t) => {
         if (t._id === selectedThreadId) {
           return { ...t, lastUpdated: new Date().toISOString() };
         }
         return t;
       });
-      
       setThreads(updatedThreads);
-      
-      // Store updated threads in AsyncStorage
       await AsyncStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(updatedThreads));
       
-      // Fetch messages to replace optimistic message with confirmed one
+      // Reload messages to replace the optimistic with actual
       await loadMessagesForThread(selectedThreadId);
     } catch (err) {
       console.error('Error sending message:', err);
-      setError(err.message || "Failed to send message");
+      setError(err.message || 'Failed to send message');
       
       // Remove optimistic message on error
-      const filteredMessages = messages.filter(msg => !msg.optimistic);
-      setMessages(filteredMessages);
-      
-      // Update AsyncStorage with filtered messages
-      await AsyncStorage.setItem(
-        MESSAGES_STORAGE_KEY(selectedThreadId), 
-        JSON.stringify(filteredMessages)
-      );
+      const filtered = messages.filter((msg) => !msg.optimistic);
+      setMessages(filtered);
+      await AsyncStorage.setItem(MESSAGES_STORAGE_KEY(selectedThreadId), JSON.stringify(filtered));
     }
   };
   
-  //////////////////////////////////////////////////////////////////////////
-  // TYPING HANDLERS - Handle user typing events
-  //////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+  // TYPING HANDLER
+  /////////////////////////////////////////////////////////////////////////
   const handleTyping = (text) => {
     setUserMessage(text);
-    
-    // Emit typing events
     if (socket && socket.connected && selectedThreadId) {
       if (!isTyping && text.trim().length > 0) {
         socket.emit('user_typing', { threadId: selectedThreadId });
@@ -737,66 +626,60 @@ const SupportScreen = ({ navigation }) => {
     }
   };
   
-  // Close thread (user-initiated)
+  /////////////////////////////////////////////////////////////////////////
+  // CLOSE THREAD
+  /////////////////////////////////////////////////////////////////////////
   const closeThread = async () => {
     if (!selectedThreadId) return;
-    
     Alert.alert(
       'Close Conversation',
       'Are you sure you want to close this thread?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Close',
+          style: 'destructive',
           onPress: async () => {
             try {
               console.log(`Closing thread ${selectedThreadId}`);
               await closeSupportThread(selectedThreadId);
               
-              // Update thread status in the list
-              const updatedThreads = threads.map(t => {
+              const updated = threads.map((t) => {
                 if (t._id === selectedThreadId) {
                   return { ...t, status: 'closed' };
                 }
                 return t;
               });
+              setThreads(updated);
+              await AsyncStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(updated));
               
-              setThreads(updatedThreads);
-              
-              // Store updated threads in AsyncStorage
-              await AsyncStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(updatedThreads));
-              
-              // Reload messages to show closure message
+              // Reload to show closure message
               await loadMessagesForThread(selectedThreadId);
             } catch (err) {
               console.error('Error closing thread:', err);
-              setError(err.message || "Failed to close thread");
+              setError(err.message || 'Failed to close thread');
             }
-          },
-          style: 'destructive'
+          }
         }
       ]
     );
   };
   
-  // Check if selected thread is closed
-  const selectedThread = threads.find(t => t._id === selectedThreadId);
+  /////////////////////////////////////////////////////////////////////////
+  // RENDER & UI
+  /////////////////////////////////////////////////////////////////////////
+  const selectedThread = threads.find((t) => t._id === selectedThreadId);
   const isThreadClosed = selectedThread?.status?.toLowerCase() === 'closed';
   
-  // Handle back button on mobile
   const handleBackToThreads = () => {
     setMobileThreadsVisible(true);
   };
   
-  // Render thread item
+  // RENDER a single thread item
   const renderThreadItem = ({ item }) => {
     const statusInfo = getStatusInfo(item.status);
     const isActive = selectedThreadId === item._id;
     const isClosed = item.status?.toLowerCase() === 'closed';
-    
     return (
       <TouchableOpacity
         style={[
@@ -810,11 +693,11 @@ const SupportScreen = ({ navigation }) => {
           <View style={[styles.statusIndicator, { backgroundColor: statusInfo.color }]}>
             <Ionicons name={statusInfo.icon} size={12} color="#FFFFFF" />
           </View>
-          <Text style={[
-            styles.threadSubject,
-            isClosed && styles.threadTextClosed
-          ]} numberOfLines={1}>
-            {item.subject || "Untitled Thread"}
+          <Text
+            style={[styles.threadSubject, isClosed && styles.threadTextClosed]}
+            numberOfLines={1}
+          >
+            {item.subject || 'Untitled Thread'}
           </Text>
         </View>
         <View style={styles.threadFooter}>
@@ -829,46 +712,61 @@ const SupportScreen = ({ navigation }) => {
     );
   };
   
-  // Render message item
+  // RENDER a single message
   const renderMessageItem = ({ item, index }) => {
     const isUser = item.sender === 'user';
     const isSystem = item.sender === 'system';
-    
     return (
-      <View 
+      <View
         style={[
           styles.messageContainer,
-          isUser ? styles.userMessageContainer : isSystem ? styles.systemMessageContainer : styles.adminMessageContainer
+          isUser
+            ? styles.userMessageContainer
+            : isSystem
+              ? styles.systemMessageContainer
+              : styles.adminMessageContainer
         ]}
       >
         <View style={styles.messageAvatar}>
-          <View style={[
-            styles.avatarCircle,
-            isUser ? styles.userAvatarCircle : isSystem ? styles.systemAvatarCircle : styles.adminAvatarCircle
-          ]}>
-            <Ionicons 
-              name={isUser ? "person" : isSystem ? "hardware-chip" : "person-circle"} 
+          <View
+            style={[
+              styles.avatarCircle,
+              isUser
+                ? styles.userAvatarCircle
+                : isSystem
+                  ? styles.systemAvatarCircle
+                  : styles.adminAvatarCircle
+            ]}
+          >
+            <Ionicons
+              name={isUser ? 'person' : isSystem ? 'hardware-chip' : 'person-circle'}
               size={isSystem ? 16 : 20}
-              color="#FFFFFF" 
+              color="#FFFFFF"
             />
           </View>
         </View>
         
-        <View style={[
-          styles.messageBubble,
-          isUser ? styles.userMessageBubble : isSystem ? styles.systemMessageBubble : styles.adminMessageBubble
-        ]}>
+        <View
+          style={[
+            styles.messageBubble,
+            isUser
+              ? styles.userMessageBubble
+              : isSystem
+                ? styles.systemMessageBubble
+                : styles.adminMessageBubble
+          ]}
+        >
           {!isSystem && (
-            <Text style={[
-              styles.messageSender,
-              isUser ? styles.userMessageSender : styles.adminMessageSender
-            ]}>
+            <Text
+              style={[
+                styles.messageSender,
+                isUser ? styles.userMessageSender : styles.adminMessageSender
+              ]}
+            >
               {isUser ? 'You' : 'Support Team'}
             </Text>
           )}
-          
           <Text style={styles.messageContent}>{item.content}</Text>
-          
           <Text style={styles.messageTimestamp}>
             {formatTimestamp(item.timestamp)}
           </Text>
@@ -890,7 +788,7 @@ const SupportScreen = ({ navigation }) => {
               <Ionicons name="flash" size={20} color="#6543CC" />
               <Text style={styles.infoText}>{INFO_TEXTS.RESPONSE_TIME}</Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.infoCloseButton}
               onPress={() => setShowSupportInfoPopup(false)}
             >
@@ -918,24 +816,26 @@ const SupportScreen = ({ navigation }) => {
       )}
       
       <View style={styles.connectionStatus}>
-        <View style={[
-          styles.connectionIndicator, 
-          socketStatus === 'connected' 
-            ? styles.connectionIndicatorConnected
-            : socketStatus === 'disconnected'
-              ? styles.connectionIndicatorDisconnected
-              : styles.connectionIndicatorError
-        ]} />
+        <View
+          style={[
+            styles.connectionIndicator,
+            socketStatus === 'connected'
+              ? styles.connectionIndicatorConnected
+              : socketStatus === 'disconnected'
+                ? styles.connectionIndicatorDisconnected
+                : styles.connectionIndicatorError
+          ]}
+        />
         <Text style={styles.connectionText}>
-          {socketStatus === 'connected' 
-            ? 'Real-time connection active' 
+          {socketStatus === 'connected'
+            ? 'Real-time connection active'
             : socketStatus === 'disconnected'
               ? 'Connecting to real-time service...'
               : 'Connection error - messages may be delayed'}
         </Text>
       </View>
       
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.contentContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
@@ -945,7 +845,7 @@ const SupportScreen = ({ navigation }) => {
           <View style={styles.threadsContainer}>
             <View style={styles.threadListHeader}>
               <Text style={styles.threadListTitle}>Your Conversations</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.refreshButton}
                 onPress={fetchUserThreads}
               >
@@ -962,7 +862,7 @@ const SupportScreen = ({ navigation }) => {
                 onChangeText={setNewThreadSubject}
                 maxLength={100}
               />
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.createThreadButton,
                   !newThreadSubject.trim() && styles.createButtonDisabled
@@ -982,9 +882,18 @@ const SupportScreen = ({ navigation }) => {
               </View>
             ) : threads.length === 0 ? (
               <View style={styles.emptyStateContainer}>
-                <Ionicons name="happy-outline" size={60} color="#6543CC" style={{ opacity: 0.5 }} />
-                <Text style={styles.emptyStateTitle}>{EMPTY_STATES.NO_THREADS.title}</Text>
-                <Text style={styles.emptyStateSubtitle}>{EMPTY_STATES.NO_THREADS.subtitle}</Text>
+                <Ionicons
+                  name="happy-outline"
+                  size={60}
+                  color="#6543CC"
+                  style={{ opacity: 0.5 }}
+                />
+                <Text style={styles.emptyStateTitle}>
+                  {EMPTY_STATES.NO_THREADS.title}
+                </Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  {EMPTY_STATES.NO_THREADS.subtitle}
+                </Text>
               </View>
             ) : (
               <FlatList
@@ -1001,14 +910,23 @@ const SupportScreen = ({ navigation }) => {
           <View style={styles.messagesContainer}>
             {!selectedThreadId ? (
               <View style={styles.emptyStateContainer}>
-                <Ionicons name="mail-outline" size={60} color="#6543CC" style={{ opacity: 0.5 }} />
-                <Text style={styles.emptyStateTitle}>{EMPTY_STATES.NO_THREAD_SELECTED.title}</Text>
-                <Text style={styles.emptyStateSubtitle}>{EMPTY_STATES.NO_THREAD_SELECTED.subtitle}</Text>
+                <Ionicons
+                  name="mail-outline"
+                  size={60}
+                  color="#6543CC"
+                  style={{ opacity: 0.5 }}
+                />
+                <Text style={styles.emptyStateTitle}>
+                  {EMPTY_STATES.NO_THREAD_SELECTED.title}
+                </Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  {EMPTY_STATES.NO_THREAD_SELECTED.subtitle}
+                </Text>
               </View>
             ) : (
               <>
                 <View style={styles.messagesHeader}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.backButton}
                     onPress={handleBackToThreads}
                   >
@@ -1018,14 +936,16 @@ const SupportScreen = ({ navigation }) => {
                   <View style={styles.threadInfoContainer}>
                     {selectedThread && (
                       <>
-                        <View style={[
-                          styles.statusIndicator, 
-                          { backgroundColor: getStatusInfo(selectedThread.status).color }
-                        ]}>
-                          <Ionicons 
-                            name={getStatusInfo(selectedThread.status).icon} 
-                            size={12} 
-                            color="#FFFFFF" 
+                        <View
+                          style={[
+                            styles.statusIndicator,
+                            { backgroundColor: getStatusInfo(selectedThread.status).color }
+                          ]}
+                        >
+                          <Ionicons
+                            name={getStatusInfo(selectedThread.status).icon}
+                            size={12}
+                            color="#FFFFFF"
                           />
                         </View>
                         <Text style={styles.selectedThreadTitle} numberOfLines={1}>
@@ -1037,8 +957,8 @@ const SupportScreen = ({ navigation }) => {
                   
                   <View style={styles.messagesActions}>
                     {!isThreadClosed && selectedThread && (
-                      <TouchableOpacity 
-                        style={styles.closeThreadButton} 
+                      <TouchableOpacity
+                        style={styles.closeThreadButton}
                         onPress={closeThread}
                       >
                         <Ionicons name="lock-closed" size={20} color="#FFFFFF" />
@@ -1055,9 +975,18 @@ const SupportScreen = ({ navigation }) => {
                     </View>
                   ) : messages.length === 0 ? (
                     <View style={styles.emptyStateContainer}>
-                      <Ionicons name="chatbubbles-outline" size={60} color="#6543CC" style={{ opacity: 0.5 }} />
-                      <Text style={styles.emptyStateTitle}>{EMPTY_STATES.NO_MESSAGES.title}</Text>
-                      <Text style={styles.emptyStateSubtitle}>{EMPTY_STATES.NO_MESSAGES.subtitle}</Text>
+                      <Ionicons
+                        name="chatbubbles-outline"
+                        size={60}
+                        color="#6543CC"
+                        style={{ opacity: 0.5 }}
+                      />
+                      <Text style={styles.emptyStateTitle}>
+                        {EMPTY_STATES.NO_MESSAGES.title}
+                      </Text>
+                      <Text style={styles.emptyStateSubtitle}>
+                        {EMPTY_STATES.NO_MESSAGES.subtitle}
+                      </Text>
                     </View>
                   ) : (
                     <FlatList
@@ -1109,8 +1038,7 @@ const SupportScreen = ({ navigation }) => {
                         maxLength={2000}
                         editable={!isThreadClosed}
                       />
-                      
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={[
                           styles.sendButton,
                           (!userMessage.trim() || isThreadClosed) && styles.sendButtonDisabled
@@ -1118,10 +1046,14 @@ const SupportScreen = ({ navigation }) => {
                         onPress={sendMessage}
                         disabled={!userMessage.trim() || isThreadClosed}
                       >
-                        <Ionicons 
-                          name="paper-plane" 
-                          size={20} 
-                          color={userMessage.trim() && !isThreadClosed ? "#FFFFFF" : "rgba(255, 255, 255, 0.5)"} 
+                        <Ionicons
+                          name="paper-plane"
+                          size={20}
+                          color={
+                            userMessage.trim() && !isThreadClosed
+                              ? '#FFFFFF'
+                              : 'rgba(255, 255, 255, 0.5)'
+                          }
                         />
                       </TouchableOpacity>
                     </>
@@ -1135,6 +1067,8 @@ const SupportScreen = ({ navigation }) => {
     </SafeAreaView>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   container: {

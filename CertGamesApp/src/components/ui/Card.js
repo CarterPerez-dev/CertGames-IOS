@@ -11,6 +11,18 @@ import { useTheme } from '../../context/ThemeContext';
 
 /**
  * Card component with consistent styling across the app
+ * 
+ * @param {Object} props - Component props
+ * @param {React.ReactNode} props.children - Card content
+ * @param {Object} props.style - Additional styles for the card
+ * @param {Function} props.onPress - On press handler
+ * @param {string|boolean} props.gradient - Gradient preset ('primary', 'secondary', 'accent', etc.) or false for solid background
+ * @param {Array} props.gradientColors - Custom gradient colors
+ * @param {Object} props.gradientStart - Gradient start point {x, y}
+ * @param {Object} props.gradientEnd - Gradient end point {x, y}
+ * @param {boolean} props.disabled - Whether the card is disabled
+ * @param {number} props.elevation - Shadow elevation (1-24)
+ * @param {number} props.radius - Border radius
  */
 const Card = ({ 
   children, 
@@ -23,6 +35,11 @@ const Card = ({
   disabled = false,
   elevation = 4,
   radius = 16,
+  // Ignoring animation props for now
+  entering,
+  exiting,
+  layout,
+  ...rest
 }) => {
   const { theme } = useTheme();
   
@@ -55,29 +72,43 @@ const Card = ({
     style,
   ];
   
+  // Non-touchable card
   if (!onPress) {
-    return colors ? (
-      <LinearGradient
-        colors={colors}
-        start={gradientStart}
-        end={gradientEnd}
-        style={cardStyles}
+    // With gradient
+    if (colors) {
+      return (
+        <View style={cardStyles} {...rest}>
+          <LinearGradient
+            colors={colors}
+            start={gradientStart}
+            end={gradientEnd}
+            style={styles.gradientContainer}
+          >
+            {children}
+          </LinearGradient>
+        </View>
+      );
+    }
+    
+    // Without gradient (solid background)
+    return (
+      <View 
+        style={[cardStyles, { backgroundColor: theme.surface }]}
+        {...rest}
       >
-        {children}
-      </LinearGradient>
-    ) : (
-      <View style={[cardStyles, { backgroundColor: theme.surface }]}>
         {children}
       </View>
     );
   }
   
+  // Touchable card
   return (
     <TouchableOpacity 
       style={cardStyles} 
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.7}
+      {...rest}
     >
       {colors ? (
         <LinearGradient

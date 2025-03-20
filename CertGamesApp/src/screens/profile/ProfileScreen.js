@@ -1,5 +1,5 @@
 // src/screens/profile/ProfileScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,22 +10,30 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  Modal,
   SafeAreaView,
-  Platform
+  Platform,
+  Dimensions,
+  StatusBar,
+  Modal
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchUserData, logout } from '../../store/slices/userSlice';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
+import { useTheme } from '../../context/ThemeContext';
+import { BlurView } from 'expo-blur';
 
-// Import profile service to handle API calls
-import { changeUsername, changeEmail, changePassword, getAvatarUrl } from '../../api/profileService';
-import { BASE_URL } from '../../api/apiConfig';
+// Import our shared UI components
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+
+// Get screen dimensions
+const { width, height } = Dimensions.get('window');
 
 const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const { theme } = useTheme();
   
   // Get user data from Redux store
   const {
@@ -68,8 +76,18 @@ const ProfileScreen = ({ navigation }) => {
   
   // Status message
   const [statusMessage, setStatusMessage] = useState('');
-  const [statusType, setStatusType] = useState(''); // 'success', 'error'
+  const [statusType, setStatusType] = useState('');
   const [showStatusModal, setShowStatusModal] = useState(false);
+  
+  // Refs for content elements
+  const scrollViewRef = useRef(null);
+  
+  // Fetch user data
+  useEffect(() => {
+    if (userId) {
+      dispatch(fetchUserData(userId));
+    }
+  }, [dispatch, userId]);
   
   // Calculate XP to next level
   const calculateXpPercentage = () => {
@@ -112,6 +130,7 @@ const ProfileScreen = ({ navigation }) => {
   };
   
   const xpPercentage = calculateXpPercentage();
+  const xpForNextLevel = xpRequiredForLevel(level + 1) - xp;
 
   // Get user avatar URL
   const getProfilePicUrl = () => {
@@ -119,18 +138,10 @@ const ProfileScreen = ({ navigation }) => {
       return null; // Will use the default local asset
     }
 
-    // Use the helper function to get a properly formatted avatar URL
-    const avatarUrl = getAvatarUrl(currentAvatar);
-    console.log('Avatar URL:', avatarUrl); // For debugging
-    return avatarUrl;
+    // Logic to get avatar URL based on the currentAvatar value
+    const baseUrl = 'https://certgames.com'; // Replace with your actual domain
+    return `${baseUrl}/avatars/${currentAvatar}.png`;
   };
-  
-  // Fetch user data
-  useEffect(() => {
-    if (userId) {
-      dispatch(fetchUserData(userId));
-    }
-  }, [dispatch, userId]);
   
   // Handle refresh
   const handleRefresh = () => {
@@ -291,19 +302,21 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
   
-  // Navigate to Achievements screen
+  // Navigate to other screens
   const goToAchievements = () => {
     navigation.navigate('Achievements');
   };
   
-  // Navigate to Shop
   const goToShop = () => {
     navigation.navigate('Shop');
   };
   
-  // Navigate to Support
   const goToSupport = () => {
     navigation.navigate('Support');
+  };
+  
+  const goToThemeSettings = () => {
+    navigation.navigate('ThemeSettings');
   };
   
   // Handle avatar image error
@@ -312,487 +325,912 @@ const ProfileScreen = ({ navigation }) => {
     setAvatarError(true);
   };
   
+  // Custom tab indicator style
+  const getTabIndicatorStyle = (tabName) => {
+    return {
+      height: 3,
+      width: activeTab === tabName ? '100%' : 0,
+      backgroundColor: theme.primary,
+      position: 'absolute',
+      bottom: 0,
+      borderRadius: 1.5,
+    };
+  };
+  
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusModal 
         visible={showStatusModal}
         message={statusMessage}
         type={statusType}
         onClose={() => setShowStatusModal(false)}
+        theme={theme}
       />
       
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollViewContent}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-      >
-        {/* Profile Header */}
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            {/* Use properly formatted avatar URL */}
-            {!avatarError && currentAvatar ? (
-              <Image 
-                source={{ uri: getProfilePicUrl() }}
-                style={styles.avatar}
-                onError={handleAvatarError}
-              />
-            ) : (
-              <Image 
-                source={require('../../../assets/default-avatar.png')}
-                style={styles.avatar}
-              />
+      {/* Background decorative elements */}
+      <View style={styles.backgroundDecorations}>
+        <LinearGradient
+          colors={[theme.primaryGradient[0] + '20', 'transparent']}
+          style={styles.topLeftBlur}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+        <LinearGradient
+          colors={[theme.secondaryGradient[0] + '15', 'transparent']}
+          style={styles.topRightBlur}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0, y: 1 }}
+        />
+      </View>
+      
+      <SafeAreaView style={styles.safeArea}>
+        {/* Custom header */}
+        <View style={[styles.header, { borderBottomColor: theme.border }]}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>My Profile</Text>
+          
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              style={[styles.headerButton, { backgroundColor: theme.surfaceAlt }]}
+              onPress={goToThemeSettings}
+            >
+              <Ionicons name="color-palette-outline" size={20} color={theme.secondary} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.headerButton, { backgroundColor: theme.surfaceAlt }]}
+              onPress={goToSupport}
+            >
+              <Ionicons name="help-circle-outline" size={20} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollViewContent}
+          showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+        >
+          {/* Profile Card */}
+          <View style={styles.profileCardContainer}>
+            <Card
+              gradient="primary"
+              elevation={8}
+              style={styles.profileCard}
+            >
+              <View style={styles.profileCardContent}>
+                {/* Avatar */}
+                <View style={styles.avatarContainer}>
+                  <LinearGradient
+                    colors={theme.primaryGradient}
+                    style={styles.avatarBorder}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    {!avatarError && currentAvatar ? (
+                      <Image 
+                        source={{ uri: getProfilePicUrl() }}
+                        style={styles.avatar}
+                        onError={handleAvatarError}
+                      />
+                    ) : (
+                      <View style={styles.placeholderAvatar}>
+                        <Text style={styles.avatarText}>
+                          {username?.charAt(0)?.toUpperCase() || 'U'}
+                        </Text>
+                      </View>
+                    )}
+                    
+                    <TouchableOpacity 
+                      style={styles.editAvatarButton}
+                      onPress={goToShop}
+                    >
+                      <BlurView intensity={80} tint="light" style={styles.editAvatarBlur}>
+                        <Ionicons name="camera" size={14} color="#FFF" />
+                      </BlurView>
+                    </TouchableOpacity>
+                  </LinearGradient>
+                </View>
+                
+                {/* User info */}
+                <View style={styles.userInfoContainer}>
+                  <Text 
+                    style={[
+                      styles.usernameText, 
+                      { 
+                        color: nameColor || theme.text,
+                        textShadowColor: nameColor ? `${nameColor}50` : 'transparent'
+                      }
+                    ]}
+                  >
+                    {username}
+                  </Text>
+                  
+                  <Text style={[styles.emailText, { color: theme.textSecondary }]}>
+                    {email}
+                  </Text>
+                  
+                  {/* Level & XP Progress */}
+                  <View style={styles.levelContainer}>
+                    <View style={styles.levelBadgeRow}>
+                      <LinearGradient
+                        colors={theme.primaryGradient}
+                        style={styles.levelBadge}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                      >
+                        <Text style={styles.levelNumber}>{level}</Text>
+                      </LinearGradient>
+                      
+                      <Text style={[styles.levelText, { color: theme.text }]}>
+                        Level {level}
+                      </Text>
+                      
+                      <Text style={[styles.xpNextLevel, { color: theme.textSecondary }]}>
+                        {xpForNextLevel} XP to Level {level + 1}
+                      </Text>
+                    </View>
+                    
+                    <View style={[styles.xpBarContainer, { backgroundColor: theme.surfaceAlt + '70' }]}>
+                      <View 
+                        style={[
+                          styles.xpBarFill,
+                          { width: `${xpPercentage}%`, backgroundColor: theme.primary }
+                        ]}
+                      />
+                    </View>
+                  </View>
+                  
+                  {/* Stats row */}
+                  <View style={styles.statsContainer}>
+                    <View style={styles.statItem}>
+                      <View style={[styles.statIconContainer, { backgroundColor: theme.primaryGradient[0] + '30' }]}>
+                        <Ionicons name="flash" size={16} color={theme.primaryGradient[0]} />
+                      </View>
+                      <View style={styles.statTextContainer}>
+                        <Text style={[styles.statValue, { color: theme.text }]}>
+                          {xp.toLocaleString()}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total XP</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.statItem}>
+                      <View style={[styles.statIconContainer, { backgroundColor: theme.secondaryGradient[0] + '30' }]}>
+                        <Ionicons name="wallet" size={16} color={theme.secondaryGradient[0]} />
+                      </View>
+                      <View style={styles.statTextContainer}>
+                        <Text style={[styles.statValue, { color: theme.text }]}>
+                          {coins.toLocaleString()}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Coins</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.statItem}>
+                      <View style={[styles.statIconContainer, { backgroundColor: theme.accentGradient[0] + '30' }]}>
+                        <Ionicons name="trophy" size={16} color={theme.accentGradient[0]} />
+                      </View>
+                      <View style={styles.statTextContainer}>
+                        <Text style={[styles.statValue, { color: theme.text }]}>
+                          {achievements.length}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Achievements</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </Card>
+          </View>
+          
+          {/* Tabs Navigation */}
+          <View style={[styles.tabsContainer, { borderBottomColor: theme.border }]}>
+            <TouchableOpacity 
+              style={styles.tab}
+              onPress={() => setActiveTab('overview')}
+            >
+              <Text 
+                style={[
+                  styles.tabText, 
+                  { color: activeTab === 'overview' ? theme.primary : theme.textSecondary }
+                ]}
+              >
+                Overview
+              </Text>
+              <View style={getTabIndicatorStyle('overview')} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.tab}
+              onPress={() => setActiveTab('account')}
+            >
+              <Text 
+                style={[
+                  styles.tabText, 
+                  { color: activeTab === 'account' ? theme.primary : theme.textSecondary }
+                ]}
+              >
+                Account
+              </Text>
+              <View style={getTabIndicatorStyle('account')} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.tab}
+              onPress={() => setActiveTab('achievements')}
+            >
+              <Text 
+                style={[
+                  styles.tabText, 
+                  { color: activeTab === 'achievements' ? theme.primary : theme.textSecondary }
+                ]}
+              >
+                Achievements
+              </Text>
+              <View style={getTabIndicatorStyle('achievements')} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Tab Content */}
+          <View style={styles.tabContent}>
+            {activeTab === 'overview' && (
+              <View style={styles.overviewContent}>
+                {/* Subscription status card */}
+                <Card 
+                  style={styles.subscriptionCard}
+                  elevation={4}
+                  gradient={subscriptionActive ? 'accent' : false}
+                  gradientColors={
+                    subscriptionActive 
+                      ? theme.accentGradient
+                      : [theme.surfaceAlt, theme.surface]
+                  }
+                >
+                  <View style={styles.subscriptionContent}>
+                    <View style={styles.subscriptionTextContainer}>
+                      <Ionicons 
+                        name={subscriptionActive ? "shield-checkmark" : "shield-outline"} 
+                        size={24} 
+                        color={subscriptionActive ? "#FFFFFF" : theme.textSecondary} 
+                      />
+                      <View style={styles.subscriptionTextBlock}>
+                        <Text style={[
+                          styles.subscriptionTitle, 
+                          { color: subscriptionActive ? "#FFFFFF" : theme.text }
+                        ]}>
+                          {subscriptionActive ? "Premium Active" : "Free Plan"}
+                        </Text>
+                        <Text style={[
+                          styles.subscriptionDescription,
+                          { color: subscriptionActive ? "#FFFFFF" : theme.textSecondary }
+                        ]}>
+                          {subscriptionActive 
+                            ? "You have access to all premium features" 
+                            : "Upgrade to access premium features"}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    {!subscriptionActive && (
+                      <Button
+                        title="Upgrade"
+                        rightIcon="chevron-forward"
+                        size="small"
+                        onPress={() => navigation.navigate('Shop')}
+                        style={styles.upgradeButton}
+                      />
+                    )}
+                  </View>
+                </Card>
+                
+                {/* Quick actions */}
+                <View style={styles.quickActions}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                    Quick Actions
+                  </Text>
+                  
+                  <View style={styles.actionCardsContainer}>
+                    <View style={styles.actionCardWrapper}>
+                      <Card
+                        gradient="primary"
+                        onPress={goToAchievements}
+                        elevation={4}
+                        style={styles.actionCard}
+                      >
+                        <View style={styles.actionCardContent}>
+                          <Ionicons name="trophy" size={24} color="#FFF" />
+                          <Text style={styles.actionCardTitle}>Achievements</Text>
+                          <Text style={styles.actionCardDescription}>
+                            View your earned badges
+                          </Text>
+                        </View>
+                      </Card>
+                    </View>
+                    
+                    <View style={styles.actionCardWrapper}>
+                      <Card
+                        gradient="secondary"
+                        onPress={goToShop}
+                        elevation={4}
+                        style={styles.actionCard}
+                      >
+                        <View style={styles.actionCardContent}>
+                          <Ionicons name="cart" size={24} color="#FFF" />
+                          <Text style={styles.actionCardTitle}>Shop</Text>
+                          <Text style={styles.actionCardDescription}>
+                            Spend your coins
+                          </Text>
+                        </View>
+                      </Card>
+                    </View>
+                    
+                    <View style={styles.actionCardWrapper}>
+                      <Card
+                        gradient="accent"
+                        onPress={goToSupport}
+                        elevation={4}
+                        style={styles.actionCard}
+                      >
+                        <View style={styles.actionCardContent}>
+                          <Ionicons name="help-circle" size={24} color="#FFF" />
+                          <Text style={styles.actionCardTitle}>Support</Text>
+                          <Text style={styles.actionCardDescription}>
+                            Get help with any issues
+                          </Text>
+                        </View>
+                      </Card>
+                    </View>
+                  </View>
+                </View>
+                
+                {/* Recent achievements */}
+                <View style={styles.recentAchievements}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                      Recent Achievements
+                    </Text>
+                    <TouchableOpacity onPress={goToAchievements}>
+                      <Text style={[styles.viewAllText, { color: theme.primary }]}>
+                        View All
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {achievements.length > 0 ? (
+                    <View style={styles.achievementsList}>
+                      {/* Show just 3 most recent achievements */}
+                      {[...achievements].slice(0, 3).map((achievement, index) => (
+                        <Card
+                          key={`achievement-${index}`}
+                          style={styles.achievementCard}
+                          elevation={3}
+                        >
+                          <View style={styles.achievementCardContent}>
+                            <View 
+                              style={[
+                                styles.achievementIconContainer,
+                                { backgroundColor: theme.primary + '20' }
+                              ]}
+                            >
+                              <Ionicons name="trophy" size={22} color={theme.primary} />
+                            </View>
+                            
+                            <View style={styles.achievementTextContainer}>
+                              <Text 
+                                style={[
+                                  styles.achievementTitle,
+                                  { color: theme.text }
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {achievement}
+                              </Text>
+                              <Text 
+                                style={[
+                                  styles.achievementDescription,
+                                  { color: theme.textSecondary }
+                                ]}
+                                numberOfLines={1}
+                              >
+                                Earned achievement
+                              </Text>
+                            </View>
+                            
+                            <Ionicons 
+                              name="chevron-forward" 
+                              size={16} 
+                              color={theme.textSecondary} 
+                            />
+                          </View>
+                        </Card>
+                      ))}
+                    </View>
+                  ) : (
+                    <Card style={styles.emptyStateCard}>
+                      <View style={styles.emptyStateContent}>
+                        <Ionicons name="trophy-outline" size={40} color={theme.textSecondary} />
+                        <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+                          Complete challenges to earn achievements
+                        </Text>
+                      </View>
+                    </Card>
+                  )}
+                </View>
+                
+                {/* Logout button */}
+                <View style={styles.logoutContainer}>
+                  <Button
+                    title="Logout"
+                    variant="outline"
+                    leftIcon="log-out-outline"
+                    onPress={handleLogout}
+                    style={styles.logoutButton}
+                  />
+                </View>
+              </View>
+            )}
+            
+            {activeTab === 'account' && (
+              <View style={styles.accountContent}>
+                {/* Account Settings Card */}
+                <Card style={styles.settingsCard}>
+                  <View style={styles.settingsCardHeader}>
+                    <Ionicons name="person-circle-outline" size={22} color={theme.primary} />
+                    <Text style={[styles.settingsCardTitle, { color: theme.text }]}>
+                      Profile Settings
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.settingsCardContent}>
+                    {/* Username setting */}
+                    <View style={[styles.settingSection, { borderBottomColor: theme.border }]}>
+                      <View style={styles.settingHeader}>
+                        <Text style={[styles.settingTitle, { color: theme.text }]}>Username</Text>
+                        <Text 
+                          style={[
+                            styles.settingValue, 
+                            { 
+                              color: nameColor || theme.textSecondary,
+                              fontWeight: nameColor ? 'bold' : 'normal'
+                            }
+                          ]}
+                        >
+                          {username}
+                        </Text>
+                      </View>
+                      
+                      {showChangeUsername ? (
+                        <View style={styles.changeForm}>
+                          <TextInput
+                            style={[
+                              styles.input, 
+                              { 
+                                backgroundColor: theme.surfaceAlt, 
+                                color: theme.text,
+                                borderColor: theme.border
+                              }
+                            ]}
+                            placeholder="New username"
+                            placeholderTextColor={theme.textSecondary}
+                            value={newUsername}
+                            onChangeText={setNewUsername}
+                            autoCapitalize="none"
+                            editable={!usernameLoading}
+                          />
+                          
+                          <View style={styles.formButtons}>
+                            <Button
+                              title="Save"
+                              variant="primary"
+                              loading={usernameLoading}
+                              onPress={handleChangeUsername}
+                              style={styles.saveButton}
+                            />
+                            
+                            <Button
+                              title="Cancel"
+                              variant="outline"
+                              onPress={() => {
+                                setShowChangeUsername(false);
+                                setNewUsername('');
+                              }}
+                              disabled={usernameLoading}
+                              style={styles.cancelButton}
+                            />
+                          </View>
+                        </View>
+                      ) : (
+                        <Button
+                          title="Change Username"
+                          variant="primary"
+                          size="small"
+                          leftIcon="create-outline"
+                          onPress={() => setShowChangeUsername(true)}
+                          style={styles.changeButton}
+                        />
+                      )}
+                    </View>
+                    
+                    {/* Email setting */}
+                    <View style={[styles.settingSection, { borderBottomColor: theme.border }]}>
+                      <View style={styles.settingHeader}>
+                        <Text style={[styles.settingTitle, { color: theme.text }]}>Email</Text>
+                        <Text style={[styles.settingValue, { color: theme.textSecondary }]}>{email}</Text>
+                      </View>
+                      
+                      {showChangeEmail ? (
+                        <View style={styles.changeForm}>
+                          <TextInput
+                            style={[
+                              styles.input, 
+                              { 
+                                backgroundColor: theme.surfaceAlt, 
+                                color: theme.text,
+                                borderColor: theme.border
+                              }
+                            ]}
+                            placeholder="New email address"
+                            placeholderTextColor={theme.textSecondary}
+                            value={newEmail}
+                            onChangeText={setNewEmail}
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                            editable={!emailLoading}
+                          />
+                          
+                          <View style={styles.formButtons}>
+                            <Button
+                              title="Save"
+                              variant="primary"
+                              loading={emailLoading}
+                              onPress={handleChangeEmail}
+                              style={styles.saveButton}
+                            />
+                            
+                            <Button
+                              title="Cancel"
+                              variant="outline"
+                              onPress={() => {
+                                setShowChangeEmail(false);
+                                setNewEmail('');
+                              }}
+                              disabled={emailLoading}
+                              style={styles.cancelButton}
+                            />
+                          </View>
+                        </View>
+                      ) : (
+                        <Button
+                          title="Change Email"
+                          variant="primary"
+                          size="small"
+                          leftIcon="create-outline"
+                          onPress={() => setShowChangeEmail(true)}
+                          style={styles.changeButton}
+                        />
+                      )}
+                    </View>
+                    
+                    {/* Password setting */}
+                    <View style={styles.settingSection}>
+                      <View style={styles.settingHeader}>
+                        <Text style={[styles.settingTitle, { color: theme.text }]}>Password</Text>
+                        <Text style={[styles.settingValue, { color: theme.textSecondary }]}>••••••••</Text>
+                      </View>
+                      
+                      {showChangePassword ? (
+                        <View style={styles.changeForm}>
+                          <View style={styles.passwordInputWrapper}>
+                            <TextInput
+                              style={[
+                                styles.input, 
+                                { 
+                                  backgroundColor: theme.surfaceAlt, 
+                                  color: theme.text,
+                                  borderColor: theme.border
+                                }
+                              ]}
+                              placeholder="Current password"
+                              placeholderTextColor={theme.textSecondary}
+                              value={oldPassword}
+                              onChangeText={setOldPassword}
+                              secureTextEntry={!showOldPassword}
+                              autoCapitalize="none"
+                              editable={!passwordLoading}
+                            />
+                            <TouchableOpacity
+                              style={[styles.eyeButton, { backgroundColor: theme.surface }]}
+                              onPress={() => setShowOldPassword(!showOldPassword)}
+                            >
+                              <Ionicons
+                                name={showOldPassword ? "eye-off-outline" : "eye-outline"}
+                                size={18}
+                                color={theme.textSecondary}
+                              />
+                            </TouchableOpacity>
+                          </View>
+                          
+                          <View style={styles.passwordInputWrapper}>
+                            <TextInput
+                              style={[
+                                styles.input, 
+                                { 
+                                  backgroundColor: theme.surfaceAlt, 
+                                  color: theme.text,
+                                  borderColor: theme.border
+                                }
+                              ]}
+                              placeholder="New password"
+                              placeholderTextColor={theme.textSecondary}
+                              value={newPassword}
+                              onChangeText={setNewPassword}
+                              secureTextEntry={!showNewPassword}
+                              autoCapitalize="none"
+                              editable={!passwordLoading}
+                            />
+                            <TouchableOpacity
+                              style={[styles.eyeButton, { backgroundColor: theme.surface }]}
+                              onPress={() => setShowNewPassword(!showNewPassword)}
+                            >
+                              <Ionicons
+                                name={showNewPassword ? "eye-off-outline" : "eye-outline"}
+                                size={18}
+                                color={theme.textSecondary}
+                              />
+                            </TouchableOpacity>
+                          </View>
+                          
+                          <View style={styles.passwordInputWrapper}>
+                            <TextInput
+                              style={[
+                                styles.input, 
+                                { 
+                                  backgroundColor: theme.surfaceAlt, 
+                                  color: theme.text,
+                                  borderColor: theme.border
+                                }
+                              ]}
+                              placeholder="Confirm new password"
+                              placeholderTextColor={theme.textSecondary}
+                              value={confirmPassword}
+                              onChangeText={setConfirmPassword}
+                              secureTextEntry={!showConfirmPassword}
+                              autoCapitalize="none"
+                              editable={!passwordLoading}
+                            />
+                            <TouchableOpacity
+                              style={[styles.eyeButton, { backgroundColor: theme.surface }]}
+                              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                            >
+                              <Ionicons
+                                name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                                size={18}
+                                color={theme.textSecondary}
+                              />
+                            </TouchableOpacity>
+                          </View>
+                          
+                          <View style={styles.formButtons}>
+                            <Button
+                              title="Save"
+                              variant="primary"
+                              loading={passwordLoading}
+                              onPress={handleChangePassword}
+                              style={styles.saveButton}
+                            />
+                            
+                            <Button
+                              title="Cancel"
+                              variant="outline"
+                              onPress={() => {
+                                setShowChangePassword(false);
+                                setOldPassword('');
+                                setNewPassword('');
+                                setConfirmPassword('');
+                              }}
+                              disabled={passwordLoading}
+                              style={styles.cancelButton}
+                            />
+                          </View>
+                        </View>
+                      ) : (
+                        <Button
+                          title="Change Password"
+                          variant="primary"
+                          size="small"
+                          leftIcon="create-outline"
+                          onPress={() => setShowChangePassword(true)}
+                          style={styles.changeButton}
+                        />
+                      )}
+                    </View>
+                  </View>
+                </Card>
+                
+                {/* Appearance Settings */}
+                <Card
+                  style={styles.appearanceCard}
+                  onPress={goToThemeSettings}
+                >
+                  <View style={styles.appearanceCardContent}>
+                    <View style={styles.appearanceTextContent}>
+                      <View style={styles.appearanceIconContainer}>
+                        <LinearGradient
+                          colors={theme.primaryGradient}
+                          style={styles.appearanceIconGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <Ionicons name="color-palette" size={22} color="#FFFFFF" />
+                        </LinearGradient>
+                      </View>
+                      
+                      <View style={styles.appearanceTextContainer}>
+                        <Text style={[styles.appearanceTitle, { color: theme.text }]}>
+                          Appearance Settings
+                        </Text>
+                        <Text style={[styles.appearanceDescription, { color: theme.textSecondary }]}>
+                          Change app theme and colors
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                  </View>
+                </Card>
+                
+                {/* Support Card */}
+                <Card
+                  style={styles.supportCard}
+                  onPress={goToSupport}
+                >
+                  <View style={styles.supportCardContent}>
+                    <View style={styles.supportTextContent}>
+                      <View style={styles.supportIconContainer}>
+                        <LinearGradient
+                          colors={theme.secondaryGradient}
+                          style={styles.supportIconGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <Ionicons name="help-circle" size={22} color="#FFFFFF" />
+                        </LinearGradient>
+                      </View>
+                      
+                      <View style={styles.supportTextContainer}>
+                        <Text style={[styles.supportTitle, { color: theme.text }]}>
+                          Support & Help
+                        </Text>
+                        <Text style={[styles.supportDescription, { color: theme.textSecondary }]}>
+                          Get assistance with any issues
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                  </View>
+                </Card>
+                
+                {/* Logout button */}
+                <View style={styles.logoutContainer}>
+                  <Button
+                    title="Logout"
+                    variant="outline"
+                    leftIcon="log-out-outline"
+                    onPress={handleLogout}
+                    style={styles.logoutButton}
+                  />
+                </View>
+              </View>
+            )}
+            
+            {activeTab === 'achievements' && (
+              <View style={styles.achievementsContent}>
+                <Card style={styles.achievementsStatsCard}>
+                  <LinearGradient
+                    colors={[...theme.primaryGradient].reverse()}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.achievementsStatsGradient}
+                  >
+                    <View style={styles.achievementsStatsContent}>
+                      <View style={styles.achievementsStatsIconContainer}>
+                        <Ionicons name="trophy" size={40} color="#FFFFFF" />
+                      </View>
+                      
+                      <View style={styles.achievementsStatsTextContainer}>
+                        <Text style={styles.achievementsStatsTitle}>
+                          {achievements.length} Achievements
+                        </Text>
+                        <Text style={styles.achievementsStatsDescription}>
+                          Keep up the great work!
+                        </Text>
+                      </View>
+                    </View>
+                  </LinearGradient>
+                </Card>
+                
+                <Button
+                  title="View All Achievements"
+                  variant="primary"
+                  rightIcon="arrow-forward"
+                  onPress={goToAchievements}
+                  style={styles.viewAchievementsButton}
+                />
+                
+                <View style={styles.achievementsListContainer}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                    Recent Achievements
+                  </Text>
+                  
+                  {achievements.length > 0 ? (
+                    <View style={styles.recentAchievementsList}>
+                      {/* Show the 5 most recent achievements */}
+                      {[...achievements].slice(0, 5).map((achievement, index) => (
+                        <View key={`achievement-full-${index}`}>
+                          <Card style={styles.achievementFullCard}>
+                            <View style={styles.achievementFullCardContent}>
+                              <LinearGradient
+                                colors={index % 2 === 0 ? theme.primaryGradient : theme.secondaryGradient}
+                                style={styles.achievementFullIconContainer}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                              >
+                                <Ionicons name="trophy" size={24} color="#FFFFFF" />
+                              </LinearGradient>
+                              
+                              <View style={styles.achievementFullTextContainer}>
+                                <Text 
+                                  style={[styles.achievementFullTitle, { color: theme.text }]}
+                                  numberOfLines={1}
+                                >
+                                  {achievement}
+                                </Text>
+                                <Text 
+                                  style={[styles.achievementFullDescription, { color: theme.textSecondary }]}
+                                  numberOfLines={2}
+                                >
+                                  You've earned this achievement by completing challenges
+                                </Text>
+                              </View>
+                            </View>
+                          </Card>
+                        </View>
+                      ))}
+                      
+                      {achievements.length > 5 && (
+                        <View style={styles.moreAchievementsContainer}>
+                          <Text style={[styles.moreAchievementsText, { color: theme.textSecondary }]}>
+                            + {achievements.length - 5} more achievements
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <Card style={styles.emptyStateCard}>
+                      <View style={styles.emptyStateContent}>
+                        <Ionicons name="trophy-outline" size={40} color={theme.textSecondary} />
+                        <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+                          No achievements yet. Complete challenges to earn badges!
+                        </Text>
+                      </View>
+                    </Card>
+                  )}
+                </View>
+              </View>
             )}
           </View>
-          
-          <View style={styles.userInfo}>
-            <Text style={styles.username}>{username}</Text>
-            
-            <View style={styles.levelContainer}>
-              <View style={styles.levelBadge}>
-                <Text style={styles.levelText}>{level}</Text>
-              </View>
-              
-              <View style={styles.xpContainer}>
-                <View style={styles.xpBar}>
-                  <View style={[styles.xpProgress, { width: `${xpPercentage}%` }]} />
-                </View>
-                <Text style={styles.xpText}>{xp} XP</Text>
-              </View>
-            </View>
-            
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Ionicons name="wallet-outline" size={18} color="#FFD700" />
-                <Text style={styles.statText}>{coins}</Text>
-              </View>
-              
-              <View style={styles.statItem}>
-                <Ionicons name="trophy-outline" size={18} color="#FFD700" />
-                <Text style={styles.statText}>{achievements.length}</Text>
-              </View>
-              
-              <View style={styles.statItem}>
-                <Ionicons name="star-outline" size={18} color="#FFD700" />
-                <Text style={styles.statText}>{purchasedItems.length}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-        
-        {/* Tabs Navigation */}
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
-            onPress={() => setActiveTab('overview')}
-          >
-            <Text style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>Overview</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'account' && styles.activeTab]}
-            onPress={() => setActiveTab('account')}
-          >
-            <Text style={[styles.tabText, activeTab === 'account' && styles.activeTabText]}>Account</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'achievements' && styles.activeTab]}
-            onPress={() => setActiveTab('achievements')}
-          >
-            <Text style={[styles.tabText, activeTab === 'achievements' && styles.activeTabText]}>Achievements</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/* Tab Content */}
-        {activeTab === 'overview' && (
-          <View style={styles.tabContent}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="person-outline" size={20} color="#6543CC" />
-                <Text style={styles.cardTitle}>User Profile</Text>
-              </View>
-              
-              <View style={styles.cardBody}>
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>Username:</Text>
-                  <Text style={styles.detailValue}>{username}</Text>
-                </View>
-                
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>Email:</Text>
-                  <Text style={styles.detailValue}>{email}</Text>
-                </View>
-                
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>Level:</Text>
-                  <Text style={styles.detailValue}>{level}</Text>
-                </View>
-                
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>XP:</Text>
-                  <Text style={styles.detailValue}>{xp}</Text>
-                </View>
-                
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>Coins:</Text>
-                  <Text style={styles.detailValue}>{coins}</Text>
-                </View>
-                
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>Subscription:</Text>
-                  <Text style={[
-                    styles.detailValue, 
-                    subscriptionActive ? styles.activeSubscription : styles.inactiveSubscription
-                  ]}>
-                    {subscriptionActive ? 'Active' : 'Inactive'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-            
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="trophy-outline" size={20} color="#6543CC" />
-                <Text style={styles.cardTitle}>Achievements</Text>
-              </View>
-              
-              <View style={styles.cardBody}>
-                {achievements.length > 0 ? (
-                  <>
-                    <Text style={styles.achievementsText}>
-                      You have unlocked {achievements.length} achievements!
-                    </Text>
-                    <TouchableOpacity style={styles.viewMoreButton} onPress={goToAchievements}>
-                      <Text style={styles.viewMoreText}>View All Achievements</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#6543CC" />
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <Text style={styles.emptyStateText}>
-                    Complete quizzes and challenges to earn achievements!
-                  </Text>
-                )}
-              </View>
-            </View>
-            
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="cart-outline" size={20} color="#6543CC" />
-                <Text style={styles.cardTitle}>Shop Items</Text>
-              </View>
-              
-              <View style={styles.cardBody}>
-                {purchasedItems.length > 0 ? (
-                  <>
-                    <Text style={styles.itemsText}>
-                      You have purchased {purchasedItems.length} items from the shop!
-                    </Text>
-                    <TouchableOpacity style={styles.viewMoreButton} onPress={goToShop}>
-                      <Text style={styles.viewMoreText}>Visit Shop</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#6543CC" />
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <Text style={styles.emptyStateText}>
-                    Visit the shop to purchase avatars and other items!
-                  </Text>
-                )}
-              </View>
-            </View>
-            
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        
-        {activeTab === 'account' && (
-          <View style={styles.tabContent}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="person-outline" size={20} color="#6543CC" />
-                <Text style={styles.cardTitle}>Account Settings</Text>
-              </View>
-              
-              <View style={styles.cardBody}>
-                {/* Change Username */}
-                <View style={styles.settingSection}>
-                  <View style={styles.settingHeader}>
-                    <Text style={styles.settingTitle}>Username</Text>
-                    <Text style={styles.settingValue}>{username}</Text>
-                  </View>
-                  
-                  {showChangeUsername ? (
-                    <View style={styles.changeForm}>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="New username"
-                        placeholderTextColor="#AAAAAA"
-                        value={newUsername}
-                        onChangeText={setNewUsername}
-                        autoCapitalize="none"
-                        editable={!usernameLoading}
-                      />
-                      
-                      <View style={styles.formButtons}>
-                        <TouchableOpacity 
-                          style={styles.saveButton}
-                          onPress={handleChangeUsername}
-                          disabled={usernameLoading}
-                        >
-                          {usernameLoading ? (
-                            <ActivityIndicator color="#FFFFFF" size="small" />
-                          ) : (
-                            <Text style={styles.buttonText}>Save</Text>
-                          )}
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                          style={styles.cancelButton}
-                          onPress={() => {
-                            setShowChangeUsername(false);
-                            setNewUsername('');
-                          }}
-                          disabled={usernameLoading}
-                        >
-                          <Text style={styles.cancelText}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity 
-                      style={styles.changeButton}
-                      onPress={() => setShowChangeUsername(true)}
-                    >
-                      <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.changeButtonText}>Change Username</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {/* Change Email */}
-                <View style={styles.settingSection}>
-                  <View style={styles.settingHeader}>
-                    <Text style={styles.settingTitle}>Email</Text>
-                    <Text style={styles.settingValue}>{email}</Text>
-                  </View>
-                  
-                  {showChangeEmail ? (
-                    <View style={styles.changeForm}>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="New email address"
-                        placeholderTextColor="#AAAAAA"
-                        value={newEmail}
-                        onChangeText={setNewEmail}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                        editable={!emailLoading}
-                      />
-                      
-                      <View style={styles.formButtons}>
-                        <TouchableOpacity 
-                          style={styles.saveButton}
-                          onPress={handleChangeEmail}
-                          disabled={emailLoading}
-                        >
-                          {emailLoading ? (
-                            <ActivityIndicator color="#FFFFFF" size="small" />
-                          ) : (
-                            <Text style={styles.buttonText}>Save</Text>
-                          )}
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                          style={styles.cancelButton}
-                          onPress={() => {
-                            setShowChangeEmail(false);
-                            setNewEmail('');
-                          }}
-                          disabled={emailLoading}
-                        >
-                          <Text style={styles.cancelText}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity 
-                      style={styles.changeButton}
-                      onPress={() => setShowChangeEmail(true)}
-                    >
-                      <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.changeButtonText}>Change Email</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {/* Change Password */}
-                <View style={styles.settingSection}>
-                  <View style={styles.settingHeader}>
-                    <Text style={styles.settingTitle}>Password</Text>
-                    <Text style={styles.settingValue}>••••••••</Text>
-                  </View>
-                  
-                  {showChangePassword ? (
-                    <View style={styles.changeForm}>
-                      <View style={styles.passwordInputContainer}>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="Current password"
-                          placeholderTextColor="#AAAAAA"
-                          value={oldPassword}
-                          onChangeText={setOldPassword}
-                          secureTextEntry={!showOldPassword}
-                          autoCapitalize="none"
-                          editable={!passwordLoading}
-                        />
-                        <TouchableOpacity
-                          style={styles.eyeIcon}
-                          onPress={() => setShowOldPassword(!showOldPassword)}
-                        >
-                          <Ionicons
-                            name={showOldPassword ? "eye-off-outline" : "eye-outline"}
-                            size={20}
-                            color="#AAAAAA"
-                          />
-                        </TouchableOpacity>
-                      </View>
-                      
-                      <View style={styles.passwordInputContainer}>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="New password"
-                          placeholderTextColor="#AAAAAA"
-                          value={newPassword}
-                          onChangeText={setNewPassword}
-                          secureTextEntry={!showNewPassword}
-                          autoCapitalize="none"
-                          editable={!passwordLoading}
-                        />
-                        <TouchableOpacity
-                          style={styles.eyeIcon}
-                          onPress={() => setShowNewPassword(!showNewPassword)}
-                        >
-                          <Ionicons
-                            name={showNewPassword ? "eye-off-outline" : "eye-outline"}
-                            size={20}
-                            color="#AAAAAA"
-                          />
-                        </TouchableOpacity>
-                      </View>
-                      
-                      <View style={styles.passwordInputContainer}>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="Confirm new password"
-                          placeholderTextColor="#AAAAAA"
-                          value={confirmPassword}
-                          onChangeText={setConfirmPassword}
-                          secureTextEntry={!showConfirmPassword}
-                          autoCapitalize="none"
-                          editable={!passwordLoading}
-                        />
-                        <TouchableOpacity
-                          style={styles.eyeIcon}
-                          onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                        >
-                          <Ionicons
-                            name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
-                            size={20}
-                            color="#AAAAAA"
-                          />
-                        </TouchableOpacity>
-                      </View>
-                      
-                      <View style={styles.formButtons}>
-                        <TouchableOpacity 
-                          style={styles.saveButton}
-                          onPress={handleChangePassword}
-                          disabled={passwordLoading}
-                        >
-                          {passwordLoading ? (
-                            <ActivityIndicator color="#FFFFFF" size="small" />
-                          ) : (
-                            <Text style={styles.buttonText}>Save</Text>
-                          )}
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                          style={styles.cancelButton}
-                          onPress={() => {
-                            setShowChangePassword(false);
-                            setOldPassword('');
-                            setNewPassword('');
-                            setConfirmPassword('');
-                          }}
-                          disabled={passwordLoading}
-                        >
-                          <Text style={styles.cancelText}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity 
-                      style={styles.changeButton}
-                      onPress={() => setShowChangePassword(true)}
-                    >
-                      <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.changeButtonText}>Change Password</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            </View>
-            
-            <TouchableOpacity style={styles.supportButton} onPress={goToSupport}>
-              <Ionicons name="help-circle-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.supportText}>Contact Support</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        
-        {activeTab === 'achievements' && (
-          <View style={styles.tabContent}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="trophy-outline" size={20} color="#6543CC" />
-                <Text style={styles.cardTitle}>Your Achievements</Text>
-              </View>
-              
-              <View style={styles.cardBody}>
-                {achievements.length > 0 ? (
-                  <>
-                    <Text style={styles.achievementsText}>
-                      You have unlocked {achievements.length} achievements!
-                    </Text>
-                    <TouchableOpacity style={styles.viewMoreButton} onPress={goToAchievements}>
-                      <Text style={styles.viewMoreText}>View All Achievements</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#6543CC" />
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <Text style={styles.emptyStateText}>
-                    Complete quizzes and challenges to earn achievements!
-                  </Text>
-                )}
-              </View>
-            </View>
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 };
 
 // Status Modal Component
-const StatusModal = ({ visible, message, type, onClose }) => {
+const StatusModal = ({ visible, message, type, onClose, theme }) => {
   if (!visible) return null;
   
   return (
@@ -802,21 +1240,24 @@ const StatusModal = ({ visible, message, type, onClose }) => {
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={[
-          styles.modalContent,
-          type === 'success' ? styles.successModal : styles.errorModal
-        ]}>
-          <Ionicons 
-            name={type === 'success' ? "checkmark-circle" : "alert-circle"} 
-            size={24} 
-            color={type === 'success' ? "#2ebb77" : "#ff4e4e"} 
-          />
-          <Text style={styles.modalText}>{message}</Text>
-          <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
-            <Ionicons name="close" size={20} color="#AAAAAA" />
+      <View style={styles.modalContainer}>
+        <BlurView intensity={40} tint="dark" style={styles.modalBlur}>
+          <TouchableOpacity style={styles.modalBackground} onPress={onClose}>
+            <View style={[
+              styles.modalContent,
+              type === 'success' 
+                ? { backgroundColor: theme.success + 'DD' }
+                : { backgroundColor: theme.danger + 'DD' }
+            ]}>
+              <Ionicons 
+                name={type === 'success' ? "checkmark-circle" : "alert-circle"} 
+                size={24} 
+                color="#FFFFFF"
+              />
+              <Text style={styles.modalText}>{message}</Text>
+            </View>
           </TouchableOpacity>
-        </View>
+        </BlurView>
       </View>
     </Modal>
   );
@@ -825,235 +1266,388 @@ const StatusModal = ({ visible, message, type, onClose }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+  },
+  backgroundDecorations: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  topLeftBlur: {
+    position: 'absolute',
+    top: -100,
+    left: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    opacity: 0.7,
+  },
+  topRightBlur: {
+    position: 'absolute',
+    top: -50,
+    right: -100,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    opacity: 0.7,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  headerActions: {
+    flexDirection: 'row',
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   scrollView: {
     flex: 1,
   },
   scrollViewContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingBottom: 30,
   },
   
-  // Header styles
-  header: {
-    flexDirection: 'row',
-    backgroundColor: '#1E1E1E',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+  // Profile Card
+  profileCardContainer: {
+    paddingHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  profileCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  profileCardContent: {
+    padding: 20,
   },
   avatarContainer: {
-    marginRight: 16,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  avatarBorder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    padding: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: '#6543CC',
-    backgroundColor: '#2A2A2A', // Background color while loading
+    width: 94,
+    height: 94,
+    borderRadius: 47,
+    backgroundColor: '#2A2A2A',
   },
-  userInfo: {
-    flex: 1,
+  placeholderAvatar: {
+    width: 94,
+    height: 94,
+    borderRadius: 47,
+    backgroundColor: '#2A2A2A',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  username: {
-    fontSize: 20,
+  avatarText: {
+    fontSize: 36,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 6,
+  },
+  editAvatarButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  editAvatarBlur: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userInfoContainer: {
+    alignItems: 'center',
+  },
+  usernameText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  emailText: {
+    fontSize: 14,
+    marginBottom: 16,
   },
   levelContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  levelBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   levelBadge: {
-    backgroundColor: '#6543CC',
     width: 28,
     height: 28,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 8,
+  },
+  levelNumber: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   levelText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  xpContainer: {
-    flex: 1,
-  },
-  xpBar: {
-    height: 6,
-    backgroundColor: '#333333',
-    borderRadius: 3,
-    marginBottom: 4,
-    overflow: 'hidden',
-  },
-  xpProgress: {
-    height: '100%',
-    backgroundColor: '#6543CC',
-    borderRadius: 3,
-  },
-  xpText: {
-    color: '#AAAAAA',
+  xpNextLevel: {
     fontSize: 12,
-    textAlign: 'right',
+    marginLeft: 'auto',
   },
-  statsRow: {
+  xpBarContainer: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  xpBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    width: '100%',
   },
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  statText: {
-    color: '#FFFFFF',
-    marginLeft: 4,
-    fontSize: 14,
+  statIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  statTextContainer: {
+    alignItems: 'flex-start',
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  statLabel: {
+    fontSize: 12,
   },
   
-  // Tabs styles
+  // Tabs
   tabsContainer: {
     flexDirection: 'row',
+    borderBottomWidth: 1,
     marginBottom: 20,
-    backgroundColor: '#1E1E1E',
-    borderRadius: 8,
-    overflow: 'hidden',
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 16,
     alignItems: 'center',
-  },
-  activeTab: {
-    backgroundColor: '#6543CC',
+    position: 'relative',
   },
   tabText: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  activeTabText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontWeight: '600',
+    fontSize: 15,
   },
   
-  // Content styles
+  // Tab Content
   tabContent: {
+    paddingHorizontal: 20,
+  },
+  
+  // Overview Tab
+  overviewContent: {
     flex: 1,
   },
-  card: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    marginBottom: 16,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+  subscriptionCard: {
+    marginBottom: 20,
   },
-  cardHeader: {
+  subscriptionContent: {
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    justifyContent: 'space-between',
   },
-  cardTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  subscriptionTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  subscriptionTextBlock: {
+    marginLeft: 12,
+  },
+  subscriptionTitle: {
     fontWeight: 'bold',
-    marginLeft: 8,
+    fontSize: 16,
+    marginBottom: 2,
   },
-  cardBody: {
-    padding: 16,
+  subscriptionDescription: {
+    fontSize: 13,
   },
-  
-  // Profile details
-  profileDetail: {
+  upgradeButton: {
+    marginLeft: 12,
+  },
+  quickActions: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  actionCardsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
   },
-  detailLabel: {
-    color: '#AAAAAA',
-    fontSize: 14,
+  actionCardWrapper: {
+    width: '31%',
   },
-  detailValue: {
+  actionCard: {
+    aspectRatio: 0.9,
+  },
+  actionCardContent: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionCardTitle: {
     color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginTop: 10,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  actionCardDescription: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  recentAchievements: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  viewAllText: {
     fontSize: 14,
     fontWeight: '500',
   },
-  activeSubscription: {
-    color: '#2ebb77',
+  achievementsList: {
+    // Styles for achievements list
   },
-  inactiveSubscription: {
-    color: '#AAAAAA',
+  achievementCard: {
+    marginBottom: 10,
   },
-  
-  // Achievements & Items
-  achievementsText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  itemsText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  emptyStateText: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  viewMoreButton: {
+  achievementCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    backgroundColor: 'rgba(101, 67, 204, 0.1)',
-    borderRadius: 8,
+    padding: 12,
   },
-  viewMoreText: {
-    color: '#6543CC',
+  achievementIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  achievementTextContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  achievementTitle: {
+    fontWeight: '600',
+    fontSize: 15,
+    marginBottom: 2,
+  },
+  achievementDescription: {
+    fontSize: 12,
+  },
+  emptyStateCard: {
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 100, 100, 0.3)',
+    backgroundColor: 'transparent',
+  },
+  emptyStateContent: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    textAlign: 'center',
+    marginTop: 12,
     fontSize: 14,
-    marginRight: 4,
+  },
+  logoutContainer: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  logoutButton: {
+    // Logout button styles
   },
   
-  // Account settings
-  settingSection: {
-    marginBottom: 16,
+  // Account Tab
+  accountContent: {
+    flex: 1,
+  },
+  settingsCard: {
+    marginBottom: 20,
+  },
+  settingsCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-    paddingBottom: 16,
+    borderBottomColor: 'rgba(100, 100, 100, 0.3)',
+  },
+  settingsCardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  settingsCardContent: {
+    padding: 16,
+  },
+  settingSection: {
+    marginBottom: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
   },
   settingHeader: {
     flexDirection: 'row',
@@ -1062,49 +1656,37 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   settingTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
   },
   settingValue: {
-    color: '#AAAAAA',
     fontSize: 14,
   },
-  changeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#6543CC',
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  changeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
-  },
-  
-  // Forms
   changeForm: {
-    marginTop: 8,
+    marginTop: 16,
   },
   input: {
-    backgroundColor: '#333333',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#FFFFFF',
+    fontSize: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  passwordInputWrapper: {
+    position: 'relative',
     marginBottom: 12,
   },
-  passwordInputContainer: {
-    position: 'relative',
-  },
-  eyeIcon: {
+  eyeButton: {
     position: 'absolute',
     right: 12,
-    top: '25%',
-    zIndex: 1,
+    top: '50%',
+    transform: [{ translateY: -12 }],
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   formButtons: {
     flexDirection: 'row',
@@ -1112,105 +1694,197 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#6543CC',
-    paddingVertical: 10,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 8,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#333333',
-    paddingVertical: 10,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  cancelText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
+  changeButton: {
+    alignSelf: 'flex-start',
   },
   
-  // Buttons
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E53935',
-    paddingVertical: 12,
-    borderRadius: 8,
+  // Appearance and Support Cards
+  appearanceCard: {
     marginBottom: 20,
   },
-  logoutText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  supportButton: {
+  appearanceCardContent: {
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2196F3',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    justifyContent: 'space-between',
   },
-  supportText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
+  appearanceTextContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  
-  // Modal
-  modalOverlay: {
-    flex: 1,
+  appearanceIconContainer: {
+    marginRight: 16,
+  },
+  appearanceIconGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  appearanceTextContainer: {
+    // Text container styles
+  },
+  appearanceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  appearanceDescription: {
+    fontSize: 13,
+  },
+  supportCard: {
+    marginBottom: 24,
+  },
+  supportCardContent: {
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  supportTextContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  supportIconContainer: {
+    marginRight: 16,
+  },
+  supportIconGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  supportTextContainer: {
+    // Text container styles
+  },
+  supportTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  supportDescription: {
+    fontSize: 13,
+  },
+  
+  // Achievements Tab
+  achievementsContent: {
+    flex: 1,
+  },
+  achievementsStatsCard: {
+    marginBottom: 20,
+    overflow: 'hidden',
+  },
+  achievementsStatsGradient: {
+    padding: 20,
+  },
+  achievementsStatsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  achievementsStatsIconContainer: {
+    marginRight: 16,
+  },
+  achievementsStatsTextContainer: {
+    // Text container styles
+  },
+  achievementsStatsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  achievementsStatsDescription: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  viewAchievementsButton: {
+    marginBottom: 24,
+  },
+  achievementsListContainer: {
+    marginBottom: 16,
+  },
+  recentAchievementsList: {
+    // List styles
+  },
+  achievementFullCard: {
+    marginBottom: 12,
+  },
+  achievementFullCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  achievementFullIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  achievementFullTextContainer: {
+    flex: 1,
+  },
+  achievementFullTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  achievementFullDescription: {
+    fontSize: 14,
+  },
+  moreAchievementsContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  moreAchievementsText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  
+  // Status Modal
+  modalContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBlur: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBackground: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
-    padding: 16,
-    width: '80%',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  successModal: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#2ebb77',
-  },
-  errorModal: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#ff4e4e',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    maxWidth: '80%',
   },
   modalText: {
-    flex: 1,
     color: '#FFFFFF',
-    fontSize: 14,
-    marginLeft: 10,
-  },
-  modalCloseButton: {
+    fontSize: 15,
+    fontWeight: '600',
     marginLeft: 10,
   },
 });

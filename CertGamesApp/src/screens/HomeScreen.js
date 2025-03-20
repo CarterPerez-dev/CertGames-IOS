@@ -249,6 +249,19 @@ const HomeScreen = ({ navigation }) => {
           </View>
           <Ionicons name="chevron-forward" size={20} color="#AAAAAA" />
         </TouchableOpacity>
+        
+        {/* Added Support tool button */}
+        <TouchableOpacity 
+          style={styles.toolButton}
+          onPress={() => navigation.navigate('Support')}
+        >
+          <Ionicons name="help-circle-outline" size={24} color="#2196F3" />
+          <View style={styles.toolTextContainer}>
+            <Text style={styles.toolTitle}>Contact Support</Text>
+            <Text style={styles.toolSubtitle}>Get help with any questions or issues</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#AAAAAA" />
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -404,4 +417,3 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
-

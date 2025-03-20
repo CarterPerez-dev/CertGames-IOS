@@ -62,11 +62,19 @@ const NewsletterScreen = () => {
     
     try {
       const response = await subscribeToNewsletter(email);
-      setIsError(false);
-      setStatusMsg(response.message || "Successfully subscribed to the Daily Cyber Brief!");
+      
+      // Check if the response indicates success or informational failure
+      if (response.success === false) {
+        // Handle already subscribed case specifically
+        setIsError(false); // Not a true error, just information
+        setStatusMsg(response.message || "Already subscribed.");
+      } else {
+        setIsError(false);
+        setStatusMsg(response.message || "Successfully subscribed to the Daily Cyber Brief!");
+        // Clear email field on successful subscription
+        setEmail("");
+      }
       setShowStatusMsg(true);
-      // Clear email field on successful subscription
-      setEmail("");
     } catch (err) {
       setIsError(true);
       const fallback = "Subscription failed. Please try again.";
@@ -98,11 +106,19 @@ const NewsletterScreen = () => {
     
     try {
       const response = await unsubscribeFromNewsletter(email);
-      setIsError(false);
-      setStatusMsg(response.message || "Successfully unsubscribed from the Daily Cyber Brief.");
+      
+      // Check if the response indicates success or informational failure
+      if (response.success === false) {
+        // Handle not subscribed case specifically
+        setIsError(false); // Not a true error, just information
+        setStatusMsg(response.message || "Email not found in subscriber list.");
+      } else {
+        setIsError(false);
+        setStatusMsg(response.message || "Successfully unsubscribed from the Daily Cyber Brief.");
+        // Clear email field on successful unsubscription
+        setEmail("");
+      }
       setShowStatusMsg(true);
-      // Clear email field on successful unsubscription
-      setEmail("");
     } catch (err) {
       setIsError(true);
       const fallback = "Unsubscribe failed. Please try again.";

@@ -95,6 +95,12 @@ const HomeStackNavigator = () => (
       component={ResourcesScreen} 
       options={{ title: 'Resources Hub' }}
     />
+    {/* Added Support screen to HomeStack */}
+    <HomeStack.Screen 
+      name="Support" 
+      component={SupportScreen} 
+      options={{ title: 'Support' }}
+    />
     <HomeStack.Screen 
       name="Tests" 
       component={TestNavigator} 

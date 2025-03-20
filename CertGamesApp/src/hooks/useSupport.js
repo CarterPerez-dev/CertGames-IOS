@@ -1,7 +1,7 @@
 // src/hooks/useSupport.js
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import { io } from 'socket.io-client';
 import { 
   fetchSupportThreads, 
@@ -53,7 +53,6 @@ const useSupport = () => {
   // Keys for AsyncStorage
   const ASYNC_THREADS_KEY = 'support_threads';
   const ASYNC_MESSAGES_KEY = prefix => `support_messages_${prefix}`;
-  const ASYNC_SELECTED_THREAD_KEY = 'support_selected_thread';
   
   // Create a message signature for duplicate detection
   const createMessageSignature = useCallback((message) => {
@@ -109,36 +108,12 @@ const useSupport = () => {
     }
   }, []);
   
-  // Save selected thread ID to AsyncStorage
-  const saveSelectedThreadId = useCallback(async (threadId) => {
-    try {
-      if (threadId) {
-        await AsyncStorage.setItem(ASYNC_SELECTED_THREAD_KEY, threadId);
-      } else {
-        await AsyncStorage.removeItem(ASYNC_SELECTED_THREAD_KEY);
-      }
-    } catch (err) {
-      console.error('Error saving selected thread ID:', err);
-    }
-  }, []);
-  
-  // Load selected thread ID from AsyncStorage
-  const loadSelectedThreadId = useCallback(async () => {
-    try {
-      const threadId = await AsyncStorage.getItem(ASYNC_SELECTED_THREAD_KEY);
-      return threadId;
-    } catch (err) {
-      console.error('Error loading selected thread ID:', err);
-      return null;
-    }
-  }, []);
-  
   // Initialize or get the Socket.IO instance
   const initializeSocket = useCallback(async () => {
     if (socket) return socket;
     
-    // Get the base URL from API configuration
-    const API_URL = 'https://certgames.com'; // Default URL - replace with your actual API URL
+    // Get the base URL from API configuration (we use the same URL for socket.io)
+    const API_URL = 'https://certgames.com'; // Default URL
     
     console.log('Initializing socket connection to:', API_URL);
     
@@ -147,12 +122,11 @@ const useSupport = () => {
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      query: { userId } // Add userId to the connection query for authentication
+      reconnectionDelay: 1000
     });
     
     return socket;
-  }, [userId]);
+  }, []);
   
   // Setup socket event listeners
   const setupSocketEvents = useCallback(() => {
@@ -163,7 +137,7 @@ const useSupport = () => {
       console.log('Socket connected:', socket.id);
       setConnectionStatus(CONNECTION_STATUS.CONNECTED);
       
-      // Join user's personal room - send userId explicitly
+      // Join user's personal room
       if (userId) {
         socket.emit(SOCKET_EVENTS.JOIN_USER_ROOM, { userId });
         console.log(`Joined user room: user_${userId}`);
@@ -326,31 +300,6 @@ const useSupport = () => {
     }
   }, [selectedThreadId, cleanupSocketEvents, setupSocketEvents]);
   
-  // Restore state from AsyncStorage
-  useEffect(() => {
-    const restoreState = async () => {
-      // Load threads from cache
-      await loadCachedThreads();
-      
-      // Load selected thread ID and messages
-      const threadId = await loadSelectedThreadId();
-      if (threadId) {
-        setSelectedThreadId(threadId);
-        const messages = await loadCachedMessages(threadId);
-        if (messages && messages.length > 0) {
-          setMessages(messages);
-          
-          // Add to processed messages set
-          messages.forEach(msg => {
-            processedMessagesRef.current.add(createMessageSignature(msg));
-          });
-        }
-      }
-    };
-    
-    restoreState();
-  }, [loadCachedThreads, loadCachedMessages, loadSelectedThreadId, createMessageSignature]);
-  
   // Load threads
   const loadThreads = useCallback(async (forceRefresh = false) => {
     setLoadingThreads(true);
@@ -446,12 +395,9 @@ const useSupport = () => {
     }
     
     setSelectedThreadId(threadId);
-    setMessages([]);
+    setMessages([]); // Clear current messages
     setLoadingMessages(true);
     setError(null);
-    
-    // Save selected thread ID to AsyncStorage
-    await saveSelectedThreadId(threadId);
     
     // Clear previously processed messages
     processedMessagesRef.current.clear();
@@ -511,7 +457,7 @@ const useSupport = () => {
         setLoadingMessages(false);
       }
     }
-  }, [selectedThreadId, createMessageSignature, loadCachedMessages, cacheMessages, saveSelectedThreadId]);
+  }, [selectedThreadId, createMessageSignature, loadCachedMessages, cacheMessages]);
   
   // Send a message
   const sendMessage = useCallback(async (content) => {
@@ -539,10 +485,6 @@ const useSupport = () => {
     // Add to messages for immediate feedback
     setMessages(prevMessages => {
       const updatedMessages = [...prevMessages, optimisticMsg];
-      
-      // Cache messages immediately including the optimistic one
-      cacheMessages(selectedThreadId, updatedMessages);
-      
       return updatedMessages;
     });
     
@@ -579,36 +521,18 @@ const useSupport = () => {
         return updatedThreads;
       });
       
-      // Replace optimistic message with confirmed one
-      setMessages(prevMessages => {
-        const confirmedMessages = prevMessages.map(msg => 
-          msg.optimistic ? { ...msg, optimistic: false } : msg
-        );
-        
-        // Cache the confirmed messages
-        cacheMessages(selectedThreadId, confirmedMessages);
-        
-        return confirmedMessages;
-      });
-      
+      // Reload messages to get the confirmed message from server
+      await loadMessagesForThread(selectedThreadId);
       return true;
     } catch (err) {
       console.error('Error sending message:', err);
       setError(ERROR_MESSAGES.SEND_MESSAGE);
       
       // Remove the optimistic message
-      setMessages(prevMessages => {
-        const filteredMessages = prevMessages.filter(msg => !msg.optimistic);
-        
-        // Cache the filtered messages
-        cacheMessages(selectedThreadId, filteredMessages);
-        
-        return filteredMessages;
-      });
-      
+      setMessages(prevMessages => prevMessages.filter(msg => !msg.optimistic));
       return false;
     }
-  }, [selectedThreadId, cacheThreads, cacheMessages]);
+  }, [selectedThreadId, cacheThreads]);
   
   // Reload messages for the current thread
   const loadMessagesForThread = useCallback(async (threadId) => {
@@ -684,7 +608,7 @@ const useSupport = () => {
     const confirmed = await new Promise((resolve) => {
       Alert.alert(
         "Close Conversation",
-        "Are you sure you want to close this thread?",
+        "Are you sure you want to close this conversation?",
         [
           { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
           { text: "Close", onPress: () => resolve(true), style: "destructive" }

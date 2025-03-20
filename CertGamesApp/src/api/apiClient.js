@@ -13,18 +13,15 @@ const apiClient = axios.create({
 });
 
 // Request interceptor to include auth info and cookies
+// CertGamesApp/src/api/apiClient.js - modify the request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
     try {
       const userId = await SecureStore.getItemAsync('userId');
       
       if (userId) {
-        // Add X-User-Id header for all requests for iOS
-        if (Platform.OS !== 'web') {
-          config.headers['X-User-Id'] = userId;
-        }
-        
-        // Add userId to POST data if method is POST and it's not already there
+        // Only add userId for endpoints that don't already have it in the URL
+        // Test finish endpoint already has userId in the URL, so don't add it to data
         if (config.method === 'post' && !config.url.includes(`/attempts/${userId}/`)) {
           if (!config.data) {
             config.data = {};
@@ -36,13 +33,11 @@ apiClient.interceptors.request.use(
           }
         }
         
-        // Handle cookie-based auth for web and withCredentials for CORS
-        if (Platform.OS === 'web') {
-          config.withCredentials = true;
-        } else {
-          // For mobile, we'll use X-User-Id instead of relying on cookies
-          config.withCredentials = false;
-        }
+        // Handle cookie-based auth for your backend
+        config.withCredentials = true;
+        
+        // Some APIs might need userId in headers
+        config.headers.userId = userId;
       }
       
       return config;

@@ -314,7 +314,7 @@ const ScenarioSphereScreen = () => {
             <View style={styles.paramsHeader}>
               <View style={styles.paramsHeaderLeft}>
                 <Ionicons name="settings" size={20} color={theme.colors.primary} />
-                <Text style={[styles.paramsTitle, { color: theme.colors.text }]}>Generation Parameters</Text>
+                <Text style={[styles.paramsTitle, { color: theme.colors.text }]}>Parameters</Text>
               </View>
               <View style={[styles.scoreCounter, { backgroundColor: `${theme.colors.primary}20` }]}>
                 <Text style={[styles.scoreValue, { color: theme.colors.text }]}>

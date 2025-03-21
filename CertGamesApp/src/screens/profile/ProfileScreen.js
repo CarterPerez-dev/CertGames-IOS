@@ -661,11 +661,14 @@ const ProfileScreen = ({ navigation }) => {
             </View>
             
             <TouchableOpacity 
-              style={[styles.logoutButton, { backgroundColor: theme.colors.error }]} 
+              style={[
+                globalStyles.buttonDanger,
+                styles.logoutButton
+              ]} 
               onPress={handleLogout}
             >
-              <Ionicons name="log-out-outline" size={20} color={theme.colors.text} />
-              <Text style={[styles.logoutText, { color: theme.colors.text }]}>Logout</Text>
+              <Ionicons name="log-out-outline" size={20} color={theme.colors.buttonText} />
+              <Text style={[globalStyles.buttonText]}>Logout</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1324,12 +1327,6 @@ const styles = StyleSheet.create({
   // Buttons
   logoutButton: {
     marginBottom: 20,
-    borderRadius: 20,
-  },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
   },
   supportButton: {
     marginBottom: 16,

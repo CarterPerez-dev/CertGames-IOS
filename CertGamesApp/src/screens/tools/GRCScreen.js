@@ -10,12 +10,21 @@ import {
   SafeAreaView,
   Alert,
   FlatList,
-  Modal
+  Modal,
+  StatusBar as RNStatusBar,
+  Dimensions,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { streamGRCQuestion } from '../../api/grcService';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../context/ThemeContext';
+import { createGlobalStyles } from '../../styles/globalStyles';
+
+const { width, height } = Dimensions.get('window');
 
 // We'll define the category list for our modal
 const CATEGORY_OPTIONS = [
@@ -33,29 +42,23 @@ const CATEGORY_OPTIONS = [
   { label: 'Random', value: 'Random' },
 ];
 
-// Difficulty “chips” data
+// Difficulty "chips" data
 const DIFFICULTY_OPTIONS = ['Easy', 'Medium', 'Hard'];
 
-// Color map for difficulty
-const difficultyColors = {
-  Easy: '#2ebb77',
-  Medium: '#ffc107',
-  Hard: '#ff4c8b',
-};
-
 const GRCScreen = () => {
+  // Theme integration
+  const { theme } = useTheme();
+  const globalStyles = createGlobalStyles(theme);
+  
   // States
   const [category, setCategory] = useState('Random');
   const [difficulty, setDifficulty] = useState('Easy');
-
   const [loading, setLoading] = useState(false);
   const [questionData, setQuestionData] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
-  // For category modal
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   // Reset copy status after 2 seconds
@@ -68,13 +71,32 @@ const GRCScreen = () => {
     }
   }, [copiedToClipboard]);
 
-  // The main “fetch question” logic
+  // Get color for difficulty
+  const getDifficultyColor = (diff) => {
+    switch (diff) {
+      case 'Easy':
+        return theme.colors.success;
+      case 'Medium': 
+        return theme.colors.warning;
+      case 'Hard':
+        return theme.colors.error;
+      default:
+        return theme.colors.primary;
+    }
+  };
+
+  // The main "fetch question" logic
   const fetchQuestion = async () => {
     setLoading(true);
     setQuestionData(null);
     setSelectedOption(null);
     setShowExplanation(false);
     setErrorMessage('');
+
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
 
     try {
       const data = await streamGRCQuestion(category, difficulty);
@@ -98,11 +120,25 @@ const GRCScreen = () => {
   const handleAnswer = (optionIndex) => {
     if (!questionData) return;
 
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
     setSelectedOption(optionIndex);
     const correctIndex = questionData.correct_answer_index;
     const isCorrect = optionIndex === correctIndex;
 
     setShowExplanation(true);
+
+    // Extra haptic feedback based on correctness
+    if (Platform.OS === 'ios') {
+      if (isCorrect) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    }
 
     Alert.alert(isCorrect ? 'Correct!' : 'Incorrect', '', [{ text: 'OK' }]);
   };
@@ -123,6 +159,12 @@ const GRCScreen = () => {
       }\n\nExplanation: ${correctExplanation}\n\nExam Tip: ${examTip}`;
 
       await Clipboard.setStringAsync(textToCopy);
+      
+      // Haptic feedback
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      
       setCopiedToClipboard(true);
       Alert.alert('Success', 'Copied to clipboard!', [{ text: 'OK' }]);
     } catch (error) {
@@ -143,6 +185,11 @@ const GRCScreen = () => {
 
   // Handle selecting a category from the modal
   const handleCategorySelect = (value) => {
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync();
+    }
+    
     setCategory(value);
     setShowCategoryModal(false);
   };
@@ -150,26 +197,57 @@ const GRCScreen = () => {
   // Render each category item in the modal list
   const renderCategoryItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.categoryItem}
+      style={[
+        styles.categoryItem, 
+        { 
+          borderBottomColor: theme.colors.border,
+          backgroundColor: item.value === category ? 
+            `${theme.colors.primary}20` : 'transparent'
+        }
+      ]}
       onPress={() => handleCategorySelect(item.value)}
     >
-      <Text style={styles.categoryItemText}>{item.label}</Text>
+      <Text style={[styles.categoryItemText, { color: theme.colors.text }]}>{item.label}</Text>
+      {item.value === category && (
+        <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+      )}
     </TouchableOpacity>
   );
 
-  // Render the row of difficulty “chips”
+  // Render the row of difficulty "chips"
   const renderDifficultyChips = () => (
     <View style={styles.chipRow}>
       {DIFFICULTY_OPTIONS.map((diff) => {
         const active = difficulty === diff;
+        const diffColor = getDifficultyColor(diff);
         return (
           <TouchableOpacity
             key={diff}
-            style={[styles.chip, active && styles.chipActive]}
-            onPress={() => !loading && setDifficulty(diff)}
+            style={[
+              styles.chip, 
+              {
+                backgroundColor: active ? diffColor : theme.colors.inputBackground,
+                borderColor: active ? diffColor : theme.colors.inputBorder
+              }
+            ]}
+            onPress={() => {
+              if (Platform.OS === 'ios' && !loading) {
+                Haptics.selectionAsync();
+              }
+              !loading && setDifficulty(diff);
+            }}
             disabled={loading}
           >
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>{diff}</Text>
+            <Text 
+              style={[
+                styles.chipText, 
+                { 
+                  color: active ? theme.colors.buttonText : theme.colors.textSecondary
+                }
+              ]}
+            >
+              {diff}
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -177,60 +255,77 @@ const GRCScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[globalStyles.screen, styles.container]}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
-        <Text style={styles.title}>GRC Wizard</Text>
-        <Text style={styles.subtitle}>Master the art of Governance, Risk, and Compliance</Text>
-      </View>
+      <LinearGradient
+        colors={theme.colors.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.header}
+      >
+        <Text style={[styles.title, { color: theme.colors.text }]}>GRC Wizard</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+          Master the art of Governance, Risk, and Compliance
+        </Text>
+      </LinearGradient>
 
       {/* ScrollView for entire content */}
-      <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
+      <ScrollView 
+        style={styles.scrollView} 
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* Card for generating a question */}
-        <View style={styles.wizardCard}>
+        <View style={[styles.wizardCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Generate a Question</Text>
-            <Text style={styles.cardSubtitle}>Select a category and difficulty level</Text>
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Generate a Question</Text>
+            <Text style={[styles.cardSubtitle, { color: theme.colors.textSecondary }]}>
+              Select a category and difficulty level
+            </Text>
           </View>
 
           <View style={styles.controls}>
             {/* Category selection */}
-            <Text style={styles.label}>Category</Text>
+            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Category</Text>
             <TouchableOpacity
-              style={styles.categoryButton}
+              style={[styles.categoryButton, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}
               onPress={() => !loading && setShowCategoryModal(true)}
               disabled={loading}
             >
-              <Ionicons name="list" size={16} color="#fff" />
-              <Text style={styles.categoryButtonText}>{category}</Text>
-              <Ionicons name="chevron-down" size={16} color="#fff" />
+              <Ionicons name="list" size={16} color={theme.colors.primary} />
+              <Text style={[styles.categoryButtonText, { color: theme.colors.inputText }]}>{category}</Text>
+              <Ionicons name="chevron-down" size={16} color={theme.colors.inputText} />
             </TouchableOpacity>
 
             {/* Difficulty row of chips */}
-            <Text style={styles.label}>Difficulty</Text>
+            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Difficulty</Text>
             {renderDifficultyChips()}
 
             {/* Generate Button */}
             <TouchableOpacity
-              style={styles.generateButton}
+              style={[
+                styles.generateButton, 
+                { backgroundColor: theme.colors.buttonPrimary },
+                loading && { opacity: 0.7 }
+              ]}
               onPress={fetchQuestion}
               disabled={loading}
             >
               {loading ? (
                 <View style={styles.buttonContent}>
-                  <ActivityIndicator color="#fff" size="small" />
-                  <Text style={styles.buttonText}>Generating</Text>
+                  <ActivityIndicator color={theme.colors.buttonText} size="small" />
+                  <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>Generating</Text>
                 </View>
               ) : questionData ? (
                 <View style={styles.buttonContent}>
-                  <Ionicons name="sync" size={20} color="#fff" />
-                  <Text style={styles.buttonText}>New Question</Text>
+                  <Ionicons name="sync" size={20} color={theme.colors.buttonText} />
+                  <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>New Question</Text>
                 </View>
               ) : (
                 <View style={styles.buttonContent}>
-                  <Ionicons name="book" size={20} color="#fff" />
-                  <Text style={styles.buttonText}>Generate Question</Text>
+                  <Ionicons name="book" size={20} color={theme.colors.buttonText} />
+                  <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>Generate Question</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -239,25 +334,47 @@ const GRCScreen = () => {
 
         {/* Error message box */}
         {errorMessage ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="warning" size={20} color="#ff4e4e" />
-            <Text style={styles.errorText}>{errorMessage}</Text>
+          <View style={[
+            styles.errorContainer, 
+            { 
+              backgroundColor: `${theme.colors.error}10`,
+              borderColor: `${theme.colors.error}30`
+            }
+          ]}>
+            <Ionicons name="warning" size={20} color={theme.colors.error} />
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>{errorMessage}</Text>
           </View>
         ) : null}
 
+        {/* Loading Card */}
+        {loading && !questionData && (
+          <View style={[
+            styles.loadingCard,
+            { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }
+          ]}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+              Preparing your question...
+            </Text>
+            <Text style={[styles.loadingSubtext, { color: theme.colors.textSecondary }]}>
+              This will only take a moment.
+            </Text>
+          </View>
+        )}
+
         {/* If question loaded, show it */}
         {questionData && (
-          <View style={styles.questionCard}>
+          <View style={[styles.questionCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
             {/* Top info */}
-            <View style={styles.questionHeader}>
+            <View style={[styles.questionHeader, { backgroundColor: `${theme.colors.primary}20` }]}>
               <View style={styles.questionMeta}>
                 <View style={styles.categoryContainer}>
                   <Ionicons
                     name={category === 'Random' ? 'shuffle' : 'shield-checkmark'}
                     size={16}
-                    color="#AAAAAA"
+                    color={theme.colors.primary}
                   />
-                  <Text style={styles.questionCategory}> {category}</Text>
+                  <Text style={[styles.questionCategory, { color: theme.colors.textSecondary }]}> {category}</Text>
                 </View>
                 <View style={styles.difficultyContainer}>
                   <Ionicons
@@ -269,20 +386,23 @@ const GRCScreen = () => {
                         : 'trophy'
                     }
                     size={16}
-                    color={difficultyColors[difficulty]}
+                    color={getDifficultyColor(difficulty)}
                   />
-                  <Text style={[styles.questionDifficulty, { color: difficultyColors[difficulty] }]}>
+                  <Text style={[
+                    styles.questionDifficulty, 
+                    { color: getDifficultyColor(difficulty) }
+                  ]}>
                     {' '}
                     {difficulty}
                   </Text>
                 </View>
               </View>
-              <Text style={styles.questionTitle}>Question</Text>
+              <Text style={[styles.questionTitle, { color: theme.colors.text }]}>Question</Text>
             </View>
 
             {/* The question itself */}
             <View style={styles.questionContent}>
-              <Text style={styles.questionText}>{questionData.question}</Text>
+              <Text style={[styles.questionText, { color: theme.colors.text }]}>{questionData.question}</Text>
 
               <View style={styles.optionsContainer}>
                 {questionData.options &&
@@ -295,9 +415,22 @@ const GRCScreen = () => {
                         key={index}
                         style={[
                           styles.option,
-                          isSelected && styles.selectedOption,
-                          showExplanation && isCorrect && styles.correctOption,
-                          showExplanation && isSelected && !isCorrect && styles.incorrectOption,
+                          { 
+                            backgroundColor: theme.colors.inputBackground,
+                            borderColor: theme.colors.inputBorder
+                          },
+                          isSelected && { 
+                            backgroundColor: `${theme.colors.primary}20`,
+                            borderColor: theme.colors.primary
+                          },
+                          showExplanation && isCorrect && { 
+                            backgroundColor: `${theme.colors.success}20`,
+                            borderColor: theme.colors.success
+                          },
+                          showExplanation && isSelected && !isCorrect && { 
+                            backgroundColor: `${theme.colors.error}20`,
+                            borderColor: theme.colors.error
+                          },
                         ]}
                         onPress={() => handleAnswer(index)}
                         disabled={selectedOption !== null}
@@ -305,18 +438,28 @@ const GRCScreen = () => {
                         <View
                           style={[
                             styles.optionLetter,
-                            showExplanation && isCorrect && styles.correctLetter,
-                            showExplanation && isSelected && !isCorrect && styles.incorrectLetter,
+                            { backgroundColor: theme.colors.background },
+                            showExplanation && isCorrect && { backgroundColor: theme.colors.success },
+                            showExplanation && isSelected && !isCorrect && { backgroundColor: theme.colors.error },
                           ]}
                         >
-                          <Text style={styles.optionLetterText}>{getLetterFromIndex(index)}</Text>
+                          <Text 
+                            style={[
+                              styles.optionLetterText, 
+                              { color: theme.colors.text },
+                              (showExplanation && (isCorrect || (isSelected && !isCorrect))) && 
+                                { color: theme.colors.buttonText }
+                            ]}
+                          >
+                            {getLetterFromIndex(index)}
+                          </Text>
                         </View>
-                        <Text style={styles.optionText}>{option}</Text>
+                        <Text style={[styles.optionText, { color: theme.colors.text }]}>{option}</Text>
                         {showExplanation && isCorrect && (
-                          <Ionicons name="checkmark" size={20} color="#2ebb77" style={styles.statusIcon} />
+                          <Ionicons name="checkmark" size={20} color={theme.colors.success} style={styles.statusIcon} />
                         )}
                         {showExplanation && isSelected && !isCorrect && (
-                          <Ionicons name="close" size={20} color="#ff4e4e" style={styles.statusIcon} />
+                          <Ionicons name="close" size={20} color={theme.colors.error} style={styles.statusIcon} />
                         )}
                       </TouchableOpacity>
                     );
@@ -326,67 +469,79 @@ const GRCScreen = () => {
 
             {/* If explanation is shown */}
             {showExplanation && selectedOption !== null && (
-              <View style={styles.explanationContainer}>
+              <View style={[styles.explanationContainer, { backgroundColor: `${theme.colors.primary}10`, borderTopColor: theme.colors.border }]}>
                 <View style={styles.explanationHeader}>
                   <View style={styles.explanationTitleContainer}>
                     {selectedOption === questionData.correct_answer_index ? (
                       <>
-                        <Ionicons name="checkmark" size={20} color="#2ebb77" />
-                        <Text style={styles.explanationTitle}> Correct Answer</Text>
+                        <Ionicons name="checkmark" size={20} color={theme.colors.success} />
+                        <Text style={[styles.explanationTitle, { color: theme.colors.text }]}> Correct Answer</Text>
                       </>
                     ) : (
                       <>
-                        <Ionicons name="close" size={20} color="#ff4e4e" />
-                        <Text style={styles.explanationTitle}> Incorrect Answer</Text>
+                        <Ionicons name="close" size={20} color={theme.colors.error} />
+                        <Text style={[styles.explanationTitle, { color: theme.colors.text }]}> Incorrect Answer</Text>
                       </>
                     )}
                   </View>
                   <TouchableOpacity
-                    style={[styles.copyButton, copiedToClipboard && styles.copiedButton]}
+                    style={[
+                      styles.copyButton, 
+                      { backgroundColor: theme.colors.buttonSecondary },
+                      copiedToClipboard && { backgroundColor: theme.colors.success }
+                    ]}
                     onPress={handleCopy}
                   >
                     {copiedToClipboard ? (
                       <View style={styles.copyButtonContent}>
-                        <Ionicons name="checkmark" size={16} color="#fff" />
-                        <Text style={styles.copyButtonText}>Copied</Text>
+                        <Ionicons name="checkmark" size={16} color={theme.colors.buttonText} />
+                        <Text style={[styles.copyButtonText, { color: theme.colors.buttonText }]}>Copied</Text>
                       </View>
                     ) : (
                       <View style={styles.copyButtonContent}>
-                        <Ionicons name="copy" size={16} color="#fff" />
-                        <Text style={styles.copyButtonText}>Copy</Text>
+                        <Ionicons name="copy" size={16} color={theme.colors.buttonText} />
+                        <Text style={[styles.copyButtonText, { color: theme.colors.buttonText }]}>Copy</Text>
                       </View>
                     )}
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.explanationContent}>
-                  <View style={styles.explanationSection}>
-                    <Text style={styles.explanationSectionTitle}>Explanation</Text>
-                    <Text style={styles.explanationText}>
+                  <View style={[styles.explanationSection, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
+                    <Text style={[styles.explanationSectionTitle, { color: theme.colors.text }]}>Explanation</Text>
+                    <Text style={[styles.explanationText, { color: theme.colors.textSecondary }]}>
                       {questionData.explanations && questionData.explanations[selectedOption.toString()]}
                     </Text>
                   </View>
 
-                  <View style={styles.explanationSection}>
+                  <View style={[styles.explanationSection, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
                     <View style={styles.tipTitleContainer}>
-                      <Ionicons name="bulb" size={18} color="#ffc107" />
-                      <Text style={styles.explanationSectionTitle}> Exam Tip</Text>
+                      <Ionicons name="bulb" size={18} color={theme.colors.warning} />
+                      <Text style={[styles.explanationSectionTitle, { color: theme.colors.text }]}> Exam Tip</Text>
                     </View>
-                    <Text style={styles.tipText}>{questionData.exam_tip}</Text>
+                    <Text style={[styles.tipText, { color: theme.colors.textSecondary, borderLeftColor: theme.colors.warning }]}>
+                      {questionData.exam_tip}
+                    </Text>
                   </View>
                 </View>
 
-                {/* “New Question” button */}
+                {/* "New Question" button */}
                 <View style={styles.actionButtons}>
-                  <TouchableOpacity style={styles.nextButton} onPress={getNewQuestion}>
-                    <Ionicons name="sync" size={20} color="#fff" />
-                    <Text style={styles.nextButtonText}>New Question</Text>
+                  <TouchableOpacity 
+                    style={[styles.nextButton, { backgroundColor: theme.colors.buttonPrimary }]} 
+                    onPress={getNewQuestion}
+                  >
+                    <Ionicons name="sync" size={20} color={theme.colors.buttonText} />
+                    <Text style={[styles.nextButtonText, { color: theme.colors.buttonText }]}>New Question</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             )}
           </View>
         )}
+        
+        {/* Bottom spacer for better scrolling */}
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Category Modal */}
@@ -396,30 +551,27 @@ const GRCScreen = () => {
         animationType="fade"
         onRequestClose={() => setShowCategoryModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Pick a Category</Text>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.75)' }]}>
+          <View style={[
+            styles.modalContent, 
+            { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.primary
+            }
+          ]}>
+            <View style={[styles.modalHeader, { backgroundColor: theme.colors.primary }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.buttonText }]}>Select a Category</Text>
               <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={theme.colors.buttonText} />
               </TouchableOpacity>
             </View>
 
             <FlatList
               data={CATEGORY_OPTIONS}
               keyExtractor={(item) => item.value}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.categoryItem}
-                  onPress={() => {
-                    setCategory(item.value);
-                    setShowCategoryModal(false);
-                  }}
-                >
-                  <Text style={styles.categoryItemText}>{item.label}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={renderCategoryItem}
               style={styles.categoryList}
+              showsVerticalScrollIndicator={false}
             />
           </View>
         </View>
@@ -432,43 +584,36 @@ const GRCScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0b0c15',
   },
   header: {
-    backgroundColor: '#171a23',
     padding: 20,
     borderRadius: 15,
     margin: 15,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     borderTopWidth: 4,
-    borderTopColor: '#6543cc',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#6543cc',
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#9da8b9',
     textAlign: 'center',
   },
   scrollView: {
     flex: 1,
     padding: 15,
   },
-  // “Wizard card” for the top control area
+  // "Wizard card" for the top control area
   wizardCard: {
-    backgroundColor: '#171a23',
     borderRadius: 15,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#2a2c3d',
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 24,
@@ -481,35 +626,29 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#e2e2e2',
     marginBottom: 5,
   },
   cardSubtitle: {
     fontSize: 14,
-    color: '#9da8b9',
   },
   controls: {
     gap: 15,
   },
   label: {
     fontSize: 14,
-    color: '#9da8b9',
     fontWeight: '500',
   },
   // Category selection button
   categoryButton: {
-    backgroundColor: '#333333',
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
   },
   categoryButtonText: {
-    color: '#fff',
     fontSize: 16,
     flex: 1,
   },
@@ -519,39 +658,28 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   chip: {
-    backgroundColor: '#333333',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
   chipText: {
-    color: '#9da8b9',
     fontSize: 14,
     fontWeight: '500',
   },
-  chipActive: {
-    backgroundColor: '#6543cc',
-    borderColor: '#000',
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
   // Generate Button
   generateButton: {
-    backgroundColor: '#6543cc',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(101, 67, 204, 0.3)',
+    marginTop: 5,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 15,
     elevation: 5,
-    marginTop: 5,
   },
   buttonContent: {
     flexDirection: 'row',
@@ -560,7 +688,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   buttonText: {
-    color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -568,27 +695,39 @@ const styles = StyleSheet.create({
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 78, 78, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 78, 78, 0.3)',
     borderRadius: 10,
     padding: 12,
     marginBottom: 15,
   },
   errorText: {
-    color: '#ff4e4e',
     marginLeft: 10,
     flex: 1,
     fontSize: 14,
   },
+  // Loading card
+  loadingCard: {
+    padding: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 5,
+  },
+  loadingSubtext: {
+    fontSize: 14,
+  },
   // Question card
   questionCard: {
-    backgroundColor: '#171a23',
     borderRadius: 15,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#2a2c3d',
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 24,
@@ -597,9 +736,8 @@ const styles = StyleSheet.create({
   },
   questionHeader: {
     padding: 20,
-    backgroundColor: '#333333',
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2c3d',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   questionMeta: {
     flexDirection: 'row',
@@ -612,7 +750,6 @@ const styles = StyleSheet.create({
   },
   questionCategory: {
     fontSize: 14,
-    color: '#9da8b9',
   },
   difficultyContainer: {
     flexDirection: 'row',
@@ -624,14 +761,12 @@ const styles = StyleSheet.create({
   questionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#e2e2e2',
   },
   questionContent: {
     padding: 20,
   },
   questionText: {
     fontSize: 18,
-    color: '#e2e2e2',
     lineHeight: 26,
     marginBottom: 25,
   },
@@ -641,47 +776,24 @@ const styles = StyleSheet.create({
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#333333',
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     borderRadius: 10,
     padding: 15,
-  },
-  selectedOption: {
-    borderColor: '#6543cc',
-    backgroundColor: 'rgba(101, 67, 204, 0.1)',
-  },
-  correctOption: {
-    borderColor: '#2ebb77',
-    backgroundColor: 'rgba(46, 187, 119, 0.1)',
-  },
-  incorrectOption: {
-    borderColor: '#ff4e4e',
-    backgroundColor: 'rgba(255, 78, 78, 0.1)',
   },
   optionLetter: {
     width: 30,
     height: 30,
-    backgroundColor: '#0b0c15',
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 15,
   },
-  correctLetter: {
-    backgroundColor: '#2ebb77',
-  },
-  incorrectLetter: {
-    backgroundColor: '#ff4e4e',
-  },
   optionLetterText: {
-    color: '#e2e2e2',
     fontWeight: 'bold',
     fontSize: 14,
   },
   optionText: {
     flex: 1,
-    color: '#e2e2e2',
     fontSize: 16,
     lineHeight: 24,
   },
@@ -691,8 +803,6 @@ const styles = StyleSheet.create({
   explanationContainer: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#2a2c3d',
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
   },
   explanationHeader: {
     flexDirection: 'row',
@@ -707,21 +817,13 @@ const styles = StyleSheet.create({
   explanationTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#e2e2e2',
   },
   copyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#333333',
-    borderWidth: 1,
-    borderColor: '#2a2c3d',
     borderRadius: 6,
     paddingVertical: 8,
     paddingHorizontal: 12,
-  },
-  copiedButton: {
-    backgroundColor: '#2ebb77',
-    borderColor: 'transparent',
   },
   copyButtonContent: {
     flexDirection: 'row',
@@ -729,16 +831,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   copyButtonText: {
-    color: '#fff',
     fontSize: 14,
   },
   explanationContent: {
     gap: 20,
   },
   explanationSection: {
-    backgroundColor: '#333333',
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     borderRadius: 10,
     padding: 15,
   },
@@ -750,20 +849,16 @@ const styles = StyleSheet.create({
   explanationSectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#e2e2e2',
   },
   explanationText: {
     fontSize: 15,
-    color: '#9da8b9',
     lineHeight: 22,
   },
   tipText: {
     fontSize: 15,
-    color: '#9da8b9',
     lineHeight: 22,
     fontStyle: 'italic',
     borderLeftWidth: 3,
-    borderLeftColor: '#ffc107',
     paddingLeft: 10,
   },
   actionButtons: {
@@ -773,50 +868,43 @@ const styles = StyleSheet.create({
   nextButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ff4c8b',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 25,
-    shadowColor: 'rgba(255, 76, 139, 0.3)',
+    gap: 10,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 15,
     elevation: 5,
-    gap: 10,
   },
   nextButtonText: {
-    color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
   },
-
   // Category modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#171a23',
     width: '90%',
     maxHeight: '70%',
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#6543cc',
     overflow: 'hidden',
+    alignSelf: 'center',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#6543cc',
     padding: 15,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
   },
   categoryList: {
     padding: 10,
@@ -824,13 +912,18 @@ const styles = StyleSheet.create({
   categoryItem: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2c3d',
+    borderRadius: 8,
+    marginVertical: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   categoryItemText: {
-    color: '#fff',
     fontSize: 16,
+  },
+  bottomSpacer: {
+    height: 100, // Extra padding at bottom for scrolling
   },
 });
 
 export default GRCScreen;
-

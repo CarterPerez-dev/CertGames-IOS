@@ -12,13 +12,22 @@ import {
   Modal,
   SafeAreaView,
   Keyboard,
-  Alert
+  Alert,
+  Dimensions,
+  Platform,
+  StatusBar as RNStatusBar
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
 import { streamScenario, streamScenarioQuestions } from '../../api/scenarioService';
-import { ATTACK_TYPES } from './attackTypes'
+import { ATTACK_TYPES } from './attackTypes';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../context/ThemeContext';
+import { createGlobalStyles } from '../../styles/globalStyles';
+
+const { width, height } = Dimensions.get('window');
 
 // Industry list for the modal
 const INDUSTRY_OPTIONS = [
@@ -39,10 +48,11 @@ const INDUSTRY_OPTIONS = [
 
 const SKILL_LEVELS = ['Script Kiddie', 'Intermediate', 'Advanced', 'APT'];
 
-// Attack suggestions
-
-
 const ScenarioSphereScreen = () => {
+  // Theme integration
+  const { theme } = useTheme();
+  const globalStyles = createGlobalStyles(theme);
+  
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Industry
@@ -105,6 +115,11 @@ const ScenarioSphereScreen = () => {
   };
 
   const selectSuggestion = (sug) => {
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync();
+    }
+    
     setAttackType(sug);
     setShowSuggestions(false);
     setShowSuggestionsModal(false);
@@ -117,6 +132,11 @@ const ScenarioSphereScreen = () => {
   /////////////////////////////////////////////////////////////////////////////
   // Industry
   const handleSelectIndustry = (value) => {
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync();
+    }
+    
     setIndustry(value);
     setShowIndustryModal(false);
   };
@@ -128,6 +148,11 @@ const ScenarioSphereScreen = () => {
       setErrorMessage('Please enter the Type of Attack');
       Alert.alert('Missing Information', 'Please enter the Type of Attack', [{ text: 'OK' }]);
       return;
+    }
+
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
     setErrorMessage('');
@@ -190,6 +215,11 @@ const ScenarioSphereScreen = () => {
   const handleAnswerSelect = (questionIndex, selectedOption) => {
     if (Object.prototype.hasOwnProperty.call(userAnswers, questionIndex)) return;
 
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
     const question = interactiveQuestions[questionIndex];
     if (!question) return;
 
@@ -205,8 +235,19 @@ const ScenarioSphereScreen = () => {
 
     if (isCorrect) {
       setScoreCounter((prev) => prev + 1);
+      
+      // Haptic feedback for correct answer
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      
       Alert.alert('Correct!', 'You selected the right answer.', [{ text: 'OK' }]);
     } else {
+      // Haptic feedback for incorrect answer
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      
       Alert.alert('Incorrect', "That's not the right answer.", [{ text: 'OK' }]);
     }
   };
@@ -222,81 +263,96 @@ const ScenarioSphereScreen = () => {
 
   // Render suggestion
   const renderSuggestionItem = ({ item }) => (
-    <TouchableOpacity style={styles.modalSuggestionItem} onPress={() => selectSuggestion(item)}>
-      <Text style={styles.modalSuggestionText}>{item}</Text>
+    <TouchableOpacity 
+      style={[
+        styles.modalSuggestionItem, 
+        { borderBottomColor: theme.colors.border }
+      ]} 
+      onPress={() => selectSuggestion(item)}
+    >
+      <Text style={[styles.modalSuggestionText, { color: theme.colors.text }]}>{item}</Text>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[globalStyles.screen, styles.container]}>
       <StatusBar style="light" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          <Ionicons name="shield" size={24} color="#6543cc" /> Scenario Sphere
+      <LinearGradient
+        colors={theme.colors.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.header}
+      >
+        <Text style={[styles.title, { color: theme.colors.text }]}>
+          <Ionicons name="shield" size={24} color={theme.colors.primary} /> Scenario Sphere
         </Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
           Immerse yourself in realistic cybersecurity scenarios and test your knowledge
         </Text>
 
         {errorMessage ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="warning" size={20} color="#ff4e4e" />
-            <Text style={styles.errorText}>{errorMessage}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: `${theme.colors.error}20`, borderColor: `${theme.colors.error}40` }]}>
+            <Ionicons name="warning" size={20} color={theme.colors.error} />
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>{errorMessage}</Text>
             <TouchableOpacity style={styles.errorCloseButton} onPress={() => setErrorMessage('')}>
-              <Ionicons name="close" size={18} color="#9da8b9" />
+              <Ionicons name="close" size={18} color={theme.colors.textMuted} />
             </TouchableOpacity>
           </View>
         ) : null}
-      </View>
+      </LinearGradient>
 
-      <ScrollView style={styles.scrollView} ref={scrollViewRef} keyboardShouldPersistTaps="handled">
+      <ScrollView 
+        style={styles.scrollView} 
+        ref={scrollViewRef} 
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.content}>
           {/* Param card */}
-          <View style={styles.paramsCard}>
+          <View style={[styles.paramsCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
             <View style={styles.paramsHeader}>
               <View style={styles.paramsHeaderLeft}>
-                <Ionicons name="settings" size={20} color="#6543cc" />
-                <Text style={styles.paramsTitle}>Generation Parameters</Text>
+                <Ionicons name="settings" size={20} color={theme.colors.primary} />
+                <Text style={[styles.paramsTitle, { color: theme.colors.text }]}>Generation Parameters</Text>
               </View>
-              <View style={styles.scoreCounter}>
-                <Text style={styles.scoreValue}>
-                  <Text style={styles.scoreHighlight}>{scoreCounter}</Text>/3
+              <View style={[styles.scoreCounter, { backgroundColor: `${theme.colors.primary}20` }]}>
+                <Text style={[styles.scoreValue, { color: theme.colors.text }]}>
+                  <Text style={[styles.scoreHighlight, { color: theme.colors.primary }]}>{scoreCounter}</Text>/3
                 </Text>
-                <Text style={styles.scoreLabel}>Correct</Text>
+                <Text style={[styles.scoreLabel, { color: theme.colors.textSecondary }]}>Correct</Text>
               </View>
             </View>
 
             <View style={styles.paramsContent}>
               {/* Industry */}
               <View style={styles.paramGroup}>
-                <Text style={styles.paramLabel}>
-                  <Ionicons name="business" size={16} color="#6543cc" /> Industry
+                <Text style={[styles.paramLabel, { color: theme.colors.textSecondary }]}>
+                  <Ionicons name="business" size={16} color={theme.colors.primary} /> Industry
                 </Text>
                 <TouchableOpacity
-                  style={styles.industryButton}
+                  style={[styles.industryButton, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}
                   onPress={() => !isGenerating && setShowIndustryModal(true)}
                   disabled={isGenerating}
                 >
-                  <Ionicons name="list" size={16} color="#fff" />
+                  <Ionicons name="list" size={16} color={theme.colors.primary} />
                   {/* Show actual `industry` */}
-                  <Text style={styles.industryButtonText}>{industry}</Text>
-                  <Ionicons name="chevron-down" size={16} color="#fff" />
+                  <Text style={[styles.industryButtonText, { color: theme.colors.inputText }]}>{industry}</Text>
+                  <Ionicons name="chevron-down" size={16} color={theme.colors.inputText} />
                 </TouchableOpacity>
               </View>
 
               {/* Attack type */}
               <View style={styles.paramGroup}>
-                <Text style={styles.paramLabel}>
-                  <Ionicons name="skull" size={16} color="#6543cc" /> Attack Type
+                <Text style={[styles.paramLabel, { color: theme.colors.textSecondary }]}>
+                  <Ionicons name="skull" size={16} color={theme.colors.primary} /> Attack Type
                 </Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons name="search" size={20} color="#6543cc" style={styles.inputIcon} />
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
+                  <Ionicons name="search" size={20} color={theme.colors.primary} style={styles.inputIcon} />
                   <TextInput
-                    style={styles.textInput}
+                    style={[styles.textInput, { color: theme.colors.inputText }]}
                     placeholder="Search or enter attack type..."
-                    placeholderTextColor="#9da8b9"
+                    placeholderTextColor={theme.colors.placeholder}
                     value={attackType}
                     onChangeText={handleAttackTypeChange}
                     editable={!isGenerating}
@@ -304,19 +360,24 @@ const ScenarioSphereScreen = () => {
                 </View>
 
                 {showSuggestions && suggestions.length > 0 && (
-                  <View style={styles.suggestionsPreview}>
+                  <View style={[styles.suggestionsPreview, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                     {suggestions.slice(0, 3).map((sug) => (
                       <TouchableOpacity
                         key={sug}
-                        style={styles.suggestionPreviewItem}
+                        style={[styles.suggestionPreviewItem, { borderBottomColor: theme.colors.border }]}
                         onPress={() => selectSuggestion(sug)}
                       >
-                        <Text style={styles.suggestionPreviewText}>{sug}</Text>
+                        <Text style={[styles.suggestionPreviewText, { color: theme.colors.text }]}>{sug}</Text>
                       </TouchableOpacity>
                     ))}
                     {suggestions.length > 3 && (
-                      <TouchableOpacity style={styles.showAllButton} onPress={handleShowAllSuggestions}>
-                        <Text style={styles.showAllText}>Show all ({suggestions.length})</Text>
+                      <TouchableOpacity 
+                        style={[styles.showAllButton, { backgroundColor: `${theme.colors.primary}20` }]} 
+                        onPress={handleShowAllSuggestions}
+                      >
+                        <Text style={[styles.showAllText, { color: theme.colors.primary }]}>
+                          Show all ({suggestions.length})
+                        </Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -325,8 +386,8 @@ const ScenarioSphereScreen = () => {
 
               {/* Skill level chips */}
               <View style={styles.paramGroup}>
-                <Text style={styles.paramLabel}>
-                  <Ionicons name="person" size={16} color="#6543cc" /> Attacker Skill Level
+                <Text style={[styles.paramLabel, { color: theme.colors.textSecondary }]}>
+                  <Ionicons name="person" size={16} color={theme.colors.primary} /> Attacker Skill Level
                 </Text>
                 <View style={styles.chipRow}>
                   {SKILL_LEVELS.map((level) => {
@@ -334,11 +395,29 @@ const ScenarioSphereScreen = () => {
                     return (
                       <TouchableOpacity
                         key={level}
-                        style={[styles.chip, active && styles.chipActive]}
-                        onPress={() => !isGenerating && setSkillLevel(level)}
+                        style={[
+                          styles.chip, 
+                          { 
+                            backgroundColor: active ? theme.colors.primary : theme.colors.inputBackground,
+                            borderColor: active ? theme.colors.primary : theme.colors.inputBorder
+                          }
+                        ]}
+                        onPress={() => {
+                          if (Platform.OS === 'ios' && !isGenerating) {
+                            Haptics.selectionAsync();
+                          }
+                          !isGenerating && setSkillLevel(level);
+                        }}
                         disabled={isGenerating}
                       >
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{level}</Text>
+                        <Text 
+                          style={[
+                            styles.chipText, 
+                            { color: active ? theme.colors.buttonText : theme.colors.textSecondary }
+                          ]}
+                        >
+                          {level}
+                        </Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -348,11 +427,11 @@ const ScenarioSphereScreen = () => {
               {/* Threat Intensity Slider */}
               <View style={styles.paramGroup}>
                 <View style={styles.sliderLabelContainer}>
-                  <Text style={styles.paramLabel}>
-                    <Ionicons name="thermometer" size={16} color="#6543cc" /> Threat Intensity
+                  <Text style={[styles.paramLabel, { color: theme.colors.textSecondary }]}>
+                    <Ionicons name="thermometer" size={16} color={theme.colors.primary} /> Threat Intensity
                   </Text>
-                  <View style={styles.intensityBadge}>
-                    <Text style={styles.intensityValue}>{threatIntensity}</Text>
+                  <View style={[styles.intensityBadge, { backgroundColor: theme.colors.primary }]}>
+                    <Text style={[styles.intensityValue, { color: theme.colors.buttonText }]}>{threatIntensity}</Text>
                   </View>
                 </View>
                 <Slider
@@ -362,33 +441,37 @@ const ScenarioSphereScreen = () => {
                   step={1}
                   value={threatIntensity}
                   onValueChange={(val) => setThreatIntensity(val)}
-                  minimumTrackTintColor="#6543cc"
-                  maximumTrackTintColor="#333333"
-                  thumbTintColor="#6543cc"
+                  minimumTrackTintColor={theme.colors.primary}
+                  maximumTrackTintColor={theme.colors.inputBorder}
+                  thumbTintColor={theme.colors.primary}
                   disabled={isGenerating}
                 />
                 <View style={styles.sliderMarkers}>
-                  <Text style={styles.sliderMarker}>Low</Text>
-                  <Text style={styles.sliderMarker}>Medium</Text>
-                  <Text style={styles.sliderMarker}>High</Text>
+                  <Text style={[styles.sliderMarker, { color: theme.colors.textSecondary }]}>Low</Text>
+                  <Text style={[styles.sliderMarker, { color: theme.colors.textSecondary }]}>Medium</Text>
+                  <Text style={[styles.sliderMarker, { color: theme.colors.textSecondary }]}>High</Text>
                 </View>
               </View>
 
               {/* Generate Button */}
               <TouchableOpacity
-                style={[styles.generateButton, isGenerating && styles.generateButtonDisabled]}
+                style={[
+                  styles.generateButton, 
+                  { backgroundColor: theme.colors.buttonPrimary },
+                  isGenerating && styles.generateButtonDisabled
+                ]}
                 onPress={handleGenerateScenario}
                 disabled={isGenerating}
               >
                 {isGenerating ? (
                   <View style={styles.buttonContent}>
-                    <ActivityIndicator color="#fff" size="small" />
-                    <Text style={styles.buttonText}>Generating...</Text>
+                    <ActivityIndicator color={theme.colors.buttonText} size="small" />
+                    <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>Generating...</Text>
                   </View>
                 ) : (
                   <View style={styles.buttonContent}>
-                    <Ionicons name="play" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Generate Scenario</Text>
+                    <Ionicons name="play" size={20} color={theme.colors.buttonText} />
+                    <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>Generate Scenario</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -399,27 +482,27 @@ const ScenarioSphereScreen = () => {
           {scenarioGenerated && (
             <View style={styles.results}>
               {/* Scenario Output */}
-              <View style={styles.outputCard}>
+              <View style={[styles.outputCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                 <TouchableOpacity style={styles.outputHeader} onPress={() => setOutputExpanded(!outputExpanded)}>
                   <View style={styles.outputHeaderLeft}>
-                    <Ionicons name="lock-closed" size={20} color="#6543cc" />
-                    <Text style={styles.outputTitle}>Generated Scenario</Text>
+                    <Ionicons name="lock-closed" size={20} color={theme.colors.primary} />
+                    <Text style={[styles.outputTitle, { color: theme.colors.text }]}>Generated Scenario</Text>
                   </View>
 
                   <View style={styles.outputControls}>
                     {!generationComplete && isGenerating && (
                       <View style={styles.progressContainer}>
-                        <View style={styles.progressBar}>
-                          <View style={[styles.progressFill, { width: `${streamProgress}%` }]} />
+                        <View style={[styles.progressBar, { backgroundColor: theme.colors.progressTrack }]}>
+                          <View style={[styles.progressFill, { width: `${streamProgress}%`, backgroundColor: theme.colors.primary }]} />
                         </View>
-                        <Text style={styles.progressLabel}>Generating...</Text>
+                        <Text style={[styles.progressLabel, { color: theme.colors.textSecondary }]}>Generating...</Text>
                       </View>
                     )}
                     <TouchableOpacity style={styles.toggleButton}>
                       <Ionicons
                         name={outputExpanded ? 'chevron-up' : 'chevron-down'}
                         size={20}
-                        color="#9da8b9"
+                        color={theme.colors.textSecondary}
                       />
                     </TouchableOpacity>
                   </View>
@@ -432,14 +515,16 @@ const ScenarioSphereScreen = () => {
                     contentContainerStyle={styles.outputContentContainer}
                   >
                     {scenarioText ? (
-                      <Text style={styles.scenarioText}>
+                      <Text style={[styles.scenarioText, { color: theme.colors.text }]}>
                         {scenarioText}
-                        {isGenerating && <Text style={styles.cursor}>|</Text>}
+                        {isGenerating && <Text style={[styles.cursor, { color: theme.colors.primary }]}>|</Text>}
                       </Text>
                     ) : (
                       <View style={styles.placeholderContainer}>
-                        <ActivityIndicator color="#6543cc" size="large" animating={isGenerating} />
-                        <Text style={styles.placeholderText}>Scenario will appear here...</Text>
+                        <ActivityIndicator color={theme.colors.primary} size="large" animating={isGenerating} />
+                        <Text style={[styles.placeholderText, { color: theme.colors.textSecondary }]}>
+                          Scenario will appear here...
+                        </Text>
                       </View>
                     )}
                   </ScrollView>
@@ -448,20 +533,20 @@ const ScenarioSphereScreen = () => {
 
               {/* Assessment Card */}
               {interactiveQuestions.length > 0 && (
-                <View style={styles.questionsCard}>
+                <View style={[styles.questionsCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                   <TouchableOpacity
                     style={styles.questionsHeader}
                     onPress={() => setQuestionsExpanded(!questionsExpanded)}
                   >
                     <View style={styles.questionsHeaderLeft}>
-                      <Ionicons name="help-circle" size={20} color="#6543cc" />
-                      <Text style={styles.questionsTitle}>Knowledge Assessment</Text>
+                      <Ionicons name="help-circle" size={20} color={theme.colors.primary} />
+                      <Text style={[styles.questionsTitle, { color: theme.colors.text }]}>Knowledge Assessment</Text>
                     </View>
                     <TouchableOpacity style={styles.toggleButton}>
                       <Ionicons
                         name={questionsExpanded ? 'chevron-up' : 'chevron-down'}
                         size={20}
-                        color="#9da8b9"
+                        color={theme.colors.textSecondary}
                       />
                     </TouchableOpacity>
                   </TouchableOpacity>
@@ -470,11 +555,11 @@ const ScenarioSphereScreen = () => {
                     <View style={styles.questionsContent}>
                       {/* If user has answered all */}
                       {Object.keys(feedback).length === interactiveQuestions.length && (
-                        <View style={styles.assessmentComplete}>
-                          <Ionicons name="checkmark-circle" size={24} color="#2ebb77" />
+                        <View style={[styles.assessmentComplete, { backgroundColor: `${theme.colors.success}10`, borderColor: `${theme.colors.success}30` }]}>
+                          <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
                           <View style={styles.assessmentResults}>
-                            <Text style={styles.completionMessage}>Assessment Complete</Text>
-                            <Text style={styles.scoreMessage}>
+                            <Text style={[styles.completionMessage, { color: theme.colors.text }]}>Assessment Complete</Text>
+                            <Text style={[styles.scoreMessage, { color: theme.colors.textSecondary }]}>
                               You scored {scoreCounter} out of {interactiveQuestions.length} correct
                             </Text>
                           </View>
@@ -486,23 +571,30 @@ const ScenarioSphereScreen = () => {
                         const isCorrect = questionFeedback?.isCorrect;
 
                         return (
-                          <View key={index} style={styles.questionCard}>
+                          <View key={index} style={[styles.questionCard, { backgroundColor: theme.colors.background, borderColor: theme.colors.border }]}>
                             <View style={styles.questionHeader}>
-                              <Text style={styles.questionNumber}>Question {index + 1}</Text>
+                              <Text style={[styles.questionNumber, { color: theme.colors.primary }]}>Question {index + 1}</Text>
                               {questionFeedback && (
                                 <View
                                   style={[
                                     styles.questionStatus,
-                                    isCorrect ? styles.correctStatus : styles.incorrectStatus,
+                                    { 
+                                      backgroundColor: isCorrect ? 
+                                        `${theme.colors.success}20` : 
+                                        `${theme.colors.error}20` 
+                                    }
                                   ]}
                                 >
                                   <Ionicons
                                     name={isCorrect ? 'checkmark' : 'close'}
                                     size={16}
-                                    color={isCorrect ? '#2ebb77' : '#ff4e4e'}
+                                    color={isCorrect ? theme.colors.success : theme.colors.error}
                                   />
                                   <Text
-                                    style={[styles.statusText, isCorrect ? styles.correctText : styles.incorrectText]}
+                                    style={[
+                                      styles.statusText, 
+                                      { color: isCorrect ? theme.colors.success : theme.colors.error }
+                                    ]}
                                   >
                                     {isCorrect ? 'Correct' : 'Incorrect'}
                                   </Text>
@@ -510,7 +602,7 @@ const ScenarioSphereScreen = () => {
                               )}
                             </View>
 
-                            <Text style={styles.questionText}>{question.question}</Text>
+                            <Text style={[styles.questionText, { color: theme.colors.text }]}>{question.question}</Text>
 
                             <View style={styles.optionsContainer}>
                               {question.options &&
@@ -524,9 +616,22 @@ const ScenarioSphereScreen = () => {
                                       key={optionLetter}
                                       style={[
                                         styles.optionButton,
-                                        isSelected && styles.selectedOption,
-                                        showCorrect && styles.correctOption,
-                                        showIncorrect && styles.incorrectOption,
+                                        { 
+                                          backgroundColor: theme.colors.inputBackground,
+                                          borderColor: theme.colors.inputBorder
+                                        },
+                                        isSelected && { 
+                                          backgroundColor: `${theme.colors.primary}20`,
+                                          borderColor: theme.colors.primary
+                                        },
+                                        showCorrect && { 
+                                          backgroundColor: `${theme.colors.success}20`,
+                                          borderColor: theme.colors.success
+                                        },
+                                        showIncorrect && { 
+                                          backgroundColor: `${theme.colors.error}20`,
+                                          borderColor: theme.colors.error
+                                        },
                                       ]}
                                       onPress={() => handleAnswerSelect(index, optionLetter)}
                                       disabled={Object.prototype.hasOwnProperty.call(userAnswers, index)}
@@ -534,20 +639,29 @@ const ScenarioSphereScreen = () => {
                                       <View
                                         style={[
                                           styles.optionLetter,
-                                          showCorrect && styles.correctLetter,
-                                          showIncorrect && styles.incorrectLetter,
+                                          { backgroundColor: theme.colors.background },
+                                          showCorrect && { backgroundColor: theme.colors.success },
+                                          showIncorrect && { backgroundColor: theme.colors.error },
                                         ]}
                                       >
-                                        <Text style={styles.optionLetterText}>{optionLetter}</Text>
+                                        <Text 
+                                          style={[
+                                            styles.optionLetterText, 
+                                            { color: theme.colors.text },
+                                            (showCorrect || showIncorrect) && { color: theme.colors.buttonText }
+                                          ]}
+                                        >
+                                          {optionLetter}
+                                        </Text>
                                       </View>
 
-                                      <Text style={styles.optionText}>{optionText}</Text>
+                                      <Text style={[styles.optionText, { color: theme.colors.text }]}>{optionText}</Text>
 
                                       {showCorrect && (
-                                        <Ionicons name="checkmark" size={20} color="#2ebb77" style={styles.optionIcon} />
+                                        <Ionicons name="checkmark" size={20} color={theme.colors.success} style={styles.optionIcon} />
                                       )}
                                       {showIncorrect && (
-                                        <Ionicons name="close" size={20} color="#ff4e4e" style={styles.optionIcon} />
+                                        <Ionicons name="close" size={20} color={theme.colors.error} style={styles.optionIcon} />
                                       )}
                                     </TouchableOpacity>
                                   );
@@ -555,9 +669,11 @@ const ScenarioSphereScreen = () => {
                             </View>
 
                             {questionFeedback && (
-                              <View style={styles.feedbackContainer}>
-                                <Ionicons name="bulb" size={20} color="#ffc107" style={styles.feedbackIcon} />
-                                <Text style={styles.feedbackExplanation}>{questionFeedback.explanation}</Text>
+                              <View style={[styles.feedbackContainer, { backgroundColor: `${theme.colors.warning}10`, borderColor: `${theme.colors.warning}30` }]}>
+                                <Ionicons name="bulb" size={20} color={theme.colors.warning} style={styles.feedbackIcon} />
+                                <Text style={[styles.feedbackExplanation, { color: theme.colors.text }]}>
+                                  {questionFeedback.explanation}
+                                </Text>
                               </View>
                             )}
                           </View>
@@ -580,11 +696,11 @@ const ScenarioSphereScreen = () => {
         animationType="slide"
         onRequestClose={() => setShowIndustryModal(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
           <View style={styles.modalHeaderRow}>
-            <Text style={styles.modalHeaderTitle}>Select an Industry</Text>
+            <Text style={[styles.modalHeaderTitle, { color: theme.colors.text }]}>Select an Industry</Text>
             <TouchableOpacity onPress={() => setShowIndustryModal(false)}>
-              <Ionicons name="close" size={28} color="#fff" />
+              <Ionicons name="close" size={28} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -594,28 +710,37 @@ const ScenarioSphereScreen = () => {
             style={styles.flatList}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={styles.industryItem}
+                style={[
+                  styles.industryItem, 
+                  { 
+                    borderBottomColor: theme.colors.border,
+                    backgroundColor: item.value === industry ? `${theme.colors.primary}20` : 'transparent'
+                  }
+                ]}
                 onPress={() => handleSelectIndustry(item.value)}
               >
-                <Text style={styles.industryItemText}>{item.label}</Text>
+                <Text style={[styles.industryItemText, { color: theme.colors.text }]}>{item.label}</Text>
+                {item.value === industry && (
+                  <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+                )}
               </TouchableOpacity>
             )}
           />
         </SafeAreaView>
       </Modal>
 
-      {/* Attack type “Show all suggestions” Modal */}
+      {/* Attack type "Show all suggestions" Modal */}
       <Modal
         visible={showSuggestionsModal}
         transparent={false}
         animationType="slide"
         onRequestClose={() => setShowSuggestionsModal(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
           <View style={styles.modalHeaderRow}>
-            <Text style={styles.modalHeaderTitle}>Attack Types</Text>
+            <Text style={[styles.modalHeaderTitle, { color: theme.colors.text }]}>Attack Types</Text>
             <TouchableOpacity onPress={() => setShowSuggestionsModal(false)}>
-              <Ionicons name="close" size={28} color="#fff" />
+              <Ionicons name="close" size={28} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -635,44 +760,35 @@ const ScenarioSphereScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0b0c15',
   },
   header: {
-    backgroundColor: '#171a23',
     borderRadius: 15,
     margin: 15,
     marginBottom: 10,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     overflow: 'hidden',
     borderTopWidth: 4,
-    borderTopColor: '#6543cc',
   },
   title: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#e2e2e2',
     textAlign: 'center',
     marginBottom: 5,
   },
   subtitle: {
     fontSize: 14,
-    color: '#9da8b9',
     textAlign: 'center',
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 78, 78, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 78, 78, 0.3)',
     borderRadius: 10,
     padding: 12,
     marginTop: 15,
   },
   errorText: {
-    color: '#ff4e4e',
     marginLeft: 10,
     flex: 1,
     fontSize: 14,
@@ -689,12 +805,10 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   paramsCard: {
-    backgroundColor: '#171a23',
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 24,
@@ -704,8 +818,7 @@ const styles = StyleSheet.create({
   paramsHeader: {
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2c3d',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -718,22 +831,22 @@ const styles = StyleSheet.create({
   paramsTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#e2e2e2',
   },
   scoreCounter: {
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
   scoreValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#e2e2e2',
   },
   scoreHighlight: {
-    color: '#6543cc',
+    fontWeight: 'bold',
   },
   scoreLabel: {
     fontSize: 12,
-    color: '#9da8b9',
   },
   paramsContent: {
     padding: 15,
@@ -743,23 +856,19 @@ const styles = StyleSheet.create({
   },
   paramLabel: {
     fontSize: 14,
-    color: '#9da8b9',
     marginBottom: 8,
     fontWeight: '500',
   },
   industryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#333333',
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
     gap: 8,
   },
   industryButtonText: {
-    color: '#fff',
     fontSize: 16,
     flex: 1,
   },
@@ -767,9 +876,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     paddingHorizontal: 15,
   },
   inputIcon: {
@@ -777,14 +884,11 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    color: '#e2e2e2',
     height: 50,
     fontSize: 16,
   },
   suggestionsPreview: {
-    backgroundColor: '#171a23',
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     borderRadius: 8,
     marginTop: 5,
     overflow: 'hidden',
@@ -792,20 +896,17 @@ const styles = StyleSheet.create({
   suggestionPreviewItem: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2c3d',
   },
   suggestionPreviewText: {
-    color: '#e2e2e2',
     fontSize: 14,
   },
   showAllButton: {
     padding: 12,
     alignItems: 'center',
-    backgroundColor: 'rgba(101, 67, 204, 0.1)',
   },
   showAllText: {
-    color: '#6543cc',
     fontSize: 14,
+    fontWeight: '500',
   },
   chipRow: {
     flexDirection: 'row',
@@ -817,20 +918,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#333333',
-    backgroundColor: '#333333',
   },
   chipText: {
-    color: '#aaa',
     fontSize: 14,
     fontWeight: '500',
-  },
-  chipActive: {
-    backgroundColor: '#6543cc',
-    borderColor: '#000',
-  },
-  chipTextActive: {
-    color: '#fff',
   },
   sliderLabelContainer: {
     flexDirection: 'row',
@@ -839,13 +930,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   intensityBadge: {
-    backgroundColor: '#6543cc',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
   },
   intensityValue: {
-    color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -859,24 +948,20 @@ const styles = StyleSheet.create({
   },
   sliderMarker: {
     fontSize: 12,
-    color: '#9da8b9',
   },
   generateButton: {
-    backgroundColor: '#6543cc',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
-    shadowColor: 'rgba(101, 67, 204, 0.3)',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 15,
     elevation: 5,
   },
   generateButtonDisabled: {
-    backgroundColor: 'rgba(101, 67, 204, 0.5)',
     opacity: 0.7,
   },
   buttonContent: {
@@ -886,7 +971,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   buttonText: {
-    color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -894,12 +978,10 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   outputCard: {
-    backgroundColor: '#171a23',
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 24,
@@ -908,8 +990,7 @@ const styles = StyleSheet.create({
   outputHeader: {
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2c3d',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -922,7 +1003,6 @@ const styles = StyleSheet.create({
   outputTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#e2e2e2',
   },
   outputControls: {
     flexDirection: 'row',
@@ -937,17 +1017,14 @@ const styles = StyleSheet.create({
   progressBar: {
     width: 100,
     height: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#6543cc',
   },
   progressLabel: {
     fontSize: 12,
-    color: '#9da8b9',
   },
   toggleButton: {
     width: 30,
@@ -964,12 +1041,10 @@ const styles = StyleSheet.create({
     minHeight: 100,
   },
   scenarioText: {
-    color: '#e2e2e2',
     fontSize: 16,
     lineHeight: 24,
   },
   cursor: {
-    color: '#6543cc',
     fontWeight: 'bold',
   },
   placeholderContainer: {
@@ -979,16 +1054,13 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   placeholderText: {
-    color: '#9da8b9',
     fontSize: 16,
   },
   questionsCard: {
-    backgroundColor: '#171a23',
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 24,
@@ -998,8 +1070,7 @@ const styles = StyleSheet.create({
   questionsHeader: {
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2c3d',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1012,7 +1083,6 @@ const styles = StyleSheet.create({
   questionsTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#e2e2e2',
   },
   questionsContent: {
     padding: 15,
@@ -1020,9 +1090,7 @@ const styles = StyleSheet.create({
   assessmentComplete: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(46, 187, 119, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(46, 187, 119, 0.3)',
     borderRadius: 10,
     padding: 15,
     marginBottom: 20,
@@ -1034,17 +1102,13 @@ const styles = StyleSheet.create({
   completionMessage: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#e2e2e2',
     marginBottom: 5,
   },
   scoreMessage: {
     fontSize: 14,
-    color: '#9da8b9',
   },
   questionCard: {
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     borderRadius: 12,
     padding: 15,
     marginBottom: 20,
@@ -1058,7 +1122,6 @@ const styles = StyleSheet.create({
   questionNumber: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#6543cc',
   },
   questionStatus: {
     flexDirection: 'row',
@@ -1068,25 +1131,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 5,
   },
-  correctStatus: {
-    backgroundColor: 'rgba(46, 187, 119, 0.1)',
-  },
-  incorrectStatus: {
-    backgroundColor: 'rgba(255, 78, 78, 0.1)',
-  },
   statusText: {
     fontSize: 12,
     fontWeight: 'bold',
   },
-  correctText: {
-    color: '#2ebb77',
-  },
-  incorrectText: {
-    color: '#ff4e4e',
-  },
   questionText: {
     fontSize: 16,
-    color: '#e2e2e2',
     lineHeight: 24,
     marginBottom: 20,
   },
@@ -1096,47 +1146,24 @@ const styles = StyleSheet.create({
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderWidth: 1,
-    borderColor: '#2a2c3d',
     borderRadius: 10,
     padding: 12,
-  },
-  selectedOption: {
-    borderColor: '#6543cc',
-    backgroundColor: 'rgba(101, 67, 204, 0.1)',
-  },
-  correctOption: {
-    borderColor: '#2ebb77',
-    backgroundColor: 'rgba(46, 187, 119, 0.1)',
-  },
-  incorrectOption: {
-    borderColor: '#ff4e4e',
-    backgroundColor: 'rgba(255, 78, 78, 0.1)',
   },
   optionLetter: {
     width: 30,
     height: 30,
-    backgroundColor: '#0b0c15',
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  correctLetter: {
-    backgroundColor: '#2ebb77',
-  },
-  incorrectLetter: {
-    backgroundColor: '#ff4e4e',
-  },
   optionLetterText: {
-    color: '#e2e2e2',
     fontWeight: 'bold',
     fontSize: 14,
   },
   optionText: {
     flex: 1,
-    color: '#e2e2e2',
     fontSize: 15,
     lineHeight: 22,
   },
@@ -1145,9 +1172,7 @@ const styles = StyleSheet.create({
   },
   feedbackContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 193, 7, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 193, 7, 0.2)',
     borderRadius: 10,
     padding: 12,
     marginTop: 15,
@@ -1159,14 +1184,11 @@ const styles = StyleSheet.create({
   feedbackExplanation: {
     flex: 1,
     fontSize: 14,
-    color: '#9da8b9',
     lineHeight: 22,
   },
-
-  // We use an entire new container style for the modal:
+  // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#0b0c15',
     paddingHorizontal: 20,
     paddingTop: 20,
   },
@@ -1179,31 +1201,33 @@ const styles = StyleSheet.create({
   modalHeaderTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
   },
   flatList: {
     flex: 1,
   },
   industryItem: {
     paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2c3d',
+    borderRadius: 8,
+    marginVertical: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   industryItemText: {
-    color: '#fff',
     fontSize: 16,
   },
-
   modalSuggestionItem: {
     paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2c3d',
+    borderRadius: 8,
+    marginVertical: 2,
   },
   modalSuggestionText: {
     fontSize: 16,
-    color: '#fff',
   },
 });
 
 export default ScenarioSphereScreen;
-

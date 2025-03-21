@@ -12,12 +12,21 @@ import {
   Keyboard,
   FlatList,
   Modal,
+  StatusBar as RNStatusBar,
+  Dimensions,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { useToast } from 'react-native-toast-notifications';
 import { streamAnalogy } from '../../api/analogyService';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../context/ThemeContext';
+import { createGlobalStyles } from '../../styles/globalStyles';
+
+const { width, height } = Dimensions.get('window');
 
 // We'll keep the categories array for our modal list
 const CATEGORY_OPTIONS = [
@@ -56,19 +65,22 @@ const ANALOGY_TYPES = [
 ];
 
 const AnalogyHubScreen = () => {
+  // Theme integration
+  const { theme } = useTheme();
+  const globalStyles = createGlobalStyles(theme);
+
   // States
   const [analogyType, setAnalogyType] = useState('single');
   const [inputValues, setInputValues] = useState(['']);
-
   const [analogyCategory, setAnalogyCategory] = useState('real-world');
-
   const [isStreaming, setIsStreaming] = useState(false);
   const [generatedAnalogy, setGeneratedAnalogy] = useState('');
-
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const toast = useToast();
   const scrollViewRef = useRef();
+  const outputRef = useRef();
 
   // Update input fields based on analogyType
   useEffect(() => {
@@ -91,8 +103,28 @@ const AnalogyHubScreen = () => {
     setInputValues(newValues);
   };
 
+  // Find category label by value
+  const getCategoryLabel = (value) => {
+    const category = CATEGORY_OPTIONS.find(cat => cat.value === value);
+    return category ? category.label : 'Select Category';
+  };
+
   // "Generate" button
   const handleGenerateClick = async () => {
+    // Check if we have at least one input with content
+    if (!inputValues.some(value => value.trim().length > 0)) {
+      toast.show('Please enter at least one concept', {
+        type: 'danger',
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
     Keyboard.dismiss();
     setIsStreaming(true);
     setGeneratedAnalogy('');
@@ -108,10 +140,16 @@ const AnalogyHubScreen = () => {
       
       setGeneratedAnalogy(analogyData);
 
-      // Scroll to the end if the output extends beyond the screen
+      // Scroll to the output
       setTimeout(() => {
-        if (scrollViewRef.current) {
-          scrollViewRef.current.scrollToEnd({ animated: true });
+        if (outputRef.current) {
+          outputRef.current.measureLayout(
+            scrollViewRef.current.getInnerViewNode(),
+            (x, y) => {
+              scrollViewRef.current.scrollTo({ y, animated: true });
+            },
+            () => {}
+          );
         }
       }, 300);
     } catch (error) {
@@ -130,6 +168,12 @@ const AnalogyHubScreen = () => {
     if (generatedAnalogy) {
       try {
         await Clipboard.setStringAsync(generatedAnalogy);
+        
+        // Haptic feedback
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        
         toast.show('Copied to clipboard!', {
           type: 'success',
           duration: 2000,
@@ -146,6 +190,11 @@ const AnalogyHubScreen = () => {
 
   // This handles selecting a category from the modal
   const handleCategorySelect = (value) => {
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync();
+    }
+    
     setAnalogyCategory(value);
     setShowCategoryModal(false);
   };
@@ -153,128 +202,289 @@ const AnalogyHubScreen = () => {
   // Renders each category item inside the modal's FlatList
   const renderCategoryItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.categoryItem}
+      style={[
+        styles.categoryItem, 
+        { 
+          borderBottomColor: theme.colors.border,
+          backgroundColor: item.value === analogyCategory ? 
+            `${theme.colors.primary}20` : 'transparent'
+        }
+      ]}
       onPress={() => handleCategorySelect(item.value)}
     >
-      <Text style={styles.categoryItemText}>{item.label}</Text>
+      <Text style={[styles.categoryItemText, { color: theme.colors.text }]}>
+        {item.label}
+      </Text>
+      {item.value === analogyCategory && (
+        <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+      )}
     </TouchableOpacity>
   );
 
-  // Renders the row of "chips" for analogyType
-  // "Single," "Comparison," "Triple"
-  const renderTypeChips = () => (
-    <View style={styles.chipRow}>
-      {ANALOGY_TYPES.map((type) => {
-        const isActive = analogyType === type.value;
-        return (
-          <TouchableOpacity
-            key={type.value}
-            style={[styles.chip, isActive && styles.chipActive]}
-            onPress={() => setAnalogyType(type.value)}
-            disabled={isStreaming}
-          >
-            <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-              {type.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[globalStyles.screen, styles.safeArea]}>
       <StatusBar style="light" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Analogy Hub</Text>
-        <Text style={styles.subtitle}>runtime-error.r00</Text>
-      </View>
+      <LinearGradient
+        colors={theme.colors.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.titleContainer}>
+            <Text style={[styles.title, { color: theme.colors.text }]}>
+              <Ionicons name="bulb" size={28} color={theme.colors.primary} /> Analogy Hub
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+              Create powerful analogies to explain complex concepts
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
 
-      {/* Single ScrollView for entire screen */}
+      {/* Main Content */}
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollViewContent}
         keyboardShouldPersistTaps="handled"
-        ref={scrollViewRef}
       >
-        <View style={styles.formContainer}>
-          {/* Analogy Type row */}
-          <Text style={styles.sectionTitle}>1) Select Analogy Type</Text>
-          {renderTypeChips()}
+        {/* Parameters Card */}
+        <View style={[
+          styles.card, 
+          { 
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border
+          }
+        ]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="settings-outline" size={22} color={theme.colors.primary} />
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Configuration</Text>
+          </View>
+
+          {/* Analogy Type */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+              1. Select Analogy Type
+            </Text>
+            <View style={styles.chipRow}>
+              {ANALOGY_TYPES.map((type) => {
+                const isActive = analogyType === type.value;
+                return (
+                  <TouchableOpacity
+                    key={type.value}
+                    style={[
+                      styles.chip,
+                      { 
+                        borderColor: theme.colors.border,
+                        backgroundColor: isActive ? theme.colors.primary : 'rgba(0,0,0,0.2)'
+                      }
+                    ]}
+                    onPress={() => {
+                      // Haptic feedback
+                      if (Platform.OS === 'ios') {
+                        Haptics.selectionAsync();
+                      }
+                      setAnalogyType(type.value);
+                    }}
+                    disabled={isStreaming}
+                  >
+                    <Text 
+                      style={[
+                        styles.chipText, 
+                        { color: isActive ? theme.colors.buttonText : theme.colors.textSecondary }
+                      ]}
+                    >
+                      {type.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           {/* Input fields */}
-          <Text style={styles.sectionTitle}>2) Enter Concepts</Text>
-          <View style={styles.inputFields}>
-            {inputValues.map((value, index) => (
-              <TextInput
-                key={index}
-                style={styles.input}
-                placeholder={`Enter concept ${index + 1}`}
-                placeholderTextColor="#666"
-                value={value}
-                onChangeText={(text) => handleInputChange(index, text)}
-                editable={!isStreaming}
-              />
-            ))}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+              2. Enter Concepts
+            </Text>
+            <View style={styles.inputFields}>
+              {inputValues.map((value, index) => (
+                <View key={index} style={styles.inputWrapper}>
+                  <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
+                    Concept {index + 1}
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input, 
+                      { 
+                        backgroundColor: theme.colors.inputBackground,
+                        color: theme.colors.inputText,
+                        borderColor: isInputFocused === index ? 
+                          theme.colors.primary : theme.colors.inputBorder
+                      }
+                    ]}
+                    placeholder={`Enter concept ${index + 1}`}
+                    placeholderTextColor={theme.colors.placeholder}
+                    value={value}
+                    onChangeText={(text) => handleInputChange(index, text)}
+                    onFocus={() => setIsInputFocused(index)}
+                    onBlur={() => setIsInputFocused(false)}
+                    editable={!isStreaming}
+                  />
+                </View>
+              ))}
+            </View>
           </View>
 
           {/* Category Selection */}
-          <Text style={styles.sectionTitle}>3) Choose a Category</Text>
-          <TouchableOpacity
-            style={styles.selectCategoryButton}
-            onPress={() => !isStreaming && setShowCategoryModal(true)}
-            disabled={isStreaming}
-          >
-            <Ionicons name="list" size={18} color="#fff" />
-            <Text style={styles.selectCategoryText}>
-              {CATEGORY_OPTIONS.find((c) => c.value === analogyCategory)?.label || 'Select Category'}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+              3. Choose a Category
             </Text>
-            <Ionicons name="chevron-down" size={18} color="#fff" />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.selectCategoryButton, 
+                { 
+                  backgroundColor: theme.colors.inputBackground,
+                  borderColor: theme.colors.inputBorder
+                }
+              ]}
+              onPress={() => !isStreaming && setShowCategoryModal(true)}
+              disabled={isStreaming}
+            >
+              <Ionicons name="albums-outline" size={18} color={theme.colors.primary} />
+              <Text style={[styles.selectCategoryText, { color: theme.colors.inputText }]}>
+                {getCategoryLabel(analogyCategory)}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={theme.colors.inputText} />
+            </TouchableOpacity>
+          </View>
 
           {/* Generate Button */}
           <TouchableOpacity
-            style={[styles.generateButton, isStreaming && styles.generateButtonDisabled]}
+            style={[
+              styles.generateButton, 
+              { backgroundColor: theme.colors.buttonPrimary },
+              isStreaming && { opacity: 0.7 }
+            ]}
             onPress={handleGenerateClick}
             disabled={isStreaming}
           >
             {isStreaming ? (
               <View style={styles.buttonContent}>
-                <ActivityIndicator color="#fff" size="small" />
-                <Text style={styles.buttonText}>Generating...</Text>
+                <ActivityIndicator color={theme.colors.buttonText} size="small" />
+                <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+                  Generating...
+                </Text>
               </View>
             ) : (
-              <Text style={styles.buttonText}>Generate Analogy</Text>
+              <View style={styles.buttonContent}>
+                <Ionicons name="flash" size={20} color={theme.colors.buttonText} />
+                <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+                  Generate Analogy
+                </Text>
+              </View>
             )}
           </TouchableOpacity>
         </View>
 
         {/* Output Area */}
         {(generatedAnalogy || isStreaming) && (
-          <View style={styles.outputContainer}>
-            {generatedAnalogy ? (
-              <>
-                <View style={styles.outputHeader}>
-                  <Text style={styles.outputTitle}>Generated Analogy</Text>
-                  <TouchableOpacity style={styles.copyButton} onPress={handleCopyClick}>
-                    <Ionicons name="copy-outline" size={16} color="#fff" />
-                    <Text style={styles.copyText}>Copy</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.analogyTextContainer}>
-                  <Text style={styles.analogyText}>{generatedAnalogy}</Text>
-                </View>
-              </>
-            ) : (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator color="#00ffea" size="large" />
-                <Text style={styles.loadingText}>Generating analogy...</Text>
+          <View 
+            ref={outputRef}
+            style={[
+              styles.outputCard, 
+              { 
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border 
+              }
+            ]}
+          >
+            <View style={styles.outputHeader}>
+              <View style={styles.outputTitleContainer}>
+                <Ionicons name="document-text-outline" size={22} color={theme.colors.primary} />
+                <Text style={[styles.outputTitle, { color: theme.colors.text }]}>
+                  Generated Analogy
+                </Text>
               </View>
-            )}
+              
+              {generatedAnalogy && (
+                <TouchableOpacity 
+                  style={[
+                    styles.copyButton, 
+                    { backgroundColor: theme.colors.buttonSecondary }
+                  ]} 
+                  onPress={handleCopyClick}
+                >
+                  <Ionicons name="copy-outline" size={16} color={theme.colors.buttonText} />
+                  <Text style={[styles.copyText, { color: theme.colors.buttonText }]}>Copy</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            <View style={styles.outputContentWrapper}>
+              {generatedAnalogy ? (
+                <View style={[
+                  styles.analogyTextContainer, 
+                  { 
+                    backgroundColor: theme.colors.background,
+                    borderColor: theme.colors.border
+                  }
+                ]}>
+                  <Text style={[styles.analogyText, { color: theme.colors.text }]}>
+                    {generatedAnalogy}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color={theme.colors.primary} size="large" />
+                  <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+                    Generating analogy...
+                  </Text>
+                  <Text style={[styles.loadingSubtext, { color: theme.colors.textMuted }]}>
+                    This may take a moment to craft the perfect comparison.
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         )}
+        
+        {/* Tip Card */}
+        {!generatedAnalogy && !isStreaming && (
+          <View style={[
+            styles.tipCard, 
+            { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border
+            }
+          ]}>
+            <View style={styles.tipHeader}>
+              <Ionicons name="bulb" size={22} color={theme.colors.warning} />
+              <Text style={[styles.tipTitle, { color: theme.colors.text }]}>Tips</Text>
+            </View>
+            <View style={styles.tipContent}>
+              <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+                • For "Single" type, enter a complex concept you want explained.
+              </Text>
+              <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+                • For "Comparison" type, enter two concepts to compare.
+              </Text>
+              <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+                • For "Triple" type, enter the third concept as the target domain.
+              </Text>
+              <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+                • Choose a category that relates to your audience's interest.
+              </Text>
+            </View>
+          </View>
+        )}
+        
+        {/* Bottom padding */}
+        <View style={styles.bottomPadding} />
       </ScrollView>
 
       {/* Category Modal */}
@@ -284,12 +494,20 @@ const AnalogyHubScreen = () => {
         animationType="fade"
         onRequestClose={() => setShowCategoryModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Pick a Category</Text>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.75)' }]}>
+          <View style={[
+            styles.modalContent, 
+            { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border
+            }
+          ]}>
+            <View style={[styles.modalHeader, { backgroundColor: theme.colors.primary }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.buttonText }]}>
+                Select a Category
+              </Text>
               <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={theme.colors.buttonText} />
               </TouchableOpacity>
             </View>
 
@@ -298,6 +516,8 @@ const AnalogyHubScreen = () => {
               keyExtractor={(item) => item.value}
               renderItem={renderCategoryItem}
               style={styles.categoryList}
+              showsVerticalScrollIndicator={false}
+              initialNumToRender={10}
             />
           </View>
         </View>
@@ -306,236 +526,283 @@ const AnalogyHubScreen = () => {
   );
 };
 
-// Styles
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#121212',
+  },
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 10 : RNStatusBar.currentHeight + 10,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  titleContainer: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  subtitle: {
+    fontSize: 14,
+    opacity: 0.8,
   },
   scrollView: {
     flex: 1,
   },
   scrollViewContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 16,
   },
-  header: {
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  cardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderBottomWidth: 2,
-    borderBottomColor: '#8B0000',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
-  title: {
-    fontSize: 28,
+  cardTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#ff4c8b',
-    textShadowColor: 'rgba(255,0,0,0.7)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-    marginBottom: 5,
+    marginLeft: 10,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#00ffea',
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  formContainer: {
-    marginBottom: 20,
-    gap: 20,
+  section: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   sectionTitle: {
     fontSize: 16,
-    color: '#00ffea',
-    marginBottom: 5,
-    fontWeight: '600',
+    fontWeight: '500',
+    marginBottom: 12,
   },
-  // CHIPS
   chipRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   chip: {
     paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     borderRadius: 20,
-    backgroundColor: '#333',
-    borderColor: '#666',
     borderWidth: 1,
   },
   chipText: {
-    color: '#bbb',
     fontSize: 14,
     fontWeight: '500',
   },
-  chipActive: {
-    backgroundColor: '#8B0000',
-    borderColor: '#000',
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
-
-  // Input fields
   inputFields: {
     gap: 16,
   },
+  inputWrapper: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   input: {
-    backgroundColor: '#222',
-    borderWidth: 2,
-    borderColor: '#8B0000',
-    borderRadius: 10,
-    color: '#00ffea',
-    padding: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     fontSize: 16,
   },
-
-  // Category Button
   selectCategoryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#333',
-    borderWidth: 2,
-    borderColor: '#8B0000',
-    borderRadius: 10,
+    borderWidth: 1,
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
     gap: 10,
   },
   selectCategoryText: {
-    color: '#fff',
     fontSize: 16,
     flex: 1,
   },
-
-  // Generate Button
   generateButton: {
-    backgroundColor: '#8B0000',
     paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#000',
-  },
-  generateButtonDisabled: {
-    backgroundColor: '#550000',
-    opacity: 0.7,
+    margin: 16,
   },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
   },
   buttonText: {
-    color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
-
   // Output container
-  outputContainer: {
-    backgroundColor: 'rgba(17, 17, 17, 0.95)',
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#8B0000',
-    padding: 15,
-    marginTop: 10,
+  outputCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
   },
   outputHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 0, 0, 0.2)',
-    paddingBottom: 10,
-    marginBottom: 10,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  outputTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   outputTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#ff0000',
+    marginLeft: 10,
   },
   copyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 6,
   },
   copyText: {
-    color: '#fff',
-    fontSize: 12,
-    marginLeft: 5,
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
   },
-  analogyTextContainer: {},
+  outputContentWrapper: {
+    padding: 16,
+  },
+  analogyTextContainer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+  },
   analogyText: {
-    color: '#00ffea',
     fontSize: 16,
     lineHeight: 24,
   },
   loadingContainer: {
     alignItems: 'center',
     padding: 20,
+    paddingVertical: 40,
   },
   loadingText: {
-    color: '#00ffea',
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 16,
+    fontWeight: 'bold',
   },
-
+  loadingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  // Tip card
+  tipCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  tipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  tipTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  tipContent: {
+    padding: 16,
+  },
+  tipText: {
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 8,
+  },
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#222',
-    borderRadius: 15,
-    borderWidth: 2,
-    borderColor: '#8B0000',
+    borderRadius: 16,
+    borderWidth: 1,
     maxHeight: '80%',
-    paddingBottom: 15,
+    width: '100%',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#8B0000',
-    borderTopLeftRadius: 13,
-    borderTopRightRadius: 13,
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#000',
+    padding: 16,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
   },
   categoryList: {
-    paddingHorizontal: 15,
-    paddingTop: 15,
+    padding: 8,
+    maxHeight: height * 0.6,
   },
   categoryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderRadius: 8,
+    marginVertical: 2,
   },
   categoryItemText: {
-    color: '#fff',
     fontSize: 16,
+  },
+  bottomPadding: {
+    height: 100, // Extra padding at the bottom for scrolling
   },
 });
 
 export default AnalogyHubScreen;
-

@@ -1,9 +1,10 @@
 // src/screens/shop/components/AvatarItem.js
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const AvatarItem = ({ item, isPurchased, isEquipped }) => {
+const AvatarItem = ({ item, isPurchased, isEquipped, theme }) => {
   const [imageError, setImageError] = useState(false);
   
   // Handle image load error
@@ -13,27 +14,44 @@ const AvatarItem = ({ item, isPurchased, isEquipped }) => {
   
   return (
     <View style={styles.container}>
+      {/* Background for aesthetic enhancement */}
+      <LinearGradient
+        colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 0.6 }}
+        style={styles.gradientOverlay}
+      />
+      
       {/* Try to load the actual image, fallback to placeholder if it fails */}
       {item.imageUrl && !imageError ? (
-        <Image
-          source={{ uri: item.imageUrl }}
-          style={styles.avatarImage}
-          onError={handleImageError}
-          resizeMode="cover"
-        />
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={styles.avatarImage}
+            onError={handleImageError}
+          />
+        </View>
       ) : (
-        <View style={styles.placeholderContainer}>
-          <Text style={styles.placeholderText}>
+        <View style={[
+          styles.placeholderContainer, 
+          { backgroundColor: theme ? theme.colors.surfaceHighlight : '#2A2A2A' }
+        ]}>
+          <Text style={[
+            styles.placeholderText,
+            { color: theme ? theme.colors.text : '#FFFFFF' }
+          ]}>
             {item.title?.charAt(0) || '?'}
           </Text>
         </View>
       )}
       
       {isPurchased && (
-        <View style={styles.ownershipBadgeContainer}>
+        <View style={styles.badgeContainer}>
           <View style={[
-            styles.ownershipBadge,
-            isEquipped ? styles.equippedBadge : styles.purchasedBadge
+            styles.badge,
+            isEquipped ? 
+            { backgroundColor: theme ? theme.colors.primary : '#6543CC' } : 
+            { backgroundColor: theme ? theme.colors.success : '#2ebb77' }
           ]}>
             <Ionicons 
               name={isEquipped ? "checkmark-circle" : "checkmark"} 
@@ -50,43 +68,63 @@ const AvatarItem = ({ item, isPurchased, isEquipped }) => {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    height: 140,
+    height: 150,
     position: 'relative',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+  },
+  gradientOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '100%',
+    zIndex: 1,
+  },
+  imageContainer: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
   avatarImage: {
-    width: '100%',
-    height: 140,
-    backgroundColor: '#2A2A2A',
+    width: '85%', // Using percentage to prevent cutoff
+    height: '85%', // Using percentage to prevent cutoff
+    resizeMode: 'contain',
   },
   placeholderContainer: {
     width: '100%',
-    height: 140,
-    backgroundColor: '#2A2A2A',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderText: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
-  ownershipBadgeContainer: {
+  badgeContainer: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 10,
+    zIndex: 2,
   },
-  ownershipBadge: {
+  badge: {
     width: 24,
     height: 24,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  purchasedBadge: {
-    backgroundColor: '#2ebb77',
-  },
-  equippedBadge: {
-    backgroundColor: '#6543CC',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
   },
 });
 

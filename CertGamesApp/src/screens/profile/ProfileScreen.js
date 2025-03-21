@@ -1,5 +1,5 @@
 // src/screens/profile/ProfileScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,20 +12,27 @@ import {
   Alert,
   Modal,
   SafeAreaView,
-  Platform
+  Platform,
+  Animated
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchUserData, logout } from '../../store/slices/userSlice';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
+import { useTheme } from '../../context/ThemeContext';
 
 // Import profile service to handle API calls
 import { changeUsername, changeEmail, changePassword, getAvatarUrl } from '../../api/profileService';
-import { BASE_URL } from '../../api/apiConfig';
 
 const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const { theme } = useTheme(); // Access theme context
+  
+  // Animated values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
   
   // Get user data from Redux store
   const {
@@ -70,6 +77,22 @@ const ProfileScreen = ({ navigation }) => {
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState(''); // 'success', 'error'
   const [showStatusModal, setShowStatusModal] = useState(false);
+  
+  // Animation on mount
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, translateY]);
   
   // Calculate XP to next level
   const calculateXpPercentage = () => {
@@ -121,7 +144,6 @@ const ProfileScreen = ({ navigation }) => {
 
     // Use the helper function to get a properly formatted avatar URL
     const avatarUrl = getAvatarUrl(currentAvatar);
-    console.log('Avatar URL:', avatarUrl); // For debugging
     return avatarUrl;
   };
   
@@ -142,6 +164,10 @@ const ProfileScreen = ({ navigation }) => {
   
   // Handle logout
   const handleLogout = async () => {
+    if (Platform.OS === 'ios') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+    
     Alert.alert(
       'Confirm Logout',
       'Are you sure you want to logout?',
@@ -190,8 +216,6 @@ const ProfileScreen = ({ navigation }) => {
       return;
     }
     
-    // More comprehensive validation can be added here
-    
     setUsernameLoading(true);
     
     try {
@@ -203,9 +227,16 @@ const ProfileScreen = ({ navigation }) => {
       
       // Refresh user data
       dispatch(fetchUserData(userId));
+      
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     } catch (error) {
       console.error('Error changing username:', error);
       showStatusMessage(error.message || 'Failed to update username. Please try again.', 'error');
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
       setUsernameLoading(false);
     }
@@ -235,9 +266,16 @@ const ProfileScreen = ({ navigation }) => {
       
       // Refresh user data
       dispatch(fetchUserData(userId));
+      
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     } catch (error) {
       console.error('Error changing email:', error);
       showStatusMessage(error.message || 'Failed to update email. Please try again.', 'error');
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
       setEmailLoading(false);
     }
@@ -283,9 +321,15 @@ const ProfileScreen = ({ navigation }) => {
       setNewPassword('');
       setConfirmPassword('');
       
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     } catch (error) {
       console.error('Error changing password:', error);
       showStatusMessage(error.message || 'Failed to update password. Please try again.', 'error');
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
       setPasswordLoading(false);
     }
@@ -293,16 +337,33 @@ const ProfileScreen = ({ navigation }) => {
   
   // Navigate to Achievements screen
   const goToAchievements = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     navigation.navigate('Achievements');
+  };
+  
+  // Navigate to Theme Settings
+  const goToThemeSettings = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    navigation.navigate('ThemeSettings');
   };
   
   // Navigate to Shop
   const goToShop = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     navigation.navigate('Shop');
   };
   
   // Navigate to Support
   const goToSupport = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     navigation.navigate('Support');
   };
   
@@ -313,12 +374,13 @@ const ProfileScreen = ({ navigation }) => {
   };
   
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusModal 
         visible={showStatusModal}
         message={statusMessage}
         type={statusType}
         onClose={() => setShowStatusModal(false)}
+        theme={theme}
       />
       
       <ScrollView 
@@ -328,76 +390,99 @@ const ProfileScreen = ({ navigation }) => {
         onRefresh={handleRefresh}
       >
         {/* Profile Header */}
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            {/* Use properly formatted avatar URL */}
-            {!avatarError && currentAvatar ? (
-              <Image 
-                source={{ uri: getProfilePicUrl() }}
-                style={styles.avatar}
-                onError={handleAvatarError}
-              />
-            ) : (
-              <Image 
-                source={require('../../../assets/default-avatar.png')}
-                style={styles.avatar}
-              />
-            )}
-          </View>
-          
-          <View style={styles.userInfo}>
-            <Text style={styles.username}>{username}</Text>
+        <Animated.View 
+          style={[
+            styles.header,
+            { 
+              opacity: fadeAnim,
+              transform: [{ translateY: translateY }]
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={theme.colors.headerGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.headerGradient}
+          >
+            <View style={styles.avatarContainer}>
+              {/* Use properly formatted avatar URL */}
+              {!avatarError && currentAvatar ? (
+                <Image 
+                  source={{ uri: getProfilePicUrl() }}
+                  style={styles.avatar}
+                  onError={handleAvatarError}
+                />
+              ) : (
+                <Image 
+                  source={require('../../../assets/default-avatar.png')}
+                  style={styles.avatar}
+                />
+              )}
+            </View>
             
-            <View style={styles.levelContainer}>
-              <View style={styles.levelBadge}>
-                <Text style={styles.levelText}>{level}</Text>
-              </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.username}>{username}</Text>
               
-              <View style={styles.xpContainer}>
-                <View style={styles.xpBar}>
-                  <View style={[styles.xpProgress, { width: `${xpPercentage}%` }]} />
+              <View style={styles.levelContainer}>
+                <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary }]}>
+                  <Text style={styles.levelText}>{level}</Text>
                 </View>
-                <Text style={styles.xpText}>{xp} XP</Text>
-              </View>
-            </View>
-            
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Ionicons name="wallet-outline" size={18} color="#FFD700" />
-                <Text style={styles.statText}>{coins}</Text>
+                
+                <View style={styles.xpContainer}>
+                  <View style={styles.xpBar}>
+                    <View 
+                      style={[
+                        styles.xpProgress, 
+                        { 
+                          width: `${xpPercentage}%`,
+                          backgroundColor: theme.colors.primary
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.xpText}>{xp} XP</Text>
+                </View>
               </View>
               
-              <View style={styles.statItem}>
-                <Ionicons name="trophy-outline" size={18} color="#FFD700" />
-                <Text style={styles.statText}>{achievements.length}</Text>
-              </View>
-              
-              <View style={styles.statItem}>
-                <Ionicons name="star-outline" size={18} color="#FFD700" />
-                <Text style={styles.statText}>{purchasedItems.length}</Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Ionicons name="wallet-outline" size={18} color="#FFD700" />
+                  <Text style={styles.statText}>{coins}</Text>
+                </View>
+                
+                <View style={styles.statItem}>
+                  <Ionicons name="trophy-outline" size={18} color="#FFD700" />
+                  <Text style={styles.statText}>{achievements.length}</Text>
+                </View>
+                
+                <View style={styles.statItem}>
+                  <Ionicons name="star-outline" size={18} color="#FFD700" />
+                  <Text style={styles.statText}>{purchasedItems.length}</Text>
+                </View>
               </View>
             </View>
-          </View>
-        </View>
+          </LinearGradient>
+        </Animated.View>
         
         {/* Tabs Navigation */}
-        <View style={styles.tabsContainer}>
+        <View style={[styles.tabsContainer, { backgroundColor: theme.colors.card }]}>
           <TouchableOpacity 
-            style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
+            style={[styles.tab, activeTab === 'overview' && [styles.activeTab, { backgroundColor: theme.colors.primary }]]}
             onPress={() => setActiveTab('overview')}
           >
             <Text style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>Overview</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.tab, activeTab === 'account' && styles.activeTab]}
+            style={[styles.tab, activeTab === 'account' && [styles.activeTab, { backgroundColor: theme.colors.primary }]]}
             onPress={() => setActiveTab('account')}
           >
             <Text style={[styles.tabText, activeTab === 'account' && styles.activeTabText]}>Account</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.tab, activeTab === 'achievements' && styles.activeTab]}
+            style={[styles.tab, activeTab === 'achievements' && [styles.activeTab, { backgroundColor: theme.colors.primary }]]}
             onPress={() => setActiveTab('achievements')}
           >
             <Text style={[styles.tabText, activeTab === 'achievements' && styles.activeTabText]}>Achievements</Text>
@@ -407,43 +492,48 @@ const ProfileScreen = ({ navigation }) => {
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <View style={styles.tabContent}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="person-outline" size={20} color="#6543CC" />
+            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+              <LinearGradient
+                colors={theme.colors.cardGradient}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.cardHeader}
+              >
+                <Ionicons name="person-outline" size={20} color="#FFFFFF" />
                 <Text style={styles.cardTitle}>User Profile</Text>
-              </View>
+              </LinearGradient>
               
               <View style={styles.cardBody}>
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>Username:</Text>
-                  <Text style={styles.detailValue}>{username}</Text>
+                <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Username:</Text>
+                  <Text style={[styles.detailValue, { color: theme.colors.text }]}>{username}</Text>
+                </View>
+                
+                <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Email:</Text>
+                  <Text style={[styles.detailValue, { color: theme.colors.text }]}>{email}</Text>
+                </View>
+                
+                <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Level:</Text>
+                  <Text style={[styles.detailValue, { color: theme.colors.text }]}>{level}</Text>
+                </View>
+                
+                <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>XP:</Text>
+                  <Text style={[styles.detailValue, { color: theme.colors.text }]}>{xp}</Text>
+                </View>
+                
+                <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Coins:</Text>
+                  <Text style={[styles.detailValue, { color: theme.colors.text }]}>{coins}</Text>
                 </View>
                 
                 <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>Email:</Text>
-                  <Text style={styles.detailValue}>{email}</Text>
-                </View>
-                
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>Level:</Text>
-                  <Text style={styles.detailValue}>{level}</Text>
-                </View>
-                
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>XP:</Text>
-                  <Text style={styles.detailValue}>{xp}</Text>
-                </View>
-                
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>Coins:</Text>
-                  <Text style={styles.detailValue}>{coins}</Text>
-                </View>
-                
-                <View style={styles.profileDetail}>
-                  <Text style={styles.detailLabel}>Subscription:</Text>
+                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Subscription:</Text>
                   <Text style={[
                     styles.detailValue, 
-                    subscriptionActive ? styles.activeSubscription : styles.inactiveSubscription
+                    subscriptionActive ? [styles.activeSubscription, { color: theme.colors.success }] : [styles.inactiveSubscription, { color: theme.colors.subtext }]
                   ]}>
                     {subscriptionActive ? 'Active' : 'Inactive'}
                   </Text>
@@ -451,57 +541,76 @@ const ProfileScreen = ({ navigation }) => {
               </View>
             </View>
             
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="trophy-outline" size={20} color="#6543CC" />
+            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+              <LinearGradient
+                colors={theme.colors.cardGradient}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.cardHeader}
+              >
+                <Ionicons name="trophy-outline" size={20} color="#FFFFFF" />
                 <Text style={styles.cardTitle}>Achievements</Text>
-              </View>
+              </LinearGradient>
               
               <View style={styles.cardBody}>
                 {achievements.length > 0 ? (
                   <>
-                    <Text style={styles.achievementsText}>
+                    <Text style={[styles.achievementsText, { color: theme.colors.text }]}>
                       You have unlocked {achievements.length} achievements!
                     </Text>
-                    <TouchableOpacity style={styles.viewMoreButton} onPress={goToAchievements}>
-                      <Text style={styles.viewMoreText}>View All Achievements</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#6543CC" />
+                    <TouchableOpacity 
+                      style={[styles.viewMoreButton, { backgroundColor: `${theme.colors.primary}20` }]} 
+                      onPress={goToAchievements}
+                    >
+                      <Text style={[styles.viewMoreText, { color: theme.colors.primary }]}>View All Achievements</Text>
+                      <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
                     </TouchableOpacity>
                   </>
                 ) : (
-                  <Text style={styles.emptyStateText}>
+                  <Text style={[styles.emptyStateText, { color: theme.colors.subtext }]}>
                     Complete quizzes and challenges to earn achievements!
                   </Text>
                 )}
               </View>
             </View>
             
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="cart-outline" size={20} color="#6543CC" />
+            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+              <LinearGradient
+                colors={theme.colors.cardGradient}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.cardHeader}
+              >
+                <Ionicons name="cart-outline" size={20} color="#FFFFFF" />
                 <Text style={styles.cardTitle}>Shop Items</Text>
-              </View>
+              </LinearGradient>
               
               <View style={styles.cardBody}>
                 {purchasedItems.length > 0 ? (
                   <>
-                    <Text style={styles.itemsText}>
+                    <Text style={[styles.itemsText, { color: theme.colors.text }]}>
                       You have purchased {purchasedItems.length} items from the shop!
                     </Text>
-                    <TouchableOpacity style={styles.viewMoreButton} onPress={goToShop}>
-                      <Text style={styles.viewMoreText}>Visit Shop</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#6543CC" />
+                    <TouchableOpacity 
+                      style={[styles.viewMoreButton, { backgroundColor: `${theme.colors.primary}20` }]} 
+                      onPress={goToShop}
+                    >
+                      <Text style={[styles.viewMoreText, { color: theme.colors.primary }]}>Visit Shop</Text>
+                      <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
                     </TouchableOpacity>
                   </>
                 ) : (
-                  <Text style={styles.emptyStateText}>
+                  <Text style={[styles.emptyStateText, { color: theme.colors.subtext }]}>
                     Visit the shop to purchase avatars and other items!
                   </Text>
                 )}
               </View>
             </View>
             
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <TouchableOpacity 
+              style={[styles.logoutButton, { backgroundColor: theme.colors.error }]} 
+              onPress={handleLogout}
+            >
               <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
@@ -510,26 +619,31 @@ const ProfileScreen = ({ navigation }) => {
         
         {activeTab === 'account' && (
           <View style={styles.tabContent}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="person-outline" size={20} color="#6543CC" />
+            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+              <LinearGradient
+                colors={theme.colors.cardGradient}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.cardHeader}
+              >
+                <Ionicons name="person-outline" size={20} color="#FFFFFF" />
                 <Text style={styles.cardTitle}>Account Settings</Text>
-              </View>
+              </LinearGradient>
               
               <View style={styles.cardBody}>
                 {/* Change Username */}
-                <View style={styles.settingSection}>
+                <View style={[styles.settingSection, { borderBottomColor: theme.colors.border }]}>
                   <View style={styles.settingHeader}>
-                    <Text style={styles.settingTitle}>Username</Text>
-                    <Text style={styles.settingValue}>{username}</Text>
+                    <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Username</Text>
+                    <Text style={[styles.settingValue, { color: theme.colors.subtext }]}>{username}</Text>
                   </View>
                   
                   {showChangeUsername ? (
                     <View style={styles.changeForm}>
                       <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
                         placeholder="New username"
-                        placeholderTextColor="#AAAAAA"
+                        placeholderTextColor={theme.colors.subtext}
                         value={newUsername}
                         onChangeText={setNewUsername}
                         autoCapitalize="none"
@@ -538,7 +652,7 @@ const ProfileScreen = ({ navigation }) => {
                       
                       <View style={styles.formButtons}>
                         <TouchableOpacity 
-                          style={styles.saveButton}
+                          style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
                           onPress={handleChangeUsername}
                           disabled={usernameLoading}
                         >
@@ -550,20 +664,20 @@ const ProfileScreen = ({ navigation }) => {
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                          style={styles.cancelButton}
+                          style={[styles.cancelButton, { backgroundColor: theme.colors.background }]}
                           onPress={() => {
                             setShowChangeUsername(false);
                             setNewUsername('');
                           }}
                           disabled={usernameLoading}
                         >
-                          <Text style={styles.cancelText}>Cancel</Text>
+                          <Text style={[styles.cancelText, { color: theme.colors.text }]}>Cancel</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
                   ) : (
                     <TouchableOpacity 
-                      style={styles.changeButton}
+                      style={[styles.changeButton, { backgroundColor: theme.colors.primary }]}
                       onPress={() => setShowChangeUsername(true)}
                     >
                       <Ionicons name="create-outline" size={16} color="#FFFFFF" />
@@ -573,18 +687,18 @@ const ProfileScreen = ({ navigation }) => {
                 </View>
                 
                 {/* Change Email */}
-                <View style={styles.settingSection}>
+                <View style={[styles.settingSection, { borderBottomColor: theme.colors.border }]}>
                   <View style={styles.settingHeader}>
-                    <Text style={styles.settingTitle}>Email</Text>
-                    <Text style={styles.settingValue}>{email}</Text>
+                    <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Email</Text>
+                    <Text style={[styles.settingValue, { color: theme.colors.subtext }]}>{email}</Text>
                   </View>
                   
                   {showChangeEmail ? (
                     <View style={styles.changeForm}>
                       <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
                         placeholder="New email address"
-                        placeholderTextColor="#AAAAAA"
+                        placeholderTextColor={theme.colors.subtext}
                         value={newEmail}
                         onChangeText={setNewEmail}
                         autoCapitalize="none"
@@ -594,7 +708,7 @@ const ProfileScreen = ({ navigation }) => {
                       
                       <View style={styles.formButtons}>
                         <TouchableOpacity 
-                          style={styles.saveButton}
+                          style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
                           onPress={handleChangeEmail}
                           disabled={emailLoading}
                         >
@@ -606,20 +720,20 @@ const ProfileScreen = ({ navigation }) => {
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                          style={styles.cancelButton}
+                          style={[styles.cancelButton, { backgroundColor: theme.colors.background }]}
                           onPress={() => {
                             setShowChangeEmail(false);
                             setNewEmail('');
                           }}
                           disabled={emailLoading}
                         >
-                          <Text style={styles.cancelText}>Cancel</Text>
+                          <Text style={[styles.cancelText, { color: theme.colors.text }]}>Cancel</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
                   ) : (
                     <TouchableOpacity 
-                      style={styles.changeButton}
+                      style={[styles.changeButton, { backgroundColor: theme.colors.primary }]}
                       onPress={() => setShowChangeEmail(true)}
                     >
                       <Ionicons name="create-outline" size={16} color="#FFFFFF" />
@@ -629,19 +743,19 @@ const ProfileScreen = ({ navigation }) => {
                 </View>
                 
                 {/* Change Password */}
-                <View style={styles.settingSection}>
+                <View style={[styles.settingSection, { borderBottomColor: theme.colors.border }]}>
                   <View style={styles.settingHeader}>
-                    <Text style={styles.settingTitle}>Password</Text>
-                    <Text style={styles.settingValue}>••••••••</Text>
+                    <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Password</Text>
+                    <Text style={[styles.settingValue, { color: theme.colors.subtext }]}>••••••••</Text>
                   </View>
                   
                   {showChangePassword ? (
                     <View style={styles.changeForm}>
                       <View style={styles.passwordInputContainer}>
                         <TextInput
-                          style={styles.input}
+                          style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
                           placeholder="Current password"
-                          placeholderTextColor="#AAAAAA"
+                          placeholderTextColor={theme.colors.subtext}
                           value={oldPassword}
                           onChangeText={setOldPassword}
                           secureTextEntry={!showOldPassword}
@@ -655,16 +769,16 @@ const ProfileScreen = ({ navigation }) => {
                           <Ionicons
                             name={showOldPassword ? "eye-off-outline" : "eye-outline"}
                             size={20}
-                            color="#AAAAAA"
+                            color={theme.colors.subtext}
                           />
                         </TouchableOpacity>
                       </View>
                       
                       <View style={styles.passwordInputContainer}>
                         <TextInput
-                          style={styles.input}
+                          style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
                           placeholder="New password"
-                          placeholderTextColor="#AAAAAA"
+                          placeholderTextColor={theme.colors.subtext}
                           value={newPassword}
                           onChangeText={setNewPassword}
                           secureTextEntry={!showNewPassword}
@@ -678,16 +792,16 @@ const ProfileScreen = ({ navigation }) => {
                           <Ionicons
                             name={showNewPassword ? "eye-off-outline" : "eye-outline"}
                             size={20}
-                            color="#AAAAAA"
+                            color={theme.colors.subtext}
                           />
                         </TouchableOpacity>
                       </View>
                       
                       <View style={styles.passwordInputContainer}>
                         <TextInput
-                          style={styles.input}
+                          style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
                           placeholder="Confirm new password"
-                          placeholderTextColor="#AAAAAA"
+                          placeholderTextColor={theme.colors.subtext}
                           value={confirmPassword}
                           onChangeText={setConfirmPassword}
                           secureTextEntry={!showConfirmPassword}
@@ -701,14 +815,14 @@ const ProfileScreen = ({ navigation }) => {
                           <Ionicons
                             name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
                             size={20}
-                            color="#AAAAAA"
+                            color={theme.colors.subtext}
                           />
                         </TouchableOpacity>
                       </View>
                       
                       <View style={styles.formButtons}>
                         <TouchableOpacity 
-                          style={styles.saveButton}
+                          style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
                           onPress={handleChangePassword}
                           disabled={passwordLoading}
                         >
@@ -720,7 +834,7 @@ const ProfileScreen = ({ navigation }) => {
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                          style={styles.cancelButton}
+                          style={[styles.cancelButton, { backgroundColor: theme.colors.background }]}
                           onPress={() => {
                             setShowChangePassword(false);
                             setOldPassword('');
@@ -729,13 +843,13 @@ const ProfileScreen = ({ navigation }) => {
                           }}
                           disabled={passwordLoading}
                         >
-                          <Text style={styles.cancelText}>Cancel</Text>
+                          <Text style={[styles.cancelText, { color: theme.colors.text }]}>Cancel</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
                   ) : (
                     <TouchableOpacity 
-                      style={styles.changeButton}
+                      style={[styles.changeButton, { backgroundColor: theme.colors.primary }]}
                       onPress={() => setShowChangePassword(true)}
                     >
                       <Ionicons name="create-outline" size={16} color="#FFFFFF" />
@@ -743,15 +857,39 @@ const ProfileScreen = ({ navigation }) => {
                     </TouchableOpacity>
                   )}
                 </View>
+                
+                {/* Theme Settings (New) */}
+                <View style={styles.settingSection}>
+                  <View style={styles.settingHeader}>
+                    <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Theme Settings</Text>
+                    <Text style={[styles.settingValue, { color: theme.colors.primary }]}>
+                      {theme.name.charAt(0).toUpperCase() + theme.name.slice(1)}
+                    </Text>
+                  </View>
+                  
+                  <TouchableOpacity 
+                    style={[styles.changeButton, { backgroundColor: theme.colors.primary }]}
+                    onPress={goToThemeSettings}
+                  >
+                    <Ionicons name="color-palette" size={16} color="#FFFFFF" />
+                    <Text style={styles.changeButtonText}>Customize App Theme</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
             
-            <TouchableOpacity style={styles.supportButton} onPress={goToSupport}>
+            <TouchableOpacity 
+              style={[styles.supportButton, { backgroundColor: theme.colors.secondary }]} 
+              onPress={goToSupport}
+            >
               <Ionicons name="help-circle-outline" size={20} color="#FFFFFF" />
               <Text style={styles.supportText}>Contact Support</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <TouchableOpacity 
+              style={[styles.logoutButton, { backgroundColor: theme.colors.error }]} 
+              onPress={handleLogout}
+            >
               <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
@@ -760,25 +898,33 @@ const ProfileScreen = ({ navigation }) => {
         
         {activeTab === 'achievements' && (
           <View style={styles.tabContent}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="trophy-outline" size={20} color="#6543CC" />
+            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+              <LinearGradient
+                colors={theme.colors.cardGradient}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.cardHeader}
+              >
+                <Ionicons name="trophy-outline" size={20} color="#FFFFFF" />
                 <Text style={styles.cardTitle}>Your Achievements</Text>
-              </View>
+              </LinearGradient>
               
               <View style={styles.cardBody}>
                 {achievements.length > 0 ? (
                   <>
-                    <Text style={styles.achievementsText}>
+                    <Text style={[styles.achievementsText, { color: theme.colors.text }]}>
                       You have unlocked {achievements.length} achievements!
                     </Text>
-                    <TouchableOpacity style={styles.viewMoreButton} onPress={goToAchievements}>
-                      <Text style={styles.viewMoreText}>View All Achievements</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#6543CC" />
+                    <TouchableOpacity 
+                      style={[styles.viewMoreButton, { backgroundColor: `${theme.colors.primary}20` }]} 
+                      onPress={goToAchievements}
+                    >
+                      <Text style={[styles.viewMoreText, { color: theme.colors.primary }]}>View All Achievements</Text>
+                      <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
                     </TouchableOpacity>
                   </>
                 ) : (
-                  <Text style={styles.emptyStateText}>
+                  <Text style={[styles.emptyStateText, { color: theme.colors.subtext }]}>
                     Complete quizzes and challenges to earn achievements!
                   </Text>
                 )}
@@ -792,7 +938,7 @@ const ProfileScreen = ({ navigation }) => {
 };
 
 // Status Modal Component
-const StatusModal = ({ visible, message, type, onClose }) => {
+const StatusModal = ({ visible, message, type, onClose, theme }) => {
   if (!visible) return null;
   
   return (
@@ -805,16 +951,16 @@ const StatusModal = ({ visible, message, type, onClose }) => {
       <View style={styles.modalOverlay}>
         <View style={[
           styles.modalContent,
-          type === 'success' ? styles.successModal : styles.errorModal
+          type === 'success' ? [styles.successModal, { borderLeftColor: theme.colors.success }] : [styles.errorModal, { borderLeftColor: theme.colors.error }]
         ]}>
           <Ionicons 
             name={type === 'success' ? "checkmark-circle" : "alert-circle"} 
             size={24} 
-            color={type === 'success' ? "#2ebb77" : "#ff4e4e"} 
+            color={type === 'success' ? theme.colors.success : theme.colors.error} 
           />
-          <Text style={styles.modalText}>{message}</Text>
+          <Text style={[styles.modalText, { color: theme.colors.text }]}>{message}</Text>
           <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
-            <Ionicons name="close" size={20} color="#AAAAAA" />
+            <Ionicons name="close" size={20} color={theme.colors.subtext} />
           </TouchableOpacity>
         </View>
       </View>
@@ -825,32 +971,35 @@ const StatusModal = ({ visible, message, type, onClose }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
   },
   scrollView: {
     flex: 1,
   },
   scrollViewContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingBottom: 40,
   },
   
   // Header styles
   header: {
-    flexDirection: 'row',
-    backgroundColor: '#1E1E1E',
-    borderRadius: 16,
-    padding: 16,
     marginBottom: 20,
+    overflow: 'hidden',
+  },
+  headerGradient: {
+    padding: 20,
+    paddingTop: 25,
+    paddingBottom: 25,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    flexDirection: 'row',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
-        shadowRadius: 6,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 4,
+        elevation: 6,
       },
     }),
   },
@@ -861,16 +1010,16 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    borderWidth: 2,
-    borderColor: '#6543CC',
-    backgroundColor: '#2A2A2A', // Background color while loading
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Background color while loading
   },
   userInfo: {
     flex: 1,
     justifyContent: 'center',
   },
   username: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 6,
@@ -878,10 +1027,9 @@ const styles = StyleSheet.create({
   levelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   levelBadge: {
-    backgroundColor: '#6543CC',
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -898,42 +1046,46 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   xpBar: {
-    height: 6,
-    backgroundColor: '#333333',
-    borderRadius: 3,
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 4,
     marginBottom: 4,
     overflow: 'hidden',
   },
   xpProgress: {
     height: '100%',
-    backgroundColor: '#6543CC',
-    borderRadius: 3,
+    borderRadius: 4,
   },
   xpText: {
-    color: '#AAAAAA',
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 12,
     textAlign: 'right',
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    marginRight: 8,
   },
   statText: {
     color: '#FFFFFF',
     marginLeft: 4,
     fontSize: 14,
+    fontWeight: '500',
   },
   
   // Tabs styles
   tabsContainer: {
     flexDirection: 'row',
+    marginHorizontal: 16,
     marginBottom: 20,
-    backgroundColor: '#1E1E1E',
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   tab: {
@@ -942,7 +1094,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: '#6543CC',
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
   },
   tabText: {
     color: '#AAAAAA',
@@ -956,38 +1109,35 @@ const styles = StyleSheet.create({
   
   // Content styles
   tabContent: {
-    flex: 1,
+    paddingHorizontal: 16,
   },
   card: {
-    backgroundColor: '#1E1E1E',
     borderRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
-        shadowRadius: 4,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 2,
+        elevation: 4,
       },
     }),
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    gap: 10,
   },
   cardTitle: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 8,
   },
   cardBody: {
     padding: 16,
@@ -997,63 +1147,50 @@ const styles = StyleSheet.create({
   profileDetail: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
   },
   detailLabel: {
-    color: '#AAAAAA',
     fontSize: 14,
   },
   detailValue: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500',
-  },
-  activeSubscription: {
-    color: '#2ebb77',
-  },
-  inactiveSubscription: {
-    color: '#AAAAAA',
   },
   
   // Achievements & Items
   achievementsText: {
-    color: '#FFFFFF',
     fontSize: 14,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   itemsText: {
-    color: '#FFFFFF',
     fontSize: 14,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   emptyStateText: {
-    color: '#AAAAAA',
     fontSize: 14,
     textAlign: 'center',
     fontStyle: 'italic',
+    padding: 10,
   },
   viewMoreButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    backgroundColor: 'rgba(101, 67, 204, 0.1)',
+    paddingVertical: 10,
     borderRadius: 8,
   },
   viewMoreText: {
-    color: '#6543CC',
     fontSize: 14,
+    fontWeight: '500',
     marginRight: 4,
   },
   
   // Account settings
   settingSection: {
-    marginBottom: 16,
+    marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   settingHeader: {
     flexDirection: 'row',
@@ -1062,26 +1199,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   settingTitle: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   settingValue: {
-    color: '#AAAAAA',
     fontSize: 14,
   },
   changeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#6543CC',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 8,
   },
   changeButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     marginLeft: 6,
   },
   
@@ -1090,11 +1224,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   input: {
-    backgroundColor: '#333333',
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#FFFFFF',
+    paddingVertical: 12,
     marginBottom: 12,
   },
   passwordInputContainer: {
@@ -1112,8 +1244,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#6543CC',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1122,18 +1253,16 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#333333',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   cancelText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1143,9 +1272,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E53935',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 15,
+    borderRadius: 12,
     marginBottom: 20,
   },
   logoutText: {
@@ -1158,9 +1286,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2196F3',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 15,
+    borderRadius: 12,
     marginBottom: 16,
   },
   supportText: {
@@ -1184,6 +1311,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     width: '80%',
+    borderLeftWidth: 4,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -1196,17 +1324,8 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  successModal: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#2ebb77',
-  },
-  errorModal: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#ff4e4e',
-  },
   modalText: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 14,
     marginLeft: 10,
   },

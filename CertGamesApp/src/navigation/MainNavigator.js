@@ -22,6 +22,7 @@ import XploitCraftScreen from '../screens/tools/XploitCraftScreen';
 import DailyStationScreen from '../screens/tools/DailyStationScreen';
 import NewsletterScreen from '../screens/tools/NewsletterScreen';
 import ResourcesScreen from '../screens/tools/ResourcesScreen';
+import ThemeSettingsScreen from '../screens/profile/ThemeSettingsScreen';
 
 // Import test navigator
 import TestNavigator from './TestNavigator';
@@ -173,6 +174,12 @@ const ProfileStackNavigator = () => (
     <ProfileStack.Screen 
       name="Resources" 
       component={ResourcesScreen} 
+      options={{ headerShown: false }}
+    />
+    {/* Add ThemeSettings Screen */}
+    <ProfileStack.Screen 
+      name="ThemeSettings" 
+      component={ThemeSettingsScreen} 
       options={{ headerShown: false }}
     />
   </ProfileStack.Navigator>

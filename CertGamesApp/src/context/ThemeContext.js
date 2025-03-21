@@ -11,16 +11,21 @@ const themes = {
       primary: '#6543CC',       // Purple
       secondary: '#FF4C8B',     // Pink
       accent: '#2ECC71',        // Green
-      background: '#121212',    // Dark background
-      card: '#1E1E1E',          // Card background
+      background: '#0D0F1F',    // Deeper dark background
+      card: '#161A30',          // Richer card background
       text: '#FFFFFF',          // White text
-      subtext: '#AAAAAA',       // Gray subtitle text
-      border: '#333333',        // Border color
+      subtext: '#B0B0C0',       // Slightly purple-tinted subtitle text
+      border: '#272A3F',        // Subtle border color
       notification: '#FF4C8B',  // Notification color
       success: '#2ECC71',       // Success color
       warning: '#F39C12',       // Warning color
       error: '#E74C3C',         // Error color
       disabled: '#666666',      // Disabled state
+      headerBackground: 'transparent', // Transparent header
+      tabBarActiveTint: '#6543CC', // Active tab color
+      tabBarInactiveTint: '#696989', // Inactive tab color
+      tabBarBackground: '#10121E', // Tab bar background
+      cardGradient: ['#161A30', '#1E2340'], // Gradient for cards
     }
   },
   purple: {
@@ -39,6 +44,11 @@ const themes = {
       warning: '#FFBB55',       // Warning color
       error: '#FF6666',         // Error color
       disabled: '#666680',      // Disabled state
+      headerBackground: 'transparent', // Transparent header
+      tabBarActiveTint: '#8A64FF', // Active tab color
+      tabBarInactiveTint: '#9A8EC2', // Inactive tab color
+      tabBarBackground: '#110F21', // Tab bar background
+      cardGradient: ['#251D4C', '#302662'], // Gradient for cards
     }
   },
   cyberpunk: {
@@ -57,6 +67,11 @@ const themes = {
       warning: '#FFFF00',       // Warning color
       error: '#FF0000',         // Error color
       disabled: '#555580',      // Disabled state
+      headerBackground: 'transparent', // Transparent header
+      tabBarActiveTint: '#00FFFF', // Active tab color
+      tabBarInactiveTint: '#4D8585', // Inactive tab color
+      tabBarBackground: '#0A0A22', // Tab bar background
+      cardGradient: ['#1A1A40', '#2A2A60'], // Gradient for cards
     }
   },
   stealth: {
@@ -75,6 +90,11 @@ const themes = {
       warning: '#FFBB55',       // Warning color
       error: '#FF5252',         // Error color
       disabled: '#444444',      // Disabled state
+      headerBackground: 'transparent', // Transparent header
+      tabBarActiveTint: '#45B69C', // Active tab color
+      tabBarInactiveTint: '#6B8A84', // Inactive tab color
+      tabBarBackground: '#0D0D0D', // Tab bar background
+      cardGradient: ['#141414', '#1A1A1A'], // Gradient for cards
     }
   },
 };

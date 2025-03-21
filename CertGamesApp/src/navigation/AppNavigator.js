@@ -15,16 +15,18 @@ import { fetchUserData } from '../store/slices/userSlice';
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
-// Custom theme
-const MyTheme = {
+// Custom dark theme
+const DarkTheme = {
   ...DefaultTheme,
+  dark: true,
   colors: {
     ...DefaultTheme.colors,
-    background: '#121212',
-    text: '#FFFFFF',
     primary: '#6543CC',
-    card: '#1E1E1E',
-    border: '#333333',
+    background: '#0B0C15',
+    card: '#1A1A2A',
+    text: '#FFFFFF',
+    border: '#333344',
+    notification: '#FF4C8B',
   },
 };
 
@@ -60,7 +62,7 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer theme={MyTheme}>
+    <NavigationContainer theme={DarkTheme}>
       {userId ? <MainNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );

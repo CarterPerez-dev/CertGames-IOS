@@ -1,6 +1,8 @@
 // src/navigation/TestNavigator.js
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet } from 'react-native';
 import TestListScreen from '../screens/tests/TestListScreen';
 import TestScreen from '../screens/tests/TestScreen';
 
@@ -21,18 +23,35 @@ import AWSCloudScreen from '../screens/tests/categories/AWSCloudScreen';
 
 const Stack = createStackNavigator();
 
+// Custom header background
+const HeaderBackground = () => (
+  <LinearGradient
+    colors={['#1E1E2E', '#0B0C15']}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 0, y: 1 }}
+    style={StyleSheet.absoluteFill}
+  />
+);
+
 const TestNavigator = () => {
   return (
     <Stack.Navigator
       screenOptions={{
+        headerBackground: () => <HeaderBackground />,
+        headerTintColor: '#FFFFFF',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+          fontSize: 18,
+        },
+        headerBackTitleVisible: false,
+        headerTitleAlign: 'center',
         headerStyle: {
-          backgroundColor: '#1E1E1E',
           elevation: 0,
           shadowOpacity: 0,
+          borderBottomWidth: 0,
+          height: 60,
         },
-        headerTintColor: '#FFFFFF',
-        headerTitleStyle: { fontWeight: 'bold' },
-        cardStyle: { backgroundColor: '#121212' },
+        cardStyle: { backgroundColor: '#0B0C15' },
       }}
     >
       {/* Generic TestList - rarely used if you always go to category screens */}
@@ -57,7 +76,7 @@ const TestNavigator = () => {
         })}
       />
 
-      {/* Category specific */}
+      {/* Category specific screens */}
       <Stack.Screen
         name="APlusTests"
         component={APlusScreen}
@@ -141,4 +160,3 @@ const TestNavigator = () => {
 };
 
 export default TestNavigator;
-

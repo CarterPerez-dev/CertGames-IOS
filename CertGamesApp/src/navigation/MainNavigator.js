@@ -1,8 +1,10 @@
 // src/navigation/MainNavigator.js
 import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
@@ -30,25 +32,40 @@ const ProfileStack = createStackNavigator();
 const LeaderboardStack = createStackNavigator();
 const ShopStack = createStackNavigator();
 
+// Custom header background
+const HeaderBackground = () => (
+  <LinearGradient
+    colors={['#1E1E2E', '#0B0C15']}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 0, y: 1 }}
+    style={StyleSheet.absoluteFill}
+  />
+);
+
 // Home Stack
 const HomeStackNavigator = () => (
   <HomeStack.Navigator
     screenOptions={{
-      headerStyle: {
-        backgroundColor: '#1E1E1E',
-        elevation: 0, // Android
-        shadowOpacity: 0, // iOS
-      },
+      headerBackground: () => <HeaderBackground />,
       headerTintColor: '#FFFFFF',
       headerTitleStyle: {
         fontWeight: 'bold',
+        fontSize: 18,
+      },
+      headerBackTitleVisible: false,
+      headerTitleAlign: 'center',
+      headerStyle: {
+        elevation: 0, // Android
+        shadowOpacity: 0, // iOS
+        borderBottomWidth: 0,
+        height: 60,
       },
     }}
   >
     <HomeStack.Screen 
       name="HomeScreen" 
       component={HomeScreen} 
-      options={{ title: 'Dashboard' }}
+      options={{ headerShown: false }}
     />
     <HomeStack.Screen 
       name="TestList" 
@@ -63,22 +80,22 @@ const HomeStackNavigator = () => (
     <HomeStack.Screen 
       name="AnalogyHub" 
       component={AnalogyHubScreen} 
-      options={{ title: 'Analogy Hub' }}
+      options={{ headerShown: false }}
     />
     <HomeStack.Screen 
       name="ScenarioSphere" 
       component={ScenarioSphereScreen} 
-      options={{ title: 'Scenario Sphere' }}
+      options={{ headerShown: false }}
     />
     <HomeStack.Screen 
       name="GRC" 
       component={GRCScreen} 
-      options={{ title: 'GRC Questions' }}
+      options={{ headerShown: false }}
     />
     <HomeStack.Screen 
       name="XploitCraft" 
       component={XploitCraftScreen} 
-      options={{ title: 'XploitCraft' }}
+      options={{ headerShown: false }}
     />
     <HomeStack.Screen 
       name="DailyStation" 
@@ -88,18 +105,17 @@ const HomeStackNavigator = () => (
     <HomeStack.Screen 
       name="Newsletter" 
       component={NewsletterScreen} 
-      options={{ title: 'Daily Cyber Brief' }}
-    /> 
+      options={{ headerShown: false }}
+    />
     <HomeStack.Screen 
       name="Resources" 
       component={ResourcesScreen} 
-      options={{ title: 'Resources Hub' }}
+      options={{ headerShown: false }}
     />
-    {/* Added Support screen to HomeStack */}
     <HomeStack.Screen 
       name="Support" 
       component={SupportScreen} 
-      options={{ title: 'Support' }}
+      options={{ headerShown: false }}
     />
     <HomeStack.Screen 
       name="Tests" 
@@ -113,21 +129,26 @@ const HomeStackNavigator = () => (
 const ProfileStackNavigator = () => (
   <ProfileStack.Navigator
     screenOptions={{
-      headerStyle: {
-        backgroundColor: '#1E1E1E',
-        elevation: 0,
-        shadowOpacity: 0,
-      },
+      headerBackground: () => <HeaderBackground />,
       headerTintColor: '#FFFFFF',
       headerTitleStyle: {
         fontWeight: 'bold',
+        fontSize: 18,
+      },
+      headerBackTitleVisible: false,
+      headerTitleAlign: 'center',
+      headerStyle: {
+        elevation: 0,
+        shadowOpacity: 0,
+        borderBottomWidth: 0,
+        height: 60,
       },
     }}
   >
     <ProfileStack.Screen 
       name="ProfileScreen" 
       component={ProfileScreen} 
-      options={{ title: 'My Profile' }}
+      options={{ headerShown: false }}
     />
     <ProfileStack.Screen 
       name="Achievements" 
@@ -137,9 +158,8 @@ const ProfileStackNavigator = () => (
     <ProfileStack.Screen 
       name="Support" 
       component={SupportScreen} 
-      options={{ title: 'Support' }}
+      options={{ headerShown: false }}
     />
-    {/* Access daily station and newsletter from profile as well */}
     <ProfileStack.Screen 
       name="DailyStation" 
       component={DailyStationScreen} 
@@ -148,12 +168,12 @@ const ProfileStackNavigator = () => (
     <ProfileStack.Screen 
       name="Newsletter" 
       component={NewsletterScreen} 
-      options={{ title: 'Daily Cyber Brief' }}
+      options={{ headerShown: false }}
     />
     <ProfileStack.Screen 
       name="Resources" 
       component={ResourcesScreen} 
-      options={{ title: 'Resources Hub' }}
+      options={{ headerShown: false }}
     />
   </ProfileStack.Navigator>
 );
@@ -162,21 +182,26 @@ const ProfileStackNavigator = () => (
 const LeaderboardStackNavigator = () => (
   <LeaderboardStack.Navigator
     screenOptions={{
-      headerStyle: {
-        backgroundColor: '#1E1E1E',
-        elevation: 0,
-        shadowOpacity: 0,
-      },
+      headerBackground: () => <HeaderBackground />,
       headerTintColor: '#FFFFFF',
       headerTitleStyle: {
         fontWeight: 'bold',
+        fontSize: 18,
+      },
+      headerBackTitleVisible: false,
+      headerTitleAlign: 'center',
+      headerStyle: {
+        elevation: 0,
+        shadowOpacity: 0,
+        borderBottomWidth: 0,
+        height: 60,
       },
     }}
   >
     <LeaderboardStack.Screen 
       name="LeaderboardScreen" 
       component={LeaderboardScreen} 
-      options={{ title: 'Leaderboard' }}
+      options={{ headerShown: false }}
     />
   </LeaderboardStack.Navigator>
 );
@@ -185,21 +210,26 @@ const LeaderboardStackNavigator = () => (
 const ShopStackNavigator = () => (
   <ShopStack.Navigator
     screenOptions={{
-      headerStyle: {
-        backgroundColor: '#1E1E1E',
-        elevation: 0,
-        shadowOpacity: 0,
-      },
+      headerBackground: () => <HeaderBackground />,
       headerTintColor: '#FFFFFF',
       headerTitleStyle: {
         fontWeight: 'bold',
+        fontSize: 18,
+      },
+      headerBackTitleVisible: false,
+      headerTitleAlign: 'center',
+      headerStyle: {
+        elevation: 0,
+        shadowOpacity: 0,
+        borderBottomWidth: 0,
+        height: 60,
       },
     }}
   >
     <ShopStack.Screen 
       name="ShopScreen" 
       component={ShopScreen} 
-      options={{ title: 'Shop' }}
+      options={{ headerShown: false }}
     />
   </ShopStack.Navigator>
 );
@@ -208,30 +238,47 @@ const ShopStackNavigator = () => (
 const MainNavigator = () => {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+      sceneContainerStyle={{
+        // Add bottom padding to all screens to avoid content being hidden by the tab bar
+        paddingBottom: 85,
+      }}
+      screenOptions={({ route }) => {
+        let iconName;
 
-          if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
-          } else if (route.name === 'Leaderboard') {
-            iconName = focused ? 'trophy' : 'trophy-outline';
-          } else if (route.name === 'Shop') {
-            iconName = focused ? 'cart' : 'cart-outline';
-          }
+        if (route.name === 'Home') {
+          iconName = focused => focused ? 'home' : 'home-outline';
+        } else if (route.name === 'Profile') {
+          iconName = focused => focused ? 'person' : 'person-outline';
+        } else if (route.name === 'Leaderboard') {
+          iconName = focused => focused ? 'trophy' : 'trophy-outline';
+        } else if (route.name === 'Shop') {
+          iconName = focused => focused ? 'cart' : 'cart-outline';
+        }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: '#6543CC',
-        tabBarInactiveTintColor: 'gray',
-        tabBarStyle: {
-          backgroundColor: '#1A1A1A',
-          borderTopColor: '#333333',
-        },
-        headerShown: false,
-      })}
+        return {
+          tabBarIcon: ({ focused, color, size }) => {
+            return <Ionicons name={iconName(focused)} size={size} color={color} />;
+          },
+          tabBarActiveTintColor: '#6543CC',
+          tabBarInactiveTintColor: 'gray',
+          tabBarStyle: {
+            backgroundColor: '#0F0F17',
+            height: 80, // Taller to accommodate iPhone home indicator
+            paddingTop: 12, // Raise the icons/content within the tab bar
+            paddingBottom: 25, // More padding at bottom for home indicator
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(34, 34, 51, 0.8)',
+            // No margin bottom - flush with screen edge
+            // No border radius - flush with screen edges
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            elevation: 8,
+          },
+          headerShown: false,
+        };
+      }}
     >
       <Tab.Screen name="Home" component={HomeStackNavigator} />
       <Tab.Screen name="Leaderboard" component={LeaderboardStackNavigator} />

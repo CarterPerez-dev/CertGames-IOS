@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { subscribeToNewsletter, unsubscribeFromNewsletter } from '../../api/newsletterService';
+import CustomHeaderComponent from '../../components/CustomHeaderComponent';
 
 const NewsletterScreen = () => {
   const [email, setEmail] = useState('');
@@ -141,26 +142,19 @@ const NewsletterScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Custom Header */}
+      <CustomHeaderComponent 
+        title="Daily Cyber Brief" 
+        subtitle="Your essential cybersecurity intelligence"
+        gradientColors={['#6543CC', '#1E1E2E']}
+      />
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <ScrollView style={styles.scrollView}>
-          {/* Header Section */}
-          <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <LinearGradient
-                colors={['#6543CC', '#8A58FC']}
-                style={styles.logoBackground}
-              >
-                <Ionicons name="newspaper" size={30} color="#FFFFFF" />
-              </LinearGradient>
-            </View>
-            <Text style={styles.headerTitle}>Daily Cyber Brief</Text>
-            <Text style={styles.subtitle}>Your essential cybersecurity intelligence, delivered daily</Text>
-          </View>
-
-          {/* Main Content */}
+          {/* Header Section - Removed in favor of CustomHeader */}
           <View style={styles.mainContent}>
             {/* Intro Card */}
             <View style={styles.card}>
@@ -361,38 +355,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  logoContainer: {
-    marginBottom: 15,
-  },
-  logoBackground: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#6543CC',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#9DA8B9',
-    textAlign: 'center',
-    maxWidth: '80%',
   },
   mainContent: {
     padding: 20,

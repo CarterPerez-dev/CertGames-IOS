@@ -6,16 +6,30 @@ import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import store from './src/store';
 import AppNavigator from './src/navigation/AppNavigator';
-import { ThemeProvider } from './src/context/ThemeContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 
+// Main app component with theme context access
+const MainApp = () => {
+  const { theme } = useTheme();
+  
+  return (
+    <SafeAreaProvider>
+      <StatusBar 
+        barStyle="light-content" 
+        backgroundColor={theme.colors.background} 
+        translucent={true}
+      />
+      <AppNavigator />
+    </SafeAreaProvider>
+  );
+};
+
+// Root app component with providers
 export default function App() {
   return (
     <Provider store={store}>
       <ThemeProvider>
-        <SafeAreaProvider>
-          <StatusBar barStyle="light-content" backgroundColor="#0C0C11" />
-          <AppNavigator />
-        </SafeAreaProvider>
+        <MainApp />
       </ThemeProvider>
     </Provider>
   );

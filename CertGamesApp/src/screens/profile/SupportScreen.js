@@ -13,7 +13,8 @@ import {
   Alert,
   SafeAreaView,
   StatusBar,
-  Keyboard
+  Keyboard,
+  Dimensions
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,6 +39,10 @@ import {
 } from '../../api/supportService';
 import { BASE_URL } from '../../api/apiConfig';
 
+// Import theme context
+import { useTheme } from '../../context/ThemeContext';
+import { createGlobalStyles } from '../../styles/globalStyles';
+
 // Global socket instance
 let socket = null;
 
@@ -46,7 +51,13 @@ const THREADS_STORAGE_KEY = 'support_threads';
 const MESSAGES_STORAGE_KEY = (threadId) => `support_messages_${threadId}`;
 const SELECTED_THREAD_KEY = 'support_selected_thread';
 
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+
 const SupportScreen = ({ navigation }) => {
+  // Get theme and global styles
+  const { theme } = useTheme();
+  const globalStyles = createGlobalStyles(theme);
+  
   // Get user ID from SecureStore on mount
   const [userId, setUserId] = useState(null);
   
@@ -62,6 +73,7 @@ const SupportScreen = ({ navigation }) => {
   const [adminIsTyping, setAdminIsTyping] = useState(false);
   const [showSupportInfoPopup, setShowSupportInfoPopup] = useState(true);
   const [mobileThreadsVisible, setMobileThreadsVisible] = useState(true);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   // Loading / error / socket states
   const [loadingThreads, setLoadingThreads] = useState(false);
@@ -91,6 +103,36 @@ const SupportScreen = ({ navigation }) => {
       }
     };
     getUserId();
+  }, []);
+  
+  // Listen for keyboard events with enhanced handling
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      (event) => {
+        // Get keyboard height from event
+        const keyboardHeight = event.endCoordinates.height;
+        console.log('Keyboard height:', keyboardHeight);
+        setKeyboardVisible(true);
+        // Scroll to bottom after keyboard appears
+        setTimeout(() => {
+          if (chatEndRef.current) {
+            chatEndRef.current.scrollToEnd({ animated: true });
+          }
+        }, 100);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
   }, []);
   
   /////////////////////////////////////////////////////////////////////////
@@ -357,15 +399,35 @@ const SupportScreen = ({ navigation }) => {
   const getStatusInfo = (status = 'open') => {
     const s = status.toLowerCase();
     if (s.includes('open')) {
-      return { icon: 'radio-button-on', label: 'Open', color: '#2ebb77' };
+      return { 
+        icon: 'radio-button-on', 
+        label: 'Open', 
+        color: theme.colors.success 
+      };
     } else if (s.includes('pending')) {
-      return { icon: 'hourglass', label: 'Pending', color: '#ffc107' };
+      return { 
+        icon: 'hourglass', 
+        label: 'Pending', 
+        color: theme.colors.warning 
+      };
     } else if (s.includes('resolved')) {
-      return { icon: 'checkmark-circle', label: 'Resolved', color: '#3498db' };
+      return { 
+        icon: 'checkmark-circle', 
+        label: 'Resolved', 
+        color: theme.colors.info 
+      };
     } else if (s.includes('closed')) {
-      return { icon: 'lock-closed', label: 'Closed', color: '#9da8b9' };
+      return { 
+        icon: 'lock-closed', 
+        label: 'Closed', 
+        color: theme.colors.textMuted 
+      };
     }
-    return { icon: 'radio-button-on', label: 'Open', color: '#2ebb77' };
+    return { 
+      icon: 'radio-button-on', 
+      label: 'Open', 
+      color: theme.colors.success 
+    };
   };
   
   const scrollToBottom = useCallback(() => {
@@ -684,17 +746,38 @@ const SupportScreen = ({ navigation }) => {
       <TouchableOpacity
         style={[
           styles.threadItem,
-          isActive && styles.threadItemActive,
-          isClosed && styles.threadItemClosed
+          { 
+            backgroundColor: theme.colors.surface,
+            borderLeftColor: statusInfo.color 
+          },
+          isActive && [
+            styles.threadItemActive, 
+            { 
+              backgroundColor: theme.colors.surfaceHighlight,
+              borderLeftColor: theme.colors.primary 
+            }
+          ],
+          isClosed && [
+            styles.threadItemClosed,
+            { 
+              opacity: 0.7,
+              borderLeftColor: theme.colors.textMuted 
+            }
+          ]
         ]}
         onPress={() => selectThread(item._id)}
+        activeOpacity={0.7}
       >
         <View style={styles.threadItemHeader}>
           <View style={[styles.statusIndicator, { backgroundColor: statusInfo.color }]}>
-            <Ionicons name={statusInfo.icon} size={12} color="#FFFFFF" />
+            <Ionicons name={statusInfo.icon} size={12} color={theme.colors.textInverse} />
           </View>
           <Text
-            style={[styles.threadSubject, isClosed && styles.threadTextClosed]}
+            style={[
+              styles.threadSubject, 
+              { color: theme.colors.text },
+              isClosed && { color: theme.colors.textMuted }
+            ]}
             numberOfLines={1}
           >
             {item.subject || 'Untitled Thread'}
@@ -704,7 +787,7 @@ const SupportScreen = ({ navigation }) => {
           <Text style={[styles.statusText, { color: statusInfo.color }]}>
             {statusInfo.label}
           </Text>
-          <Text style={styles.timestampText}>
+          <Text style={[styles.timestampText, { color: theme.colors.textMuted }]}>
             {item.lastUpdated ? formatTimestamp(item.lastUpdated) : 'New'}
           </Text>
         </View>
@@ -713,7 +796,7 @@ const SupportScreen = ({ navigation }) => {
   };
   
   // RENDER a single message
-  const renderMessageItem = ({ item, index }) => {
+  const renderMessageItem = ({ item }) => {
     const isUser = item.sender === 'user';
     const isSystem = item.sender === 'system';
     return (
@@ -732,16 +815,16 @@ const SupportScreen = ({ navigation }) => {
             style={[
               styles.avatarCircle,
               isUser
-                ? styles.userAvatarCircle
+                ? [styles.userAvatarCircle, { backgroundColor: theme.colors.secondary }]
                 : isSystem
-                  ? styles.systemAvatarCircle
-                  : styles.adminAvatarCircle
+                  ? [styles.systemAvatarCircle, { backgroundColor: theme.colors.info }]
+                  : [styles.adminAvatarCircle, { backgroundColor: theme.colors.primary }]
             ]}
           >
             <Ionicons
-              name={isUser ? 'person' : isSystem ? 'hardware-chip' : 'person-circle'}
+              name={isUser ? "person" : isSystem ? "hardware-chip" : "person-circle"}
               size={isSystem ? 16 : 20}
-              color="#FFFFFF"
+              color={theme.colors.textInverse}
             />
           </View>
         </View>
@@ -750,24 +833,46 @@ const SupportScreen = ({ navigation }) => {
           style={[
             styles.messageBubble,
             isUser
-              ? styles.userMessageBubble
+              ? [
+                  styles.userMessageBubble, 
+                  { 
+                    backgroundColor: `${theme.colors.secondary}20`, 
+                    borderColor: `${theme.colors.secondary}30` 
+                  }
+                ]
               : isSystem
-                ? styles.systemMessageBubble
-                : styles.adminMessageBubble
+                ? [
+                    styles.systemMessageBubble, 
+                    { 
+                      backgroundColor: `${theme.colors.info}20`,
+                      borderColor: `${theme.colors.info}30`
+                    }
+                  ]
+                : [
+                    styles.adminMessageBubble, 
+                    { 
+                      backgroundColor: `${theme.colors.primary}20`,
+                      borderColor: `${theme.colors.primary}30`
+                    }
+                  ]
           ]}
         >
           {!isSystem && (
             <Text
               style={[
                 styles.messageSender,
-                isUser ? styles.userMessageSender : styles.adminMessageSender
+                isUser 
+                  ? [styles.userMessageSender, { color: theme.colors.secondary }] 
+                  : [styles.adminMessageSender, { color: theme.colors.primary }]
               ]}
             >
               {isUser ? 'You' : 'Support Team'}
             </Text>
           )}
-          <Text style={styles.messageContent}>{item.content}</Text>
-          <Text style={styles.messageTimestamp}>
+          <Text style={[styles.messageContent, { color: theme.colors.text }]}>
+            {item.content}
+          </Text>
+          <Text style={[styles.messageTimestamp, { color: theme.colors.textMuted }]}>
             {formatTimestamp(item.timestamp)}
           </Text>
         </View>
@@ -776,41 +881,52 @@ const SupportScreen = ({ navigation }) => {
   };
   
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#121212" />
+    <SafeAreaView style={[
+      styles.container, 
+      { backgroundColor: theme.colors.background }
+    ]}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
       
-      <View style={styles.header}>
-        <Text style={styles.title}>Support / Ask Anything</Text>
+      <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Support / Ask Anything</Text>
         
         {showSupportInfoPopup && (
-          <View style={styles.infoBanner}>
+          <View style={[
+            styles.infoBanner, 
+            { backgroundColor: `${theme.colors.primary}15` }
+          ]}>
             <View style={styles.infoContent}>
-              <Ionicons name="flash" size={20} color="#6543CC" />
-              <Text style={styles.infoText}>{INFO_TEXTS.RESPONSE_TIME}</Text>
+              <Ionicons name="flash" size={20} color={theme.colors.primary} />
+              <Text style={[styles.infoText, { color: theme.colors.text }]}>
+                {INFO_TEXTS.RESPONSE_TIME}
+              </Text>
             </View>
             <TouchableOpacity
               style={styles.infoCloseButton}
               onPress={() => setShowSupportInfoPopup(false)}
             >
-              <Ionicons name="close" size={18} color="#9DA8B9" />
+              <Ionicons name="close" size={18} color={theme.colors.textMuted} />
             </TouchableOpacity>
           </View>
         )}
         
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
           {INFO_TEXTS.SUPPORT_SUBTITLE}
         </Text>
       </View>
       
       {error && (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={20} color="#FF4E4E" />
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[
+          styles.errorContainer, 
+          { backgroundColor: `${theme.colors.error}15` }
+        ]}>
+          <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
+          <Text style={[styles.errorText, { color: theme.colors.text }]}>{error}</Text>
           <TouchableOpacity
             style={styles.errorCloseButton}
             onPress={() => setError(null)}
           >
-            <Ionicons name="close" size={18} color="#9DA8B9" />
+            <Ionicons name="close" size={18} color={theme.colors.textMuted} />
           </TouchableOpacity>
         </View>
       )}
@@ -820,13 +936,13 @@ const SupportScreen = ({ navigation }) => {
           style={[
             styles.connectionIndicator,
             socketStatus === 'connected'
-              ? styles.connectionIndicatorConnected
+              ? [styles.connectionIndicatorConnected, { backgroundColor: theme.colors.success }]
               : socketStatus === 'disconnected'
-                ? styles.connectionIndicatorDisconnected
-                : styles.connectionIndicatorError
+                ? [styles.connectionIndicatorDisconnected, { backgroundColor: theme.colors.warning }]
+                : [styles.connectionIndicatorError, { backgroundColor: theme.colors.error }]
           ]}
         />
-        <Text style={styles.connectionText}>
+        <Text style={[styles.connectionText, { color: theme.colors.textMuted }]}>
           {socketStatus === 'connected'
             ? 'Real-time connection active'
             : socketStatus === 'disconnected'
@@ -836,28 +952,42 @@ const SupportScreen = ({ navigation }) => {
       </View>
       
       <KeyboardAvoidingView
-        style={styles.contentContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={[
+          styles.contentContainer,
+        ]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
       >
         {mobileThreadsVisible ? (
           // THREADS VIEW
           <View style={styles.threadsContainer}>
             <View style={styles.threadListHeader}>
-              <Text style={styles.threadListTitle}>Your Conversations</Text>
+              <Text style={[styles.threadListTitle, { color: theme.colors.text }]}>
+                Your Conversations
+              </Text>
               <TouchableOpacity
-                style={styles.refreshButton}
+                style={[
+                  styles.refreshButton, 
+                  { backgroundColor: `${theme.colors.primary}20` }
+                ]}
                 onPress={fetchUserThreads}
               >
-                <Ionicons name="refresh" size={22} color="#6543CC" />
+                <Ionicons name="refresh" size={22} color={theme.colors.primary} />
               </TouchableOpacity>
             </View>
             
             <View style={styles.createThreadForm}>
               <TextInput
-                style={styles.subjectInput}
+                style={[
+                  styles.subjectInput, 
+                  { 
+                    backgroundColor: theme.colors.surface,
+                    color: theme.colors.text,
+                    borderColor: theme.colors.border
+                  }
+                ]}
                 placeholder="New conversation subject..."
-                placeholderTextColor="#9DA8B9"
+                placeholderTextColor={theme.colors.textMuted}
                 value={newThreadSubject}
                 onChangeText={setNewThreadSubject}
                 maxLength={100}
@@ -865,33 +995,44 @@ const SupportScreen = ({ navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.createThreadButton,
-                  !newThreadSubject.trim() && styles.createButtonDisabled
+                  { backgroundColor: theme.colors.primary },
+                  !newThreadSubject.trim() && [
+                    styles.createButtonDisabled, 
+                    { backgroundColor: `${theme.colors.primary}70` }
+                  ]
                 ]}
                 onPress={createNewThread}
                 disabled={!newThreadSubject.trim()}
               >
-                <Ionicons name="add" size={20} color="#FFFFFF" />
-                <Text style={styles.createButtonText}>Create</Text>
+                <Ionicons name="add" size={20} color={theme.colors.textInverse} />
+                <Text style={[
+                  styles.createButtonText, 
+                  { color: theme.colors.textInverse }
+                ]}>
+                  Create
+                </Text>
               </TouchableOpacity>
             </View>
             
             {loadingThreads ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#6543CC" />
-                <Text style={styles.loadingText}>Loading conversations...</Text>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+                  Loading conversations...
+                </Text>
               </View>
             ) : threads.length === 0 ? (
               <View style={styles.emptyStateContainer}>
                 <Ionicons
                   name="happy-outline"
                   size={60}
-                  color="#6543CC"
+                  color={theme.colors.primary}
                   style={{ opacity: 0.5 }}
                 />
-                <Text style={styles.emptyStateTitle}>
+                <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>
                   {EMPTY_STATES.NO_THREADS.title}
                 </Text>
-                <Text style={styles.emptyStateSubtitle}>
+                <Text style={[styles.emptyStateSubtitle, { color: theme.colors.textMuted }]}>
                   {EMPTY_STATES.NO_THREADS.subtitle}
                 </Text>
               </View>
@@ -913,24 +1054,27 @@ const SupportScreen = ({ navigation }) => {
                 <Ionicons
                   name="mail-outline"
                   size={60}
-                  color="#6543CC"
+                  color={theme.colors.primary}
                   style={{ opacity: 0.5 }}
                 />
-                <Text style={styles.emptyStateTitle}>
+                <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>
                   {EMPTY_STATES.NO_THREAD_SELECTED.title}
                 </Text>
-                <Text style={styles.emptyStateSubtitle}>
+                <Text style={[styles.emptyStateSubtitle, { color: theme.colors.textMuted }]}>
                   {EMPTY_STATES.NO_THREAD_SELECTED.subtitle}
                 </Text>
               </View>
             ) : (
               <>
-                <View style={styles.messagesHeader}>
+                <View style={[
+                  styles.messagesHeader, 
+                  { borderBottomColor: theme.colors.border }
+                ]}>
                   <TouchableOpacity
                     style={styles.backButton}
                     onPress={handleBackToThreads}
                   >
-                    <Ionicons name="arrow-back" size={24} color="#6543CC" />
+                    <Ionicons name="arrow-back" size={24} color={theme.colors.primary} />
                   </TouchableOpacity>
                   
                   <View style={styles.threadInfoContainer}>
@@ -945,10 +1089,16 @@ const SupportScreen = ({ navigation }) => {
                           <Ionicons
                             name={getStatusInfo(selectedThread.status).icon}
                             size={12}
-                            color="#FFFFFF"
+                            color={theme.colors.textInverse}
                           />
                         </View>
-                        <Text style={styles.selectedThreadTitle} numberOfLines={1}>
+                        <Text 
+                          style={[
+                            styles.selectedThreadTitle, 
+                            { color: theme.colors.text }
+                          ]} 
+                          numberOfLines={1}
+                        >
                           {selectedThread.subject}
                         </Text>
                       </>
@@ -958,70 +1108,118 @@ const SupportScreen = ({ navigation }) => {
                   <View style={styles.messagesActions}>
                     {!isThreadClosed && selectedThread && (
                       <TouchableOpacity
-                        style={styles.closeThreadButton}
+                        style={[
+                          styles.closeThreadButton,
+                          { backgroundColor: `${theme.colors.error}90` }
+                        ]}
                         onPress={closeThread}
                       >
-                        <Ionicons name="lock-closed" size={20} color="#FFFFFF" />
+                        <Ionicons name="lock-closed" size={20} color={theme.colors.textInverse} />
                       </TouchableOpacity>
                     )}
                   </View>
                 </View>
                 
-                <View style={styles.messagesListContainer}>
+                <View style={[
+                  styles.messagesListContainer,
+                  // Adjust content area when keyboard is visible
+                  keyboardVisible && {
+                    flex: 1
+                  }
+                ]}>
                   {loadingMessages ? (
                     <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="large" color="#6543CC" />
-                      <Text style={styles.loadingText}>Loading messages...</Text>
+                      <ActivityIndicator size="large" color={theme.colors.primary} />
+                      <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+                        Loading messages...
+                      </Text>
                     </View>
                   ) : messages.length === 0 ? (
                     <View style={styles.emptyStateContainer}>
                       <Ionicons
                         name="chatbubbles-outline"
                         size={60}
-                        color="#6543CC"
+                        color={theme.colors.primary}
                         style={{ opacity: 0.5 }}
                       />
-                      <Text style={styles.emptyStateTitle}>
+                      <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>
                         {EMPTY_STATES.NO_MESSAGES.title}
                       </Text>
-                      <Text style={styles.emptyStateSubtitle}>
+                      <Text style={[styles.emptyStateSubtitle, { color: theme.colors.textMuted }]}>
                         {EMPTY_STATES.NO_MESSAGES.subtitle}
                       </Text>
                     </View>
                   ) : (
-                    <FlatList
+                                          <FlatList
                       ref={chatEndRef}
                       data={messages}
                       renderItem={renderMessageItem}
                       keyExtractor={(item, index) => `msg-${index}-${item.timestamp}`}
-                      contentContainerStyle={styles.messagesList}
+                      contentContainerStyle={[
+                        styles.messagesList,
+                        keyboardVisible && { paddingBottom: 5 } // Less padding when keyboard visible
+                      ]}
                       showsVerticalScrollIndicator={false}
                       onContentSizeChange={() => scrollToBottom()}
+                      onLayout={() => scrollToBottom()}
                     />
                   )}
                   
                   {adminIsTyping && (
                     <View style={styles.typingIndicatorContainer}>
-                      <View style={styles.adminAvatarCircle}>
-                        <Ionicons name="person-circle" size={20} color="#FFFFFF" />
+                      <View style={[
+                        styles.adminAvatarCircle, 
+                        { backgroundColor: theme.colors.primary }
+                      ]}>
+                        <Ionicons name="person-circle" size={20} color={theme.colors.textInverse} />
                       </View>
-                      <View style={styles.typingBubble}>
+                      <View style={[
+                        styles.typingBubble, 
+                        { 
+                          backgroundColor: `${theme.colors.primary}10`,
+                          borderColor: `${theme.colors.primary}20`
+                        }
+                      ]}>
                         <View style={styles.typingDots}>
-                          <View style={[styles.typingDot, styles.typingDot1]} />
-                          <View style={[styles.typingDot, styles.typingDot2]} />
-                          <View style={[styles.typingDot, styles.typingDot3]} />
+                          <View style={[
+                            styles.typingDot, 
+                            styles.typingDot1, 
+                            { backgroundColor: theme.colors.primary, opacity: 0.7 }
+                          ]} />
+                          <View style={[
+                            styles.typingDot, 
+                            styles.typingDot2, 
+                            { backgroundColor: theme.colors.primary, opacity: 0.5 }
+                          ]} />
+                          <View style={[
+                            styles.typingDot, 
+                            styles.typingDot3, 
+                            { backgroundColor: theme.colors.primary, opacity: 0.3 }
+                          ]} />
                         </View>
-                        <Text style={styles.typingText}>Support Team is typing...</Text>
+                        <Text style={[styles.typingText, { color: theme.colors.textMuted }]}>
+                          Support Team is typing...
+                        </Text>
                       </View>
                     </View>
                   )}
                 </View>
                 
-                <View style={styles.messageInputContainer}>
+                <View style={[
+                  styles.messageInputContainer, 
+                  { 
+                    borderTopColor: theme.colors.border,
+                    backgroundColor: theme.colors.surface,
+                    paddingBottom: keyboardVisible ? (Platform.OS === 'ios' ? 0 : 5) : 15
+                  }
+                ]}>
                   {isThreadClosed ? (
-                    <View style={styles.threadClosedNotice}>
-                      <Ionicons name="lock-closed" size={20} color="#9DA8B9" />
-                      <Text style={styles.threadClosedText}>
+                    <View style={[
+                      styles.threadClosedNotice, 
+                      { backgroundColor: `${theme.colors.textMuted}20` }
+                    ]}>
+                      <Ionicons name="lock-closed" size={20} color={theme.colors.textMuted} />
+                      <Text style={[styles.threadClosedText, { color: theme.colors.textMuted }]}>
                         This conversation is closed. You can create a new one if needed.
                       </Text>
                     </View>
@@ -1029,9 +1227,16 @@ const SupportScreen = ({ navigation }) => {
                     <>
                       <TextInput
                         ref={messageInputRef}
-                        style={styles.messageInput}
+                        style={[
+                          styles.messageInput, 
+                          { 
+                            backgroundColor: theme.colors.surface,
+                            color: theme.colors.text,
+                            borderColor: theme.colors.border
+                          }
+                        ]}
                         placeholder="Type your message here..."
-                        placeholderTextColor="#9DA8B9"
+                        placeholderTextColor={theme.colors.textMuted}
                         value={userMessage}
                         onChangeText={handleTyping}
                         multiline
@@ -1041,7 +1246,11 @@ const SupportScreen = ({ navigation }) => {
                       <TouchableOpacity
                         style={[
                           styles.sendButton,
-                          (!userMessage.trim() || isThreadClosed) && styles.sendButtonDisabled
+                          { backgroundColor: theme.colors.primary },
+                          (!userMessage.trim() || isThreadClosed) && [
+                            styles.sendButtonDisabled, 
+                            { backgroundColor: `${theme.colors.primary}50` }
+                          ]
                         ]}
                         onPress={sendMessage}
                         disabled={!userMessage.trim() || isThreadClosed}
@@ -1051,8 +1260,8 @@ const SupportScreen = ({ navigation }) => {
                           size={20}
                           color={
                             userMessage.trim() && !isThreadClosed
-                              ? '#FFFFFF'
-                              : 'rgba(255, 255, 255, 0.5)'
+                              ? theme.colors.textInverse
+                              : `${theme.colors.textInverse}70`
                           }
                         />
                       </TouchableOpacity>
@@ -1068,37 +1277,32 @@ const SupportScreen = ({ navigation }) => {
   );
 };
 
-
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
   },
   header: {
     padding: 15,
+    paddingTop: Platform.OS === 'ios' ? 5 : 15, // Reduced from 15 to 5 on iOS
+    paddingBottom: 10, // Reduced slightly
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
   },
   title: {
-    fontSize: 22,
+    fontSize: 22, // Slightly reduced from 24
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 10,
+    marginBottom: 5, // Reduced from 10
   },
   subtitle: {
     fontSize: 14,
-    color: '#AAAAAA',
     marginTop: 5,
   },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(101, 67, 204, 0.1)',
     borderRadius: 8,
-    padding: 12,
-    marginVertical: 10,
+    padding: 10, // Reduced from 12
+    marginVertical: 8, // Reduced from 10
   },
   infoContent: {
     flexDirection: 'row',
@@ -1106,9 +1310,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoText: {
-    color: '#FFFFFF',
     marginLeft: 10,
-    fontSize: 14,
+    fontSize: 13, // Reduced from 14
   },
   infoCloseButton: {
     padding: 5,
@@ -1116,14 +1319,12 @@ const styles = StyleSheet.create({
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 78, 78, 0.1)',
     borderRadius: 8,
-    padding: 12,
+    padding: 10, // Reduced from 12
     margin: 15,
     marginTop: 0,
   },
   errorText: {
-    color: '#FFFFFF',
     marginLeft: 10,
     flex: 1,
     fontSize: 14,
@@ -1143,18 +1344,8 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginRight: 8,
   },
-  connectionIndicatorConnected: {
-    backgroundColor: '#2ebb77',
-  },
-  connectionIndicatorDisconnected: {
-    backgroundColor: '#ffc107',
-  },
-  connectionIndicatorError: {
-    backgroundColor: '#FF4E4E',
-  },
   connectionText: {
     fontSize: 13,
-    color: '#9DA8B9',
   },
   contentContainer: {
     flex: 1,
@@ -1174,12 +1365,10 @@ const styles = StyleSheet.create({
   threadListTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   refreshButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(101, 67, 204, 0.1)',
   },
   createThreadForm: {
     flexDirection: 'row',
@@ -1187,29 +1376,21 @@ const styles = StyleSheet.create({
   },
   subjectInput: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
-    color: '#FFFFFF',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#333333',
   },
   createThreadButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#6543CC',
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
     justifyContent: 'center',
   },
-  createButtonDisabled: {
-    backgroundColor: 'rgba(101, 67, 204, 0.5)',
-  },
   createButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     marginLeft: 5,
   },
@@ -1217,42 +1398,15 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   threadItem: {
-    backgroundColor: '#1E1E1E',
     borderRadius: 10,
     padding: 15,
     marginBottom: 10,
     borderLeftWidth: 3,
-    borderLeftColor: '#6543CC',
-  },
-  threadItemActive: {
-    backgroundColor: 'rgba(101, 67, 204, 0.2)',
-    borderLeftColor: '#8A58FC',
-  },
-  threadItemClosed: {
-    opacity: 0.7,
-    borderLeftColor: '#9DA8B9',
-  },
-  threadItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusIndicator: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
   },
   threadSubject: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
     flex: 1,
-  },
-  threadTextClosed: {
-    color: '#9DA8B9',
   },
   threadFooter: {
     flexDirection: 'row',
@@ -1265,7 +1419,6 @@ const styles = StyleSheet.create({
   },
   timestampText: {
     fontSize: 12,
-    color: '#9DA8B9',
   },
   
   // Messages Panel
@@ -1277,7 +1430,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
   },
   backButton: {
     marginRight: 10,
@@ -1288,7 +1440,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectedThreadTitle: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
@@ -1298,7 +1449,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   closeThreadButton: {
-    backgroundColor: 'rgba(255, 78, 78, 0.7)',
     borderRadius: 20,
     width: 36,
     height: 36,
@@ -1342,57 +1492,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  userAvatarCircle: {
-    backgroundColor: '#FF4C8B',
-  },
-  adminAvatarCircle: {
-    backgroundColor: '#6543CC',
-  },
-  systemAvatarCircle: {
-    backgroundColor: '#3498DB',
-  },
   messageBubble: {
-    backgroundColor: '#1E1E1E',
     borderRadius: 18,
     padding: 12,
     maxWidth: '100%',
+    borderWidth: 1,
   },
   userMessageBubble: {
-    backgroundColor: 'rgba(255, 76, 139, 0.1)',
     borderBottomRightRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 76, 139, 0.3)',
   },
   adminMessageBubble: {
-    backgroundColor: 'rgba(134, 88, 252, 0.1)',
     borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(134, 88, 252, 0.3)',
-  },
-  systemMessageBubble: {
-    backgroundColor: 'rgba(52, 152, 219, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(52, 152, 219, 0.3)',
   },
   messageSender: {
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 5,
   },
-  userMessageSender: {
-    color: '#FF4C8B',
-  },
-  adminMessageSender: {
-    color: '#6543CC',
-  },
   messageContent: {
-    color: '#FFFFFF',
     fontSize: 15,
     lineHeight: 20,
   },
   messageTimestamp: {
     fontSize: 11,
-    color: '#9DA8B9',
     alignSelf: 'flex-end',
     marginTop: 5,
   },
@@ -1405,12 +1527,10 @@ const styles = StyleSheet.create({
   typingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(134, 88, 252, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(134, 88, 252, 0.2)',
     borderRadius: 18,
     padding: 10,
     marginLeft: 8,
+    borderWidth: 1,
   },
   typingDots: {
     flexDirection: 'row',
@@ -1421,66 +1541,46 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#6543CC',
     marginHorizontal: 2,
   },
-  typingDot1: {
-    opacity: 0.7,
-    backgroundColor: '#6543CC',
-  },
-  typingDot2: {
-    opacity: 0.5,
-    backgroundColor: '#6543CC',
-  },
-  typingDot3: {
-    opacity: 0.3,
-    backgroundColor: '#6543CC',
-  },
+  typingDot1: {},
+  typingDot2: {},
+  typingDot3: {},
   typingText: {
-    color: '#9DA8B9',
     fontSize: 14,
   },
   messageInputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: 15,
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 5 : 15,
     borderTopWidth: 1,
-    borderTopColor: '#333333',
-    backgroundColor: '#1A1A1A',
   },
   messageInput: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
-    color: '#FFFFFF',
     borderRadius: 20,
-    padding: 12,
-    maxHeight: 120,
+    padding: Platform.OS === 'ios' ? 10 : 12,
+    maxHeight: 100, // Reduced to save space
     fontSize: 16,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#333333',
   },
   sendButton: {
-    backgroundColor: '#6543CC',
     width: 44,
     height: 44,
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sendButtonDisabled: {
-    backgroundColor: 'rgba(101, 67, 204, 0.5)',
-  },
   threadClosedNotice: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    backgroundColor: 'rgba(157, 168, 185, 0.1)',
     borderRadius: 20,
     padding: 15,
   },
   threadClosedText: {
-    color: '#9DA8B9',
     fontSize: 14,
     marginLeft: 10,
     flex: 1,
@@ -1494,7 +1594,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingText: {
-    color: '#FFFFFF',
     marginTop: 10,
     fontSize: 16,
   },
@@ -1505,16 +1604,30 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyStateTitle: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
     marginTop: 20,
     marginBottom: 5,
   },
   emptyStateSubtitle: {
-    color: '#9DA8B9',
     fontSize: 16,
     textAlign: 'center',
+  },
+  
+  // Other styles from original file remain the same as they don't involve colors
+  // Just layout-related styles
+  statusIndicator: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  threadItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
 });
 

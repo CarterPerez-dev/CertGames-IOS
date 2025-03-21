@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { RESOURCE_CATEGORIES, CERT_CATEGORIES } from '../constants/resourcesConstants';
+import { useTheme } from '../context/ThemeContext';
 
 const ResourcesCategoriesComponent = ({ 
   selectedCategory, 
@@ -10,6 +11,8 @@ const ResourcesCategoriesComponent = ({
   showCerts = false,
   onToggleCerts,
 }) => {
+  // Access theme
+  const { theme } = useTheme();
   
   // Determine which categories to display
   const categories = showCerts ? CERT_CATEGORIES : RESOURCE_CATEGORIES;
@@ -19,19 +22,22 @@ const ResourcesCategoriesComponent = ({
     <TouchableOpacity
       style={[
         styles.categoryButton,
-        selectedCategory === item.id && styles.selectedCategory
+        { 
+          backgroundColor: selectedCategory === item.id ? theme.colors.primary : 'rgba(0, 0, 0, 0.2)',
+          borderColor: selectedCategory === item.id ? theme.colors.primary : theme.colors.border
+        }
       ]}
       onPress={() => onSelectCategory(item.id)}
     >
       <Ionicons 
         name={item.iconName} 
         size={20} 
-        color={selectedCategory === item.id ? '#FFFFFF' : '#6543CC'} 
+        color={selectedCategory === item.id ? theme.colors.textInverse : theme.colors.primary} 
       />
       <Text 
         style={[
           styles.categoryName,
-          selectedCategory === item.id && styles.selectedCategoryText
+          { color: selectedCategory === item.id ? theme.colors.textInverse : theme.colors.text }
         ]}
         numberOfLines={1}
       >
@@ -43,12 +49,18 @@ const ResourcesCategoriesComponent = ({
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
-        <Text style={styles.header}>Categories</Text>
+        <Text style={[styles.header, { color: theme.colors.text }]}>Categories</Text>
         <TouchableOpacity 
-          style={styles.toggleButton}
+          style={[
+            styles.toggleButton,
+            { 
+              backgroundColor: `${theme.colors.primary}20`,
+              borderColor: theme.colors.primary
+            }
+          ]}
           onPress={onToggleCerts}
         >
-          <Text style={styles.toggleText}>
+          <Text style={[styles.toggleText, { color: theme.colors.primary }]}>
             {showCerts ? 'Show Resource Types' : 'Show Certifications'}
           </Text>
         </TouchableOpacity>
@@ -68,30 +80,26 @@ const ResourcesCategoriesComponent = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 10,
+    marginVertical: 8, // Slightly reduced margin
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 15,
-    marginBottom: 10,
+    marginBottom: 8, // Slightly reduced margin
   },
   header: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   toggleButton: {
-    backgroundColor: 'rgba(101, 67, 204, 0.1)',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#6543CC',
   },
   toggleText: {
-    color: '#6543CC',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -102,26 +110,16 @@ const styles = StyleSheet.create({
   categoryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  selectedCategory: {
-    backgroundColor: '#6543CC',
-    borderColor: '#6543CC',
   },
   categoryName: {
-    color: '#FFFFFF',
     marginLeft: 8,
     fontSize: 14,
     fontWeight: '500',
-  },
-  selectedCategoryText: {
-    color: '#FFFFFF',
   },
 });
 

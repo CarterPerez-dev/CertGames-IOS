@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RESOURCES_DATA } from '../constants/resourcesConstants';
 import ResourcesService from '../api/ResourcesService';
+import { useTheme } from '../context/ThemeContext';
 
 /**
  * Custom hook for managing resources data
@@ -9,6 +10,8 @@ import ResourcesService from '../api/ResourcesService';
  * @returns {Object} Resources state and methods
  */
 const useResources = (initialCategory = 'all') => {
+  const { theme } = useTheme(); // Access theme context
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [showCertCategories, setShowCertCategories] = useState(false);
@@ -134,6 +137,9 @@ const useResources = (initialCategory = 'all') => {
     toggleCertCategories,
     toggleSort,
     clearFilters,
+    
+    // Theme-related properties
+    theme, // Pass through theme for components that don't directly use useTheme
   };
 };
 

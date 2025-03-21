@@ -2,8 +2,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 const ResourceItemComponent = ({ resource, listMode = false }) => {
+  // Access theme
+  const { theme } = useTheme();
+  
   // Function to get the source icon based on URL or name
   const getSourceIcon = () => {
     const { url, name } = resource;
@@ -19,7 +23,7 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
       return { name: 'construct-outline', color: '#00B0FF' };
     
     // Default icon
-    return { name: 'link-outline', color: '#6543CC' };
+    return { name: 'link-outline', color: theme.colors.primary };
   };
   
   const openURL = async () => {
@@ -40,30 +44,47 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
   // List mode is more compact for narrow displays
   if (listMode) {
     return (
-      <TouchableOpacity style={styles.listItem} onPress={openURL}>
+      <TouchableOpacity 
+        style={[styles.listItem, { borderBottomColor: theme.colors.divider }]} 
+        onPress={openURL}
+      >
         <Ionicons name={sourceIcon.name} size={18} color={sourceIcon.color} style={styles.listIcon} />
-        <Text style={styles.listText} numberOfLines={1} ellipsizeMode="tail">
+        <Text 
+          style={[styles.listText, { color: theme.colors.text }]} 
+          numberOfLines={1} 
+          ellipsizeMode="tail"
+        >
           {resource.name}
         </Text>
-        <Ionicons name="chevron-forward" size={16} color="#AAAAAA" />
+        <Ionicons name="chevron-forward" size={16} color={theme.colors.icon} />
       </TouchableOpacity>
     );
   }
   
   // Card mode is more visual
   return (
-    <TouchableOpacity style={styles.card} onPress={openURL}>
+    <TouchableOpacity 
+      style={[styles.card, { 
+        backgroundColor: theme.colors.surface,
+        borderColor: theme.colors.border
+      }]} 
+      onPress={openURL}
+    >
       <View style={styles.cardContent}>
         <View style={[styles.iconContainer, { backgroundColor: `${sourceIcon.color}20` }]}>
           <Ionicons name={sourceIcon.name} size={22} color={sourceIcon.color} />
         </View>
         <View style={styles.textContainer}>
-          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+          <Text 
+            style={[styles.title, { color: theme.colors.text }]} 
+            numberOfLines={2} 
+            ellipsizeMode="tail"
+          >
             {resource.name}
           </Text>
         </View>
-        <View style={styles.arrowContainer}>
-          <Ionicons name="open-outline" size={18} color="#AAAAAA" />
+        <View style={[styles.arrowContainer, { backgroundColor: theme.colors.surfaceHighlight }]}>
+          <Ionicons name="open-outline" size={18} color={theme.colors.icon} />
         </View>
       </View>
     </TouchableOpacity>
@@ -73,7 +94,6 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
 const styles = StyleSheet.create({
   // Card mode styles
   card: {
-    backgroundColor: '#1E1E1E',
     borderRadius: 10,
     marginBottom: 10,
     shadowColor: '#000',
@@ -82,7 +102,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   cardContent: {
     flexDirection: 'row',
@@ -101,7 +120,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '500',
   },
@@ -109,7 +127,6 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
@@ -122,14 +139,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   listIcon: {
     marginRight: 12,
   },
   listText: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 14,
   },
 });

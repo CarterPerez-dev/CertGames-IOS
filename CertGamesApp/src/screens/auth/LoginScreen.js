@@ -86,6 +86,9 @@ const LoginScreen = () => {
     }
   };
   
+  // Note: When running in Expo Go, biometric authentication may prompt for device 
+  // passcode instead of actual Face ID/Touch ID. This is expected behavior in 
+  // development. In a production build, proper biometric authentication will be used.
   const handleBiometricAuth = async () => {
     if (!savedCredentials) {
       Alert.alert('No Saved Credentials', 'Please log in with your username and password first.');
@@ -312,7 +315,7 @@ const LoginScreen = () => {
                 onPress={handleBiometricAuth}
               >
                 <Ionicons 
-                  name={Platform.OS === 'ios' ? "ios-face-id" : "ios-finger-print"} 
+                  name={Platform.OS === 'ios' ? "scan-outline" : "finger-print"} 
                   size={24} 
                   color="#6543CC" 
                 />

@@ -183,7 +183,9 @@ const ProfileScreen = ({ navigation }) => {
           onPress: async () => {
             await SecureStore.deleteItemAsync('userId');
             dispatch(logout());
-            navigation.navigate('Login');
+            // Removed explicit navigation to Login
+            // The AppNavigator will automatically switch to AuthNavigator
+            // when userId is cleared from Redux state
           },
           style: 'destructive'
         }

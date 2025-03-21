@@ -12,11 +12,13 @@ import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
+import { createGlobalStyles } from '../styles/globalStyles';
 
 const { width } = Dimensions.get('window');
 
 const ThemeSelector = () => {
   const { theme, themeName, setTheme, getAvailableThemes } = useTheme();
+  const globalStyles = createGlobalStyles(theme);
   const availableThemes = getAvailableThemes();
   
   const handleThemeSelect = (name) => {

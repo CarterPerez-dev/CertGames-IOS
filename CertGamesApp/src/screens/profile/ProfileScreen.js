@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '../../context/ThemeContext';
+import { createGlobalStyles } from '../../styles/globalStyles';
 
 // Import profile service to handle API calls
 import { changeUsername, changeEmail, changePassword, getAvatarUrl } from '../../api/profileService';
@@ -29,6 +30,7 @@ import { changeUsername, changeEmail, changePassword, getAvatarUrl } from '../..
 const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { theme } = useTheme(); // Access theme context
+  const globalStyles = createGlobalStyles(theme); // Get global styles
   
   // Animated values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -374,7 +376,7 @@ const ProfileScreen = ({ navigation }) => {
   };
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[globalStyles.screen]}>
       <StatusModal 
         visible={showStatusModal}
         message={statusMessage}
@@ -400,7 +402,7 @@ const ProfileScreen = ({ navigation }) => {
           ]}
         >
           <LinearGradient
-            colors={theme.colors.headerGradient}
+            colors={theme.colors.primaryGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerGradient}
@@ -410,55 +412,55 @@ const ProfileScreen = ({ navigation }) => {
               {!avatarError && currentAvatar ? (
                 <Image 
                   source={{ uri: getProfilePicUrl() }}
-                  style={styles.avatar}
+                  style={[styles.avatar, { borderColor: theme.colors.text + '30' }]}
                   onError={handleAvatarError}
                 />
               ) : (
                 <Image 
                   source={require('../../../assets/default-avatar.png')}
-                  style={styles.avatar}
+                  style={[styles.avatar, { borderColor: theme.colors.text + '30' }]}
                 />
               )}
             </View>
             
             <View style={styles.userInfo}>
-              <Text style={styles.username}>{username}</Text>
+              <Text style={[styles.username, { color: theme.colors.text }]}>{username}</Text>
               
               <View style={styles.levelContainer}>
-                <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={styles.levelText}>{level}</Text>
+                <View style={[styles.levelBadge, { backgroundColor: theme.colors.accent }]}>
+                  <Text style={[styles.levelText, { color: theme.colors.textInverse }]}>{level}</Text>
                 </View>
                 
                 <View style={styles.xpContainer}>
-                  <View style={styles.xpBar}>
+                  <View style={[styles.xpBar, { backgroundColor: 'rgba(255, 255, 255, 0.3)' }]}>
                     <View 
                       style={[
                         styles.xpProgress, 
                         { 
                           width: `${xpPercentage}%`,
-                          backgroundColor: theme.colors.primary
+                          backgroundColor: theme.colors.text
                         }
                       ]} 
                     />
                   </View>
-                  <Text style={styles.xpText}>{xp} XP</Text>
+                  <Text style={[styles.xpText, { color: theme.colors.text + 'E6' }]}>{xp} XP</Text>
                 </View>
               </View>
               
               <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Ionicons name="wallet-outline" size={18} color="#FFD700" />
-                  <Text style={styles.statText}>{coins}</Text>
+                <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+                  <Ionicons name="wallet-outline" size={18} color={theme.colors.goldBadge} />
+                  <Text style={[styles.statText, { color: theme.colors.text }]}>{coins}</Text>
                 </View>
                 
-                <View style={styles.statItem}>
-                  <Ionicons name="trophy-outline" size={18} color="#FFD700" />
-                  <Text style={styles.statText}>{achievements.length}</Text>
+                <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+                  <Ionicons name="trophy-outline" size={18} color={theme.colors.goldBadge} />
+                  <Text style={[styles.statText, { color: theme.colors.text }]}>{achievements.length}</Text>
                 </View>
                 
-                <View style={styles.statItem}>
-                  <Ionicons name="star-outline" size={18} color="#FFD700" />
-                  <Text style={styles.statText}>{purchasedItems.length}</Text>
+                <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+                  <Ionicons name="star-outline" size={18} color={theme.colors.goldBadge} />
+                  <Text style={[styles.statText, { color: theme.colors.text }]}>{purchasedItems.length}</Text>
                 </View>
               </View>
             </View>
@@ -468,72 +470,117 @@ const ProfileScreen = ({ navigation }) => {
         {/* Tabs Navigation */}
         <View style={[styles.tabsContainer, { backgroundColor: theme.colors.card }]}>
           <TouchableOpacity 
-            style={[styles.tab, activeTab === 'overview' && [styles.activeTab, { backgroundColor: theme.colors.primary }]]}
+            style={[
+              styles.tab, 
+              activeTab === 'overview' && [
+                styles.activeTab, 
+                { backgroundColor: theme.colors.primary }
+              ]
+            ]}
             onPress={() => setActiveTab('overview')}
           >
-            <Text style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>Overview</Text>
+            <Text style={[
+              styles.tabText, 
+              { color: theme.colors.textMuted },
+              activeTab === 'overview' && [
+                styles.activeTabText, 
+                { color: theme.colors.text }
+              ]
+            ]}>Overview</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.tab, activeTab === 'account' && [styles.activeTab, { backgroundColor: theme.colors.primary }]]}
+            style={[
+              styles.tab, 
+              activeTab === 'account' && [
+                styles.activeTab, 
+                { backgroundColor: theme.colors.primary }
+              ]
+            ]}
             onPress={() => setActiveTab('account')}
           >
-            <Text style={[styles.tabText, activeTab === 'account' && styles.activeTabText]}>Account</Text>
+            <Text style={[
+              styles.tabText, 
+              { color: theme.colors.textMuted },
+              activeTab === 'account' && [
+                styles.activeTabText, 
+                { color: theme.colors.text }
+              ]
+            ]}>Account</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.tab, activeTab === 'achievements' && [styles.activeTab, { backgroundColor: theme.colors.primary }]]}
+            style={[
+              styles.tab, 
+              activeTab === 'achievements' && [
+                styles.activeTab, 
+                { backgroundColor: theme.colors.primary }
+              ]
+            ]}
             onPress={() => setActiveTab('achievements')}
           >
-            <Text style={[styles.tabText, activeTab === 'achievements' && styles.activeTabText]}>Achievements</Text>
+            <Text style={[
+              styles.tabText, 
+              { color: theme.colors.textMuted },
+              activeTab === 'achievements' && [
+                styles.activeTabText, 
+                { color: theme.colors.text }
+              ]
+            ]}>Achievements</Text>
           </TouchableOpacity>
         </View>
         
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <View style={styles.tabContent}>
-            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+            <View style={[globalStyles.card, styles.customCard]}>
               <LinearGradient
-                colors={theme.colors.cardGradient}
+                colors={theme.colors.primaryGradient}
                 start={{x: 0, y: 0}}
                 end={{x: 1, y: 1}}
                 style={styles.cardHeader}
               >
-                <Ionicons name="person-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.cardTitle}>User Profile</Text>
+                <Ionicons name="person-outline" size={20} color={theme.colors.text} />
+                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>User Profile</Text>
               </LinearGradient>
               
               <View style={styles.cardBody}>
                 <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Username:</Text>
+                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Username:</Text>
                   <Text style={[styles.detailValue, { color: theme.colors.text }]}>{username}</Text>
                 </View>
                 
                 <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Email:</Text>
+                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Email:</Text>
                   <Text style={[styles.detailValue, { color: theme.colors.text }]}>{email}</Text>
                 </View>
                 
                 <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Level:</Text>
+                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Level:</Text>
                   <Text style={[styles.detailValue, { color: theme.colors.text }]}>{level}</Text>
                 </View>
                 
                 <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>XP:</Text>
+                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>XP:</Text>
                   <Text style={[styles.detailValue, { color: theme.colors.text }]}>{xp}</Text>
                 </View>
                 
                 <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Coins:</Text>
+                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Coins:</Text>
                   <Text style={[styles.detailValue, { color: theme.colors.text }]}>{coins}</Text>
                 </View>
                 
                 <View style={styles.profileDetail}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Subscription:</Text>
+                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Subscription:</Text>
                   <Text style={[
                     styles.detailValue, 
-                    subscriptionActive ? [styles.activeSubscription, { color: theme.colors.success }] : [styles.inactiveSubscription, { color: theme.colors.subtext }]
+                    subscriptionActive ? [
+                      styles.activeSubscription, 
+                      { color: theme.colors.success }
+                    ] : [
+                      styles.inactiveSubscription, 
+                      { color: theme.colors.textSecondary }
+                    ]
                   ]}>
                     {subscriptionActive ? 'Active' : 'Inactive'}
                   </Text>
@@ -541,15 +588,15 @@ const ProfileScreen = ({ navigation }) => {
               </View>
             </View>
             
-            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+            <View style={[globalStyles.card, styles.customCard]}>
               <LinearGradient
-                colors={theme.colors.cardGradient}
+                colors={theme.colors.primaryGradient}
                 start={{x: 0, y: 0}}
                 end={{x: 1, y: 1}}
                 style={styles.cardHeader}
               >
-                <Ionicons name="trophy-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.cardTitle}>Achievements</Text>
+                <Ionicons name="trophy-outline" size={20} color={theme.colors.text} />
+                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Achievements</Text>
               </LinearGradient>
               
               <View style={styles.cardBody}>
@@ -559,7 +606,10 @@ const ProfileScreen = ({ navigation }) => {
                       You have unlocked {achievements.length} achievements!
                     </Text>
                     <TouchableOpacity 
-                      style={[styles.viewMoreButton, { backgroundColor: `${theme.colors.primary}20` }]} 
+                      style={[
+                        styles.viewMoreButton, 
+                        { backgroundColor: theme.colors.highlight }
+                      ]} 
                       onPress={goToAchievements}
                     >
                       <Text style={[styles.viewMoreText, { color: theme.colors.primary }]}>View All Achievements</Text>
@@ -567,22 +617,22 @@ const ProfileScreen = ({ navigation }) => {
                     </TouchableOpacity>
                   </>
                 ) : (
-                  <Text style={[styles.emptyStateText, { color: theme.colors.subtext }]}>
+                  <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
                     Complete quizzes and challenges to earn achievements!
                   </Text>
                 )}
               </View>
             </View>
             
-            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+            <View style={[globalStyles.card, styles.customCard]}>
               <LinearGradient
-                colors={theme.colors.cardGradient}
+                colors={theme.colors.primaryGradient}
                 start={{x: 0, y: 0}}
                 end={{x: 1, y: 1}}
                 style={styles.cardHeader}
               >
-                <Ionicons name="cart-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.cardTitle}>Shop Items</Text>
+                <Ionicons name="cart-outline" size={20} color={theme.colors.text} />
+                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Shop Items</Text>
               </LinearGradient>
               
               <View style={styles.cardBody}>
@@ -592,7 +642,10 @@ const ProfileScreen = ({ navigation }) => {
                       You have purchased {purchasedItems.length} items from the shop!
                     </Text>
                     <TouchableOpacity 
-                      style={[styles.viewMoreButton, { backgroundColor: `${theme.colors.primary}20` }]} 
+                      style={[
+                        styles.viewMoreButton, 
+                        { backgroundColor: theme.colors.highlight }
+                      ]} 
                       onPress={goToShop}
                     >
                       <Text style={[styles.viewMoreText, { color: theme.colors.primary }]}>Visit Shop</Text>
@@ -600,7 +653,7 @@ const ProfileScreen = ({ navigation }) => {
                     </TouchableOpacity>
                   </>
                 ) : (
-                  <Text style={[styles.emptyStateText, { color: theme.colors.subtext }]}>
+                  <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
                     Visit the shop to purchase avatars and other items!
                   </Text>
                 )}
@@ -611,23 +664,23 @@ const ProfileScreen = ({ navigation }) => {
               style={[styles.logoutButton, { backgroundColor: theme.colors.error }]} 
               onPress={handleLogout}
             >
-              <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.logoutText}>Logout</Text>
+              <Ionicons name="log-out-outline" size={20} color={theme.colors.text} />
+              <Text style={[styles.logoutText, { color: theme.colors.text }]}>Logout</Text>
             </TouchableOpacity>
           </View>
         )}
         
         {activeTab === 'account' && (
           <View style={styles.tabContent}>
-            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+            <View style={[globalStyles.card, styles.customCard]}>
               <LinearGradient
-                colors={theme.colors.cardGradient}
+                colors={theme.colors.primaryGradient}
                 start={{x: 0, y: 0}}
                 end={{x: 1, y: 1}}
                 style={styles.cardHeader}
               >
-                <Ionicons name="person-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.cardTitle}>Account Settings</Text>
+                <Ionicons name="person-outline" size={20} color={theme.colors.text} />
+                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Account Settings</Text>
               </LinearGradient>
               
               <View style={styles.cardBody}>
@@ -635,15 +688,18 @@ const ProfileScreen = ({ navigation }) => {
                 <View style={[styles.settingSection, { borderBottomColor: theme.colors.border }]}>
                   <View style={styles.settingHeader}>
                     <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Username</Text>
-                    <Text style={[styles.settingValue, { color: theme.colors.subtext }]}>{username}</Text>
+                    <Text style={[styles.settingValue, { color: theme.colors.textSecondary }]}>{username}</Text>
                   </View>
                   
                   {showChangeUsername ? (
                     <View style={styles.changeForm}>
                       <TextInput
-                        style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
+                        style={[
+                          globalStyles.input,
+                          { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }
+                        ]}
                         placeholder="New username"
-                        placeholderTextColor={theme.colors.subtext}
+                        placeholderTextColor={theme.colors.placeholder}
                         value={newUsername}
                         onChangeText={setNewUsername}
                         autoCapitalize="none"
@@ -652,19 +708,22 @@ const ProfileScreen = ({ navigation }) => {
                       
                       <View style={styles.formButtons}>
                         <TouchableOpacity 
-                          style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+                          style={[globalStyles.buttonPrimary, styles.saveButton]}
                           onPress={handleChangeUsername}
                           disabled={usernameLoading}
                         >
                           {usernameLoading ? (
-                            <ActivityIndicator color="#FFFFFF" size="small" />
+                            <ActivityIndicator color={theme.colors.buttonText} size="small" />
                           ) : (
-                            <Text style={styles.buttonText}>Save</Text>
+                            <Text style={[globalStyles.buttonText]}>Save</Text>
                           )}
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                          style={[styles.cancelButton, { backgroundColor: theme.colors.background }]}
+                          style={[
+                            styles.cancelButton, 
+                            { backgroundColor: theme.colors.background }
+                          ]}
                           onPress={() => {
                             setShowChangeUsername(false);
                             setNewUsername('');
@@ -677,11 +736,14 @@ const ProfileScreen = ({ navigation }) => {
                     </View>
                   ) : (
                     <TouchableOpacity 
-                      style={[styles.changeButton, { backgroundColor: theme.colors.primary }]}
+                      style={[
+                        globalStyles.buttonPrimary,
+                        styles.changeButton
+                      ]}
                       onPress={() => setShowChangeUsername(true)}
                     >
-                      <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.changeButtonText}>Change Username</Text>
+                      <Ionicons name="create-outline" size={16} color={theme.colors.buttonText} />
+                      <Text style={[globalStyles.buttonText]}>Change Username</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -690,15 +752,18 @@ const ProfileScreen = ({ navigation }) => {
                 <View style={[styles.settingSection, { borderBottomColor: theme.colors.border }]}>
                   <View style={styles.settingHeader}>
                     <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Email</Text>
-                    <Text style={[styles.settingValue, { color: theme.colors.subtext }]}>{email}</Text>
+                    <Text style={[styles.settingValue, { color: theme.colors.textSecondary }]}>{email}</Text>
                   </View>
                   
                   {showChangeEmail ? (
                     <View style={styles.changeForm}>
                       <TextInput
-                        style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
+                        style={[
+                          globalStyles.input,
+                          { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }
+                        ]}
                         placeholder="New email address"
-                        placeholderTextColor={theme.colors.subtext}
+                        placeholderTextColor={theme.colors.placeholder}
                         value={newEmail}
                         onChangeText={setNewEmail}
                         autoCapitalize="none"
@@ -708,19 +773,22 @@ const ProfileScreen = ({ navigation }) => {
                       
                       <View style={styles.formButtons}>
                         <TouchableOpacity 
-                          style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+                          style={[globalStyles.buttonPrimary, styles.saveButton]}
                           onPress={handleChangeEmail}
                           disabled={emailLoading}
                         >
                           {emailLoading ? (
-                            <ActivityIndicator color="#FFFFFF" size="small" />
+                            <ActivityIndicator color={theme.colors.buttonText} size="small" />
                           ) : (
-                            <Text style={styles.buttonText}>Save</Text>
+                            <Text style={[globalStyles.buttonText]}>Save</Text>
                           )}
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                          style={[styles.cancelButton, { backgroundColor: theme.colors.background }]}
+                          style={[
+                            styles.cancelButton, 
+                            { backgroundColor: theme.colors.background }
+                          ]}
                           onPress={() => {
                             setShowChangeEmail(false);
                             setNewEmail('');
@@ -733,11 +801,14 @@ const ProfileScreen = ({ navigation }) => {
                     </View>
                   ) : (
                     <TouchableOpacity 
-                      style={[styles.changeButton, { backgroundColor: theme.colors.primary }]}
+                      style={[
+                        globalStyles.buttonPrimary,
+                        styles.changeButton
+                      ]}
                       onPress={() => setShowChangeEmail(true)}
                     >
-                      <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.changeButtonText}>Change Email</Text>
+                      <Ionicons name="create-outline" size={16} color={theme.colors.buttonText} />
+                      <Text style={[globalStyles.buttonText]}>Change Email</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -746,16 +817,19 @@ const ProfileScreen = ({ navigation }) => {
                 <View style={[styles.settingSection, { borderBottomColor: theme.colors.border }]}>
                   <View style={styles.settingHeader}>
                     <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Password</Text>
-                    <Text style={[styles.settingValue, { color: theme.colors.subtext }]}>••••••••</Text>
+                    <Text style={[styles.settingValue, { color: theme.colors.textSecondary }]}>••••••••</Text>
                   </View>
                   
                   {showChangePassword ? (
                     <View style={styles.changeForm}>
                       <View style={styles.passwordInputContainer}>
                         <TextInput
-                          style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
+                          style={[
+                            globalStyles.input,
+                            { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }
+                          ]}
                           placeholder="Current password"
-                          placeholderTextColor={theme.colors.subtext}
+                          placeholderTextColor={theme.colors.placeholder}
                           value={oldPassword}
                           onChangeText={setOldPassword}
                           secureTextEntry={!showOldPassword}
@@ -763,22 +837,25 @@ const ProfileScreen = ({ navigation }) => {
                           editable={!passwordLoading}
                         />
                         <TouchableOpacity
-                          style={styles.eyeIcon}
+                          style={[styles.eyeIcon, { color: theme.colors.textSecondary }]}
                           onPress={() => setShowOldPassword(!showOldPassword)}
                         >
                           <Ionicons
                             name={showOldPassword ? "eye-off-outline" : "eye-outline"}
                             size={20}
-                            color={theme.colors.subtext}
+                            color={theme.colors.textSecondary}
                           />
                         </TouchableOpacity>
                       </View>
                       
                       <View style={styles.passwordInputContainer}>
                         <TextInput
-                          style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
+                          style={[
+                            globalStyles.input,
+                            { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }
+                          ]}
                           placeholder="New password"
-                          placeholderTextColor={theme.colors.subtext}
+                          placeholderTextColor={theme.colors.placeholder}
                           value={newPassword}
                           onChangeText={setNewPassword}
                           secureTextEntry={!showNewPassword}
@@ -792,16 +869,19 @@ const ProfileScreen = ({ navigation }) => {
                           <Ionicons
                             name={showNewPassword ? "eye-off-outline" : "eye-outline"}
                             size={20}
-                            color={theme.colors.subtext}
+                            color={theme.colors.textSecondary}
                           />
                         </TouchableOpacity>
                       </View>
                       
                       <View style={styles.passwordInputContainer}>
                         <TextInput
-                          style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
+                          style={[
+                            globalStyles.input,
+                            { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }
+                          ]}
                           placeholder="Confirm new password"
-                          placeholderTextColor={theme.colors.subtext}
+                          placeholderTextColor={theme.colors.placeholder}
                           value={confirmPassword}
                           onChangeText={setConfirmPassword}
                           secureTextEntry={!showConfirmPassword}
@@ -815,26 +895,29 @@ const ProfileScreen = ({ navigation }) => {
                           <Ionicons
                             name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
                             size={20}
-                            color={theme.colors.subtext}
+                            color={theme.colors.textSecondary}
                           />
                         </TouchableOpacity>
                       </View>
                       
                       <View style={styles.formButtons}>
                         <TouchableOpacity 
-                          style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+                          style={[globalStyles.buttonPrimary, styles.saveButton]}
                           onPress={handleChangePassword}
                           disabled={passwordLoading}
                         >
                           {passwordLoading ? (
-                            <ActivityIndicator color="#FFFFFF" size="small" />
+                            <ActivityIndicator color={theme.colors.buttonText} size="small" />
                           ) : (
-                            <Text style={styles.buttonText}>Save</Text>
+                            <Text style={[globalStyles.buttonText]}>Save</Text>
                           )}
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                          style={[styles.cancelButton, { backgroundColor: theme.colors.background }]}
+                          style={[
+                            styles.cancelButton, 
+                            { backgroundColor: theme.colors.background }
+                          ]}
                           onPress={() => {
                             setShowChangePassword(false);
                             setOldPassword('');
@@ -849,11 +932,14 @@ const ProfileScreen = ({ navigation }) => {
                     </View>
                   ) : (
                     <TouchableOpacity 
-                      style={[styles.changeButton, { backgroundColor: theme.colors.primary }]}
+                      style={[
+                        globalStyles.buttonPrimary,
+                        styles.changeButton
+                      ]}
                       onPress={() => setShowChangePassword(true)}
                     >
-                      <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.changeButtonText}>Change Password</Text>
+                      <Ionicons name="create-outline" size={16} color={theme.colors.buttonText} />
+                      <Text style={[globalStyles.buttonText]}>Change Password</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -868,45 +954,54 @@ const ProfileScreen = ({ navigation }) => {
                   </View>
                   
                   <TouchableOpacity 
-                    style={[styles.changeButton, { backgroundColor: theme.colors.primary }]}
+                    style={[
+                      globalStyles.buttonPrimary,
+                      styles.changeButton
+                    ]}
                     onPress={goToThemeSettings}
                   >
-                    <Ionicons name="color-palette" size={16} color="#FFFFFF" />
-                    <Text style={styles.changeButtonText}>Customize App Theme</Text>
+                    <Ionicons name="color-palette" size={16} color={theme.colors.buttonText} />
+                    <Text style={[globalStyles.buttonText]}>Customize App Theme</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
             
             <TouchableOpacity 
-              style={[styles.supportButton, { backgroundColor: theme.colors.secondary }]} 
+              style={[
+                globalStyles.buttonSecondary,
+                styles.supportButton
+              ]} 
               onPress={goToSupport}
             >
-              <Ionicons name="help-circle-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.supportText}>Contact Support</Text>
+              <Ionicons name="help-circle-outline" size={20} color={theme.colors.buttonText} />
+              <Text style={[globalStyles.buttonText]}>Contact Support</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={[styles.logoutButton, { backgroundColor: theme.colors.error }]} 
+              style={[
+                globalStyles.buttonDanger,
+                styles.logoutButton
+              ]} 
               onPress={handleLogout}
             >
-              <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.logoutText}>Logout</Text>
+              <Ionicons name="log-out-outline" size={20} color={theme.colors.buttonText} />
+              <Text style={[globalStyles.buttonText]}>Logout</Text>
             </TouchableOpacity>
           </View>
         )}
         
         {activeTab === 'achievements' && (
           <View style={styles.tabContent}>
-            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+            <View style={[globalStyles.card, styles.customCard]}>
               <LinearGradient
-                colors={theme.colors.cardGradient}
+                colors={theme.colors.primaryGradient}
                 start={{x: 0, y: 0}}
                 end={{x: 1, y: 1}}
                 style={styles.cardHeader}
               >
-                <Ionicons name="trophy-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.cardTitle}>Your Achievements</Text>
+                <Ionicons name="trophy-outline" size={20} color={theme.colors.text} />
+                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Your Achievements</Text>
               </LinearGradient>
               
               <View style={styles.cardBody}>
@@ -916,7 +1011,10 @@ const ProfileScreen = ({ navigation }) => {
                       You have unlocked {achievements.length} achievements!
                     </Text>
                     <TouchableOpacity 
-                      style={[styles.viewMoreButton, { backgroundColor: `${theme.colors.primary}20` }]} 
+                      style={[
+                        styles.viewMoreButton, 
+                        { backgroundColor: theme.colors.highlight }
+                      ]} 
                       onPress={goToAchievements}
                     >
                       <Text style={[styles.viewMoreText, { color: theme.colors.primary }]}>View All Achievements</Text>
@@ -924,7 +1022,7 @@ const ProfileScreen = ({ navigation }) => {
                     </TouchableOpacity>
                   </>
                 ) : (
-                  <Text style={[styles.emptyStateText, { color: theme.colors.subtext }]}>
+                  <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
                     Complete quizzes and challenges to earn achievements!
                   </Text>
                 )}
@@ -951,7 +1049,10 @@ const StatusModal = ({ visible, message, type, onClose, theme }) => {
       <View style={styles.modalOverlay}>
         <View style={[
           styles.modalContent,
-          type === 'success' ? [styles.successModal, { borderLeftColor: theme.colors.success }] : [styles.errorModal, { borderLeftColor: theme.colors.error }]
+          { backgroundColor: theme.colors.surface },
+          type === 'success' ? 
+            { borderLeftColor: theme.colors.success } : 
+            { borderLeftColor: theme.colors.error }
         ]}>
           <Ionicons 
             name={type === 'success' ? "checkmark-circle" : "alert-circle"} 
@@ -960,7 +1061,7 @@ const StatusModal = ({ visible, message, type, onClose, theme }) => {
           />
           <Text style={[styles.modalText, { color: theme.colors.text }]}>{message}</Text>
           <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
-            <Ionicons name="close" size={20} color={theme.colors.subtext} />
+            <Ionicons name="close" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -969,9 +1070,6 @@ const StatusModal = ({ visible, message, type, onClose, theme }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   scrollView: {
     flex: 1,
   },
@@ -1011,7 +1109,6 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
     backgroundColor: 'rgba(255, 255, 255, 0.1)', // Background color while loading
   },
   userInfo: {
@@ -1021,7 +1118,6 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 6,
   },
   levelContainer: {
@@ -1038,7 +1134,6 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   levelText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -1047,7 +1142,6 @@ const styles = StyleSheet.create({
   },
   xpBar: {
     height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 4,
     marginBottom: 4,
     overflow: 'hidden',
@@ -1057,7 +1151,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   xpText: {
-    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 12,
     textAlign: 'right',
   },
@@ -1067,14 +1160,12 @@ const styles = StyleSheet.create({
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
     marginRight: 8,
   },
   statText: {
-    color: '#FFFFFF',
     marginLeft: 4,
     fontSize: 14,
     fontWeight: '500',
@@ -1098,12 +1189,10 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabText: {
-    color: '#AAAAAA',
     fontSize: 14,
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#FFFFFF',
     fontWeight: 'bold',
   },
   
@@ -1111,21 +1200,10 @@ const styles = StyleSheet.create({
   tabContent: {
     paddingHorizontal: 16,
   },
-  card: {
-    borderRadius: 12,
+  customCard: {
+    padding: 0, // Override padding to use custom header
     marginBottom: 16,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1135,7 +1213,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardTitle: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -1206,31 +1283,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   changeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  changeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
+    marginTop: 8,
   },
   
   // Forms
   changeForm: {
     marginTop: 8,
   },
-  input: {
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginBottom: 12,
-  },
   passwordInputContainer: {
     position: 'relative',
+    marginBottom: 12,
   },
   eyeIcon: {
     position: 'absolute',
@@ -1241,19 +1303,11 @@ const styles = StyleSheet.create({
   formButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 5,
   },
   saveButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 8,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
   cancelButton: {
     flex: 1,
@@ -1269,29 +1323,17 @@ const styles = StyleSheet.create({
   
   // Buttons
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    borderRadius: 12,
     marginBottom: 20,
   },
   logoutText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
   },
   supportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    borderRadius: 12,
     marginBottom: 16,
   },
   supportText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
@@ -1307,7 +1349,6 @@ const styles = StyleSheet.create({
   modalContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E1E1E',
     borderRadius: 12,
     padding: 16,
     width: '80%',

@@ -36,7 +36,7 @@ const AuthNavigator = () => {
         headerTitleAlign: 'center',
         headerStyle: {
           elevation: 0,
-          shadowOpacity: a0,
+          shadowOpacity: 0, // Fixed: changed from 'a0' to 0
           borderBottomWidth: 0,
           height: 60,
         },

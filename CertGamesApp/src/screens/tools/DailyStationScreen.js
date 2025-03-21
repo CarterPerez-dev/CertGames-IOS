@@ -18,6 +18,8 @@ import * as SecureStore from 'expo-secure-store';
 import { claimDailyBonus, getDailyQuestion, submitDailyAnswer } from '../../api/dailyStationService';
 import { fetchUserData } from '../../store/slices/userSlice';
 import FormattedQuestion from '../../components/FormattedQuestion';
+import { useTheme } from '../../context/ThemeContext';
+import { createGlobalStyles } from '../../styles/globalStyles';
 
 // Helper to format seconds as HH:MM:SS
 function formatCountdown(seconds) {
@@ -28,6 +30,10 @@ function formatCountdown(seconds) {
 }
 
 const DailyStationScreen = () => {
+  // Theme integration
+  const { theme } = useTheme();
+  const globalStyles = createGlobalStyles(theme);
+
   const dispatch = useDispatch();
   const { userId, username, coins, xp, lastDailyClaim } = useSelector((state) => state.user);
 
@@ -274,68 +280,66 @@ const DailyStationScreen = () => {
     }
   };
 
-  // Not needed anymore since we're using the FormattedQuestion component
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[globalStyles.screen]}>
       <ScrollView style={styles.scrollView}>
         {/* Header Section */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Daily Station</Text>
-          <Text style={styles.subtitle}>Claim your daily rewards and answer the challenge</Text>
+        <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[globalStyles.title, styles.headerTitle]}>Daily Station</Text>
+          <Text style={[globalStyles.textSecondary, styles.subtitle]}>Claim your daily rewards and answer the challenge</Text>
           
           {userId && (
             <View style={styles.userStats}>
-              <View style={styles.statItem}>
-                <Ionicons name="cash" size={18} color="#FFD700" />
-                <Text style={styles.statValue}>{coins}</Text>
+              <View style={[styles.statItem, { backgroundColor: theme.colors.surfaceHighlight }]}>
+                <Ionicons name="cash" size={18} color={theme.colors.goldBadge} />
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
               </View>
-              <View style={styles.statItem}>
-                <Ionicons name="star" size={18} color="#0095FF" />
-                <Text style={styles.statValue}>{xp}</Text>
+              <View style={[styles.statItem, { backgroundColor: theme.colors.surfaceHighlight }]}>
+                <Ionicons name="star" size={18} color={theme.colors.primary} />
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{xp}</Text>
               </View>
             </View>
           )}
         </View>
 
         {/* Main Content */}
-        <View style={styles.content}>
+        <View style={[globalStyles.container, styles.content]}>
           {!userId ? (
-            <View style={styles.loginRequired}>
-              <Ionicons name="bulb" size={40} color="#6543CC" style={styles.loginIcon} />
-              <Text style={styles.loginTitle}>Login Required</Text>
-              <Text style={styles.loginText}>
+            <View style={[styles.loginRequired, { backgroundColor: theme.colors.surface }]}>
+              <Ionicons name="bulb" size={40} color={theme.colors.primary} style={styles.loginIcon} />
+              <Text style={[globalStyles.title, styles.loginTitle]}>Login Required</Text>
+              <Text style={[globalStyles.text, styles.loginText]}>
                 Please log in to claim daily rewards and participate in daily challenges.
               </Text>
             </View>
           ) : (
             <>
               {/* Daily Bonus Card */}
-              <View style={styles.card}>
+              <View style={[globalStyles.card, styles.card]}>
                 <LinearGradient
-                  colors={['#FF4C8B', '#FF7950']}
+                  colors={theme.colors.secondaryGradient}
                   start={{x: 0, y: 0}}
                   end={{x: 1, y: 0}}
                   style={styles.cardHeader}
                 >
-                  <Ionicons name="gift" size={20} color="#FFFFFF" />
-                  <Text style={styles.cardTitle}>Daily Bonus</Text>
+                  <Ionicons name="gift" size={20} color={theme.colors.text} />
+                  <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Daily Bonus</Text>
                 </LinearGradient>
                 
                 <View style={styles.cardContent}>
                   <View style={styles.bonusInfo}>
-                    <View style={styles.bonusValue}>
-                      <Ionicons name="cash" size={24} color="#FFD700" />
-                      <Text style={styles.bonusValueText}>250</Text>
+                    <View style={[styles.bonusValue, { backgroundColor: theme.colors.surfaceHighlight, borderColor: `${theme.colors.goldBadge}50` }]}>
+                      <Ionicons name="cash" size={24} color={theme.colors.goldBadge} />
+                      <Text style={[styles.bonusValueText, { color: theme.colors.text }]}>250</Text>
                     </View>
-                    <Text style={styles.bonusText}>Claim your free coins every 24 hours!</Text>
+                    <Text style={[globalStyles.textSecondary, styles.bonusText]}>Claim your free coins every 24 hours!</Text>
                   </View>
                   
                   {/* Show error if any */}
                   {bonusError && !bonusError.includes("Next bonus in") && (
-                    <View style={styles.errorContainer}>
-                      <Ionicons name="alert-circle" size={20} color="#FF4E4E" />
-                      <Text style={styles.errorText}>{bonusError}</Text>
+                    <View style={[globalStyles.errorContainer, styles.errorContainer]}>
+                      <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
+                      <Text style={globalStyles.errorText}>{bonusError}</Text>
                     </View>
                   )}
                   
@@ -343,28 +347,28 @@ const DailyStationScreen = () => {
                   <View style={styles.bonusAction}>
                     {showButton ? (
                       <TouchableOpacity 
-                        style={styles.claimButton}
+                        style={[globalStyles.buttonSecondary, styles.claimButton]}
                         onPress={handleClaimDailyBonus}
                         disabled={claimInProgress}
                       >
                         {claimInProgress ? (
                           <View style={styles.buttonContent}>
-                            <ActivityIndicator size="small" color="#FFFFFF" />
-                            <Text style={styles.buttonText}>Claiming...</Text>
+                            <ActivityIndicator size="small" color={theme.colors.buttonText} />
+                            <Text style={[globalStyles.buttonText, styles.buttonText]}>Claiming...</Text>
                           </View>
                         ) : (
                           <View style={styles.buttonContent}>
-                            <Ionicons name="cash" size={20} color="#FFFFFF" />
-                            <Text style={styles.buttonText}>Claim Bonus</Text>
+                            <Ionicons name="cash" size={20} color={theme.colors.buttonText} />
+                            <Text style={[globalStyles.buttonText, styles.buttonText]}>Claim Bonus</Text>
                           </View>
                         )}
                       </TouchableOpacity>
                     ) : (
-                      <View style={styles.countdown}>
-                        <Ionicons name="hourglass" size={24} color="#6543CC" />
+                      <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                        <Ionicons name="hourglass" size={24} color={theme.colors.primary} />
                         <View style={styles.countdownInfo}>
-                          <Text style={styles.countdownLabel}>Next bonus in:</Text>
-                          <Text style={styles.countdownTime}>{formatCountdown(bonusCountdown)}</Text>
+                          <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Next bonus in:</Text>
+                          <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(bonusCountdown)}</Text>
                         </View>
                       </View>
                     )}
@@ -373,39 +377,39 @@ const DailyStationScreen = () => {
               </View>
 
               {/* Daily Question Card */}
-              <View style={styles.card}>
+              <View style={[globalStyles.card, styles.card]}>
                 <LinearGradient
-                  colors={['#6543CC', '#8A58FC']}
+                  colors={theme.colors.primaryGradient}
                   start={{x: 0, y: 0}}
                   end={{x: 1, y: 0}}
                   style={styles.cardHeader}
                 >
-                  <Ionicons name="bulb" size={20} color="#FFFFFF" />
-                  <Text style={styles.cardTitle}>Daily Challenge</Text>
+                  <Ionicons name="bulb" size={20} color={theme.colors.text} />
+                  <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Daily Challenge</Text>
                 </LinearGradient>
                 
                 <View style={styles.cardContent}>
                   {loadingQuestion ? (
                     <View style={styles.loading}>
-                      <ActivityIndicator size="large" color="#6543CC" />
-                      <Text style={styles.loadingText}>Loading challenge...</Text>
+                      <ActivityIndicator size="large" color={theme.colors.primary} />
+                      <Text style={[globalStyles.textMuted, styles.loadingText]}>Loading challenge...</Text>
                     </View>
                   ) : questionError ? (
-                    <View style={styles.errorContainer}>
-                      <Ionicons name="alert-circle" size={20} color="#FF4E4E" />
-                      <Text style={styles.errorText}>{questionError}</Text>
+                    <View style={[globalStyles.errorContainer, styles.errorContainer]}>
+                      <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
+                      <Text style={globalStyles.errorText}>{questionError}</Text>
                     </View>
                   ) : !questionData ? (
                     <View style={styles.emptyState}>
-                      <Text style={styles.emptyText}>No challenges available today. Check back tomorrow!</Text>
+                      <Text style={[globalStyles.textMuted, styles.emptyText]}>No challenges available today. Check back tomorrow!</Text>
                     </View>
                   ) : (
                     <View style={[
                       styles.question,
-                      showCorrectAnimation && styles.correctAnimation,
-                      showWrongAnimation && styles.wrongAnimation
+                      showCorrectAnimation && { borderColor: theme.colors.success, borderWidth: 1 },
+                      showWrongAnimation && { borderColor: theme.colors.error, borderWidth: 1 }
                     ]}>
-                      <View style={styles.questionPrompt}>
+                      <View style={[styles.questionPrompt, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
                         <FormattedQuestion questionText={questionData.prompt} />
                       </View>
                       
@@ -414,14 +418,16 @@ const DailyStationScreen = () => {
                           {submitResult && (
                             <View style={[
                               styles.resultContainer,
-                              submitResult.correct ? styles.correctResult : styles.incorrectResult
+                              submitResult.correct ? 
+                                { backgroundColor: `${theme.colors.success}20`, borderColor: theme.colors.success } : 
+                                { backgroundColor: `${theme.colors.error}20`, borderColor: theme.colors.error }
                             ]}>
                               <Ionicons 
                                 name={submitResult.correct ? "checkmark-circle" : "close-circle"} 
                                 size={24} 
-                                color={submitResult.correct ? "#2EBB77" : "#FF4E4E"} 
+                                color={submitResult.correct ? theme.colors.success : theme.colors.error} 
                               />
-                              <Text style={styles.resultText}>
+                              <Text style={[globalStyles.text, styles.resultText]}>
                                 {submitResult.correct ? 
                                   `Correct! You earned ${submitResult.awardedCoins} coins.` : 
                                   `Not quite, but you still got ${submitResult.awardedCoins} coins.`}
@@ -431,18 +437,22 @@ const DailyStationScreen = () => {
                           
                           {/* Explanation Section */}
                           {(questionData.explanation || (submitResult && submitResult.explanation)) && (
-                            <View style={styles.explanation}>
-                              <Text style={styles.explanationTitle}>Explanation:</Text>
+                            <View style={[styles.explanation, { 
+                              backgroundColor: theme.colors.surfaceHighlight, 
+                              borderColor: theme.colors.border,
+                              borderLeftColor: theme.colors.primary
+                            }]}>
+                              <Text style={[globalStyles.text, { fontWeight: '600' }, styles.explanationTitle]}>Explanation:</Text>
                               <FormattedQuestion questionText={questionData.explanation || (submitResult && submitResult.explanation)} />
                             </View>
                           )}
                           
                           <View style={styles.nextQuestion}>
-                            <View style={styles.countdown}>
-                              <Ionicons name="calendar" size={24} color="#6543CC" />
+                            <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                              <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                               <View style={styles.countdownInfo}>
-                                <Text style={styles.countdownLabel}>Next challenge in:</Text>
-                                <Text style={styles.countdownTime}>{formatCountdown(questionCountdown)}</Text>
+                                <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Next challenge in:</Text>
+                                <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(questionCountdown)}</Text>
                               </View>
                             </View>
                           </View>
@@ -454,39 +464,47 @@ const DailyStationScreen = () => {
                               key={index}
                               style={[
                                 styles.optionItem,
-                                selectedAnswer === index && styles.selectedOption
+                                { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border },
+                                selectedAnswer === index && { 
+                                  backgroundColor: `${theme.colors.primary}30`, 
+                                  borderColor: theme.colors.primary 
+                                }
                               ]}
                               onPress={() => setSelectedAnswer(index)}
                             >
                               <Text style={[
+                                globalStyles.text,
                                 styles.optionText,
-                                selectedAnswer === index && styles.selectedOptionText
+                                selectedAnswer === index && { fontWeight: '600' }
                               ]}>
                                 {option}
                               </Text>
                               {selectedAnswer === index && (
-                                <Ionicons name="chevron-forward" size={18} color="#FFFFFF" style={styles.optionIcon} />
+                                <Ionicons name="chevron-forward" size={18} color={theme.colors.primary} style={styles.optionIcon} />
                               )}
                             </TouchableOpacity>
                           ))}
                           
                           <TouchableOpacity 
                             style={[
+                              globalStyles.buttonPrimary,
                               styles.submitButton,
-                              selectedAnswer === null && styles.disabledButton
+                              selectedAnswer === null && { 
+                                backgroundColor: `${theme.colors.primary}80`,
+                              }
                             ]}
                             onPress={handleSubmitAnswer}
                             disabled={selectedAnswer === null}
                           >
-                            <Text style={styles.buttonText}>Submit Answer</Text>
+                            <Text style={globalStyles.buttonText}>Submit Answer</Text>
                           </TouchableOpacity>
                           
                           <View style={styles.nextQuestion}>
-                            <View style={styles.countdown}>
-                              <Ionicons name="calendar" size={24} color="#6543CC" />
+                            <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                              <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                               <View style={styles.countdownInfo}>
-                                <Text style={styles.countdownLabel}>Challenge refreshes in:</Text>
-                                <Text style={styles.countdownTime}>{formatCountdown(questionCountdown)}</Text>
+                                <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Challenge refreshes in:</Text>
+                                <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(questionCountdown)}</Text>
                               </View>
                             </View>
                           </View>
@@ -503,12 +521,16 @@ const DailyStationScreen = () => {
       
       {/* BONUS CLAIM ANIMATION OVERLAY */}
       {showBonusAnimation && (
-        <Animated.View style={[styles.overlay, {opacity: fadeAnim}]}>
-          <View style={styles.bonusAnimation}>
-            <Ionicons name="cash" size={60} color="#FFD700" style={styles.bonusIcon} />
+        <Animated.View style={[styles.overlay, {opacity: fadeAnim, backgroundColor: theme.colors.overlay}]}>
+          <View style={[styles.bonusAnimation, { 
+            backgroundColor: theme.colors.surface, 
+            borderColor: theme.colors.primary,
+            shadowColor: theme.colors.primary
+          }]}>
+            <Ionicons name="cash" size={60} color={theme.colors.goldBadge} style={styles.bonusIcon} />
             <View style={styles.bonusAnimationText}>
-              <Text style={styles.bonusAnimationTitle}>Daily Bonus Claimed!</Text>
-              <Text style={styles.bonusAnimationSubtitle}>+250 coins added to your account</Text>
+              <Text style={[globalStyles.title, styles.bonusAnimationTitle]}>Daily Bonus Claimed!</Text>
+              <Text style={[globalStyles.textSecondary, styles.bonusAnimationSubtitle]}>+250 coins added to your account</Text>
             </View>
           </View>
         </Animated.View>
@@ -518,28 +540,19 @@ const DailyStationScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B0C15',
-  },
   scrollView: {
     flex: 1,
   },
   header: {
     padding: 20,
-    backgroundColor: '#171A23',
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2C3D',
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 5,
   },
   subtitle: {
     fontSize: 14,
-    color: '#9DA8B9',
     marginBottom: 15,
   },
   userStats: {
@@ -549,14 +562,12 @@ const styles = StyleSheet.create({
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 15,
     paddingVertical: 6,
     paddingHorizontal: 12,
     marginRight: 10,
   },
   statValue: {
-    color: '#FFFFFF',
     marginLeft: 6,
     fontWeight: '600',
   },
@@ -564,40 +575,29 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loginRequired: {
-    backgroundColor: '#171A23',
     borderRadius: 15,
     padding: 30,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#2A2C3D',
   },
   loginIcon: {
     marginBottom: 15,
   },
   loginTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 10,
   },
   loginText: {
-    color: '#9DA8B9',
     textAlign: 'center',
     lineHeight: 22,
   },
   card: {
-    backgroundColor: '#171A23',
     borderRadius: 15,
     overflow: 'hidden',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#2A2C3D',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    elevation: 10,
+    padding: 0,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -606,7 +606,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardTitle: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -620,36 +619,24 @@ const styles = StyleSheet.create({
   bonusValue: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 20,
     paddingVertical: 10,
     paddingHorizontal: 20,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
   },
   bonusValueText: {
-    color: '#FFFFFF',
     fontSize: 20,
     fontWeight: 'bold',
     marginLeft: 10,
   },
   bonusText: {
-    color: '#9DA8B9',
     textAlign: 'center',
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 78, 78, 0.1)',
-    padding: 10,
-    borderRadius: 8,
     marginBottom: 15,
-  },
-  errorText: {
-    color: '#FF4E4E',
-    marginLeft: 10,
-    flex: 1,
   },
   bonusAction: {
     alignItems: 'center',
@@ -664,39 +651,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF4C8B',
     borderRadius: 25,
     paddingVertical: 12,
     paddingHorizontal: 24,
     minWidth: 200,
   },
   buttonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
   countdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 20,
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderWidth: 1,
-    borderColor: '#2A2C3D',
   },
   countdownInfo: {
     marginLeft: 10,
   },
   countdownLabel: {
-    color: '#9DA8B9',
     fontSize: 12,
   },
   countdownTime: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   loading: {
     alignItems: 'center',
@@ -704,7 +684,6 @@ const styles = StyleSheet.create({
     padding: 30,
   },
   loadingText: {
-    color: '#9DA8B9',
     marginTop: 10,
   },
   emptyState: {
@@ -712,7 +691,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyText: {
-    color: '#9DA8B9',
     textAlign: 'center',
   },
   question: {
@@ -720,17 +698,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   questionPrompt: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 10,
     padding: 15,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#2A2C3D',
-  },
-  questionText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 24,
   },
   questionOptions: {
     marginBottom: 15,
@@ -739,23 +710,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 8,
     padding: 15,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#2A2C3D',
-  },
-  selectedOption: {
-    backgroundColor: 'rgba(101, 67, 204, 0.2)',
-    borderColor: '#6543CC',
   },
   optionText: {
-    color: '#FFFFFF',
     flex: 1,
-  },
-  selectedOptionText: {
-    fontWeight: '600',
   },
   optionIcon: {
     marginLeft: 10,
@@ -763,15 +724,11 @@ const styles = StyleSheet.create({
   submitButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#6543CC',
     borderRadius: 25,
     paddingVertical: 12,
     paddingHorizontal: 24,
     marginTop: 10,
     marginBottom: 20,
-  },
-  disabledButton: {
-    backgroundColor: 'rgba(101, 67, 204, 0.5)',
   },
   nextQuestion: {
     alignItems: 'center',
@@ -785,48 +742,21 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
-  },
-  correctResult: {
-    backgroundColor: 'rgba(46, 187, 119, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(46, 187, 119, 0.3)',
-  },
-  incorrectResult: {
-    backgroundColor: 'rgba(255, 78, 78, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 78, 78, 0.3)',
   },
   resultText: {
-    color: '#FFFFFF',
     marginLeft: 10,
     flex: 1,
   },
   explanation: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 10,
     padding: 15,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#2A2C3D',
     borderLeftWidth: 3,
-    borderLeftColor: '#6543CC',
   },
   explanationTitle: {
-    color: '#FFFFFF',
-    fontWeight: '600',
     marginBottom: 10,
-  },
-  explanationText: {
-    color: '#9DA8B9',
-    lineHeight: 22,
-  },
-  correctAnimation: {
-    borderColor: '#2EBB77',
-    borderWidth: 1,
-  },
-  wrongAnimation: {
-    borderColor: '#FF4E4E',
-    borderWidth: 1,
   },
   overlay: {
     position: 'absolute',
@@ -834,20 +764,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
   },
   bonusAnimation: {
-    backgroundColor: '#171A23',
     borderRadius: 15,
     padding: 30,
     alignItems: 'center',
     maxWidth: '80%',
     borderWidth: 1,
-    borderColor: '#6543CC',
-    shadowColor: '#6543CC',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 20,
@@ -860,13 +786,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bonusAnimationTitle: {
-    color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: 'bold',
     marginBottom: 10,
   },
   bonusAnimationSubtitle: {
-    color: '#9DA8B9',
     fontSize: 16,
   },
 });

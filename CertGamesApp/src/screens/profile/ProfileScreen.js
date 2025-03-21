@@ -1189,7 +1189,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
   activeTabText: {
@@ -1324,6 +1324,7 @@ const styles = StyleSheet.create({
   // Buttons
   logoutButton: {
     marginBottom: 20,
+    borderRadius: 20,
   },
   logoutText: {
     fontSize: 16,

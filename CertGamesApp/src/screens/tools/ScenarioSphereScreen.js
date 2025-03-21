@@ -241,14 +241,14 @@ const ScenarioSphereScreen = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       
-      Alert.alert('Correct!', 'You selected the right answer.', [{ text: 'OK' }]);
+      // No Alert.alert here as requested
     } else {
       // Haptic feedback for incorrect answer
       if (Platform.OS === 'ios') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
       
-      Alert.alert('Incorrect', "That's not the right answer.", [{ text: 'OK' }]);
+      // No Alert.alert here as requested
     }
   };
 

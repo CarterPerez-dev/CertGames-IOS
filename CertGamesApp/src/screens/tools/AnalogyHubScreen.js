@@ -14,13 +14,13 @@ import {
   Modal,
   StatusBar as RNStatusBar,
   Dimensions,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { useToast } from 'react-native-toast-notifications';
 import { streamAnalogy } from '../../api/analogyService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
@@ -77,10 +77,10 @@ const AnalogyHubScreen = () => {
   const [generatedAnalogy, setGeneratedAnalogy] = useState('');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
-  const toast = useToast();
   const scrollViewRef = useRef();
-  const outputRef = useRef();
+  const outputContainerRef = useRef();
 
   // Update input fields based on analogyType
   useEffect(() => {
@@ -95,6 +95,16 @@ const AnalogyHubScreen = () => {
         setInputValues(['']);
     }
   }, [analogyType]);
+
+  // Reset copy success message after 2 seconds
+  useEffect(() => {
+    if (copySuccess) {
+      const timer = setTimeout(() => {
+        setCopySuccess(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [copySuccess]);
 
   // Input handlers
   const handleInputChange = (index, value) => {
@@ -113,10 +123,7 @@ const AnalogyHubScreen = () => {
   const handleGenerateClick = async () => {
     // Check if we have at least one input with content
     if (!inputValues.some(value => value.trim().length > 0)) {
-      toast.show('Please enter at least one concept', {
-        type: 'danger',
-        duration: 3000,
-      });
+      Alert.alert('Error', 'Please enter at least one concept');
       return;
     }
 
@@ -140,24 +147,15 @@ const AnalogyHubScreen = () => {
       
       setGeneratedAnalogy(analogyData);
 
-      // Scroll to the output
+      // Scroll to the output - removed problematic measure method
       setTimeout(() => {
-        if (outputRef.current) {
-          outputRef.current.measureLayout(
-            scrollViewRef.current.getInnerViewNode(),
-            (x, y) => {
-              scrollViewRef.current.scrollTo({ y, animated: true });
-            },
-            () => {}
-          );
+        if (scrollViewRef.current && outputContainerRef.current) {
+          scrollViewRef.current.scrollToEnd({ animated: true });
         }
       }, 300);
     } catch (error) {
       console.error('Error generating analogy:', error);
-      toast.show('Error generating analogy. Please try again.', {
-        type: 'danger',
-        duration: 3000,
-      });
+      Alert.alert('Error', 'Error generating analogy. Please try again.');
     } finally {
       setIsStreaming(false);
     }
@@ -174,16 +172,11 @@ const AnalogyHubScreen = () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
         
-        toast.show('Copied to clipboard!', {
-          type: 'success',
-          duration: 2000,
-        });
+        setCopySuccess(true);
+        Alert.alert('Success', 'Copied to clipboard!');
       } catch (error) {
         console.error('Error copying to clipboard:', error);
-        toast.show('Failed to copy to clipboard', {
-          type: 'danger',
-          duration: 3000,
-        });
+        Alert.alert('Error', 'Failed to copy to clipboard');
       }
     }
   };
@@ -394,7 +387,7 @@ const AnalogyHubScreen = () => {
         {/* Output Area */}
         {(generatedAnalogy || isStreaming) && (
           <View 
-            ref={outputRef}
+            ref={outputContainerRef}
             style={[
               styles.outputCard, 
               { 
@@ -415,12 +408,18 @@ const AnalogyHubScreen = () => {
                 <TouchableOpacity 
                   style={[
                     styles.copyButton, 
-                    { backgroundColor: theme.colors.buttonSecondary }
+                    { backgroundColor: copySuccess ? theme.colors.success : theme.colors.buttonSecondary }
                   ]} 
                   onPress={handleCopyClick}
                 >
-                  <Ionicons name="copy-outline" size={16} color={theme.colors.buttonText} />
-                  <Text style={[styles.copyText, { color: theme.colors.buttonText }]}>Copy</Text>
+                  <Ionicons 
+                    name={copySuccess ? "checkmark-outline" : "copy-outline"} 
+                    size={16} 
+                    color={theme.colors.buttonText} 
+                  />
+                  <Text style={[styles.copyText, { color: theme.colors.buttonText }]}>
+                    {copySuccess ? "Copied" : "Copy"}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -713,6 +712,7 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
     padding: 20,
     paddingVertical: 40,
   },

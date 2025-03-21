@@ -12,13 +12,13 @@ import {
   Dimensions,
   StatusBar,
   Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { useToast } from 'react-native-toast-notifications';
 import { generatePayload } from '../../api/xploitService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
@@ -39,9 +39,18 @@ const XploitCraftScreen = () => {
   const [codeBlocks, setCodeBlocks] = useState([]);
   const [explanations, setExplanations] = useState([]);
   const [activeTab, setActiveTab] = useState('code'); // 'code' or 'explanation'
+  const [copySuccess, setCopySuccess] = useState(false);
   
   const scrollViewRef = useRef();
-  const toast = useToast();
+
+  useEffect(() => {
+    if (copySuccess) {
+      const timer = setTimeout(() => {
+        setCopySuccess(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [copySuccess]);
 
   const parsePayload = (text) => {
     const codeRegex = /Example \d+:?\s*```python([\s\S]*?)```/g;
@@ -95,10 +104,7 @@ const XploitCraftScreen = () => {
 
   const handleGeneratePayload = async () => {
     if (!vulnerability.trim() && !evasionTechnique.trim()) {
-      toast.show('Please enter at least one of vulnerability or evasion technique', {
-        type: 'danger',
-        duration: 3000,
-      });
+      Alert.alert('Error', 'Please enter at least one of vulnerability or evasion technique');
       return;
     }
 
@@ -127,10 +133,7 @@ const XploitCraftScreen = () => {
       
     } catch (error) {
       console.error('Error generating payload:', error);
-      toast.show('Error generating payload. Please try again.', {
-        type: 'danger',
-        duration: 3000,
-      });
+      Alert.alert('Error', 'Error generating payload. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -145,16 +148,11 @@ const XploitCraftScreen = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       
-      toast.show('Copied to clipboard!', {
-        type: 'success',
-        duration: 2000,
-      });
+      setCopySuccess(true);
+      Alert.alert('Success', 'Copied to clipboard!');
     } catch (error) {
       console.error('Failed to copy:', error);
-      toast.show('Failed to copy to clipboard', {
-        type: 'danger',
-        duration: 3000,
-      });
+      Alert.alert('Error', 'Failed to copy to clipboard');
     }
   };
 
@@ -169,16 +167,11 @@ const XploitCraftScreen = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       
-      toast.show('All content copied to clipboard!', {
-        type: 'success',
-        duration: 2000,
-      });
+      setCopySuccess(true);
+      Alert.alert('Success', 'All content copied to clipboard!');
     } catch (error) {
       console.error('Failed to copy all:', error);
-      toast.show('Failed to copy content', {
-        type: 'danger',
-        duration: 3000,
-      });
+      Alert.alert('Error', 'Failed to copy content');
     }
   };
 
@@ -288,15 +281,28 @@ const XploitCraftScreen = () => {
               <View style={styles.resultsTitleRow}>
                 <View style={styles.resultsTitleContainer}>
                   <Ionicons name="code-download" size={22} color={theme.colors.primary} />
-                  <Text style={[styles.resultsTitle, { color: theme.colors.text }]}>Generated Payload</Text>
+                  <Text style={[styles.resultsTitle, { color: theme.colors.text }]}>Payload</Text>
                 </View>
                 
                 <TouchableOpacity
-                  style={[styles.copyAllButton, { backgroundColor: theme.colors.buttonSecondary }]}
+                  style={[
+                    styles.copyAllButton, 
+                    { 
+                      backgroundColor: copySuccess ? 
+                        theme.colors.success : 
+                        theme.colors.buttonSecondary 
+                    }
+                  ]}
                   onPress={copyAllToClipboard}
                 >
-                  <Ionicons name="copy-outline" size={16} color={theme.colors.buttonText} />
-                  <Text style={[styles.copyAllText, { color: theme.colors.buttonText }]}>Copy All</Text>
+                  <Ionicons 
+                    name={copySuccess ? "checkmark-outline" : "copy-outline"} 
+                    size={16} 
+                    color={theme.colors.buttonText} 
+                  />
+                  <Text style={[styles.copyAllText, { color: theme.colors.buttonText }]}>
+                    {copySuccess ? "Copied" : "Copy All"}
+                  </Text>
                 </TouchableOpacity>
               </View>
               

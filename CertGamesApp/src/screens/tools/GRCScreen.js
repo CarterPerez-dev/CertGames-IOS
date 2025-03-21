@@ -139,8 +139,8 @@ const GRCScreen = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     }
-
-    Alert.alert(isCorrect ? 'Correct!' : 'Incorrect', '', [{ text: 'OK' }]);
+    
+    // Removed Alert.alert popup for correct/incorrect as requested
   };
 
   // Copy entire question+explanation
@@ -487,8 +487,7 @@ const GRCScreen = () => {
                   <TouchableOpacity
                     style={[
                       styles.copyButton, 
-                      { backgroundColor: theme.colors.buttonSecondary },
-                      copiedToClipboard && { backgroundColor: theme.colors.success }
+                      { backgroundColor: copiedToClipboard ? theme.colors.success : theme.colors.buttonSecondary }
                     ]}
                     onPress={handleCopy}
                   >

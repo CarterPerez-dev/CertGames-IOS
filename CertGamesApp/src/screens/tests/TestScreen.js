@@ -1643,7 +1643,7 @@ const TestScreen = ({ route, navigation }) => {
         contentContainerStyle={styles.questionContainer}
       >
         <View style={[styles.questionCard, { 
-          backgroundColor: theme.colors.surface,
+          backgroundColor: theme.colors.shadow,
           borderColor: theme.colors.border 
         }]}>
           {/* Question text */}

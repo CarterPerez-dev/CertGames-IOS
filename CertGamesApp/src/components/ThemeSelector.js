@@ -55,15 +55,15 @@ const ThemeSelector = () => {
   const getThemeIcon = (name) => {
     switch(name) {
       case 'dark':
-        return 'contrast';
-      case 'monochrome':
-        return 'contrast';
-      case 'hacker':
-        return 'code-slash';
+        return 'moon';            // Moon icon for Dark Purple
       case 'light':
-        return 'sunny';
+        return 'flame';           // Flame icon for Dark Crimson
+      case 'hacker':
+        return 'leaf';            // Leaf icon for Dark Emerald
+      case 'monochrome':
+        return 'contrast';        // Contrast icon for Monochrome
       default:
-        return 'color-palette';
+        return 'color-palette';   // Default fallback
     }
   };
   

@@ -78,15 +78,15 @@ const ThemeSettingsScreen = ({ navigation }) => {
   const getThemeIcon = (name) => {
     switch(name) {
       case 'dark':
-        return 'contrast';
-      case 'monochrome':
-        return 'contrast';
-      case 'hacker':
-        return 'code-slash';
+        return 'diamond';            // Moon icon for Dark Purple
       case 'light':
-        return 'sunny';
+        return 'flame';           // Flame icon for Dark Crimson
+      case 'hacker':
+        return 'prism';            // Leaf icon for Dark Emerald
+      case 'monochrome':
+        return 'infinite';        // Contrast icon for Monochrome
       default:
-        return 'color-palette';
+        return 'color-palette';   // Default fallback
     }
   };
   
@@ -178,7 +178,7 @@ const ThemeSettingsScreen = ({ navigation }) => {
                 >
                   {/* Theme Header */}
                   <LinearGradient
-                    colors={item.colors.primaryGradient}
+                    colors={item.colors.secondaryGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.themeCardHeader}
@@ -188,7 +188,7 @@ const ThemeSettingsScreen = ({ navigation }) => {
                         <Ionicons 
                           name={getThemeIcon(item.name)} 
                           size={24} 
-                          color={item.colors.buttonPrimary} 
+                          color={item.colors.buttonText} 
                         />
                         <Text style={[styles.themeName, { color: item.colors.buttonText }]}>
                           {item.displayName}

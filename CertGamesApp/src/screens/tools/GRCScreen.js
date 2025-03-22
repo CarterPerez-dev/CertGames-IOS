@@ -1,5 +1,5 @@
 // src/screens/tools/GRCScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import {
   Modal,
   StatusBar as RNStatusBar,
   Dimensions,
-  Platform
+  Platform,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -26,7 +27,7 @@ import { createGlobalStyles } from '../../styles/globalStyles';
 
 const { width, height } = Dimensions.get('window');
 
-// We'll define the category list for our modal
+// Category options for the modal
 const CATEGORY_OPTIONS = [
   { label: 'Regulation', value: 'Regulation' },
   { label: 'Risk Management', value: 'Risk Management' },
@@ -50,6 +51,15 @@ const GRCScreen = () => {
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
   
+  // Animated values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  
+  // Animation for cards
+  const [cardAnims] = useState([...Array(20)].map(() => new Animated.Value(0)));
+  
   // States
   const [category, setCategory] = useState('Random');
   const [difficulty, setDifficulty] = useState('Easy');
@@ -60,6 +70,38 @@ const GRCScreen = () => {
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+
+  // Animation on mount
+  useEffect(() => {
+    // Main animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true
+      })
+    ]).start();
+    
+    // Staggered card animations
+    cardAnims.forEach((anim, i) => {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 500,
+        delay: 100 + (i * 70),
+        useNativeDriver: true
+      }).start();
+    });
+  }, []);
 
   // Reset copy status after 2 seconds
   useEffect(() => {
@@ -84,6 +126,13 @@ const GRCScreen = () => {
         return theme.colors.primary;
     }
   };
+
+  // Header opacity animation
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
   // The main "fetch question" logic
   const fetchQuestion = async () => {
@@ -139,8 +188,6 @@ const GRCScreen = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     }
-    
-    // Removed Alert.alert popup for correct/incorrect as requested
   };
 
   // Copy entire question+explanation
@@ -152,11 +199,19 @@ const GRCScreen = () => {
       const correctExplanation = questionData.explanations[correctIndex.toString()];
       const examTip = questionData.exam_tip;
 
-      const textToCopy = `Question: ${questionData.question}\n\nOptions:\n${questionData.options
-        .map((opt, i) => `${i + 1}. ${opt}`)
-        .join('\n')}\n\nCorrect Answer: ${
-        questionData.options[correctIndex]
-      }\n\nExplanation: ${correctExplanation}\n\nExam Tip: ${examTip}`;
+      // Build multi-line text to copy
+      const textToCopy = [
+        `Question: ${questionData.question}`,
+        "",
+        "Options:",
+        ...questionData.options.map((opt, i) => `${i + 1}. ${opt}`),
+        "",
+        `Correct Answer: ${questionData.options[correctIndex]}`,
+        "",
+        `Explanation: ${correctExplanation}`,
+        "",
+        `Exam Tip: ${examTip}`
+      ].join('\n');
 
       await Clipboard.setStringAsync(textToCopy);
       
@@ -202,341 +257,564 @@ const GRCScreen = () => {
         { 
           borderBottomColor: theme.colors.border,
           backgroundColor: item.value === category ? 
-            `${theme.colors.primary}20` : 'transparent'
+            `${theme.colors.primary}20` : 'transparent',
         }
       ]}
       onPress={() => handleCategorySelect(item.value)}
     >
-      <Text style={[styles.categoryItemText, { color: theme.colors.text }]}>{item.label}</Text>
+      <Text style={[styles.categoryItemText, { 
+        color: theme.colors.text, 
+        fontFamily: 'ShareTechMono' 
+      }]}>
+        {item.label}
+      </Text>
       {item.value === category && (
         <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
       )}
     </TouchableOpacity>
   );
 
-  // Render the row of difficulty "chips"
-  const renderDifficultyChips = () => (
-    <View style={styles.chipRow}>
-      {DIFFICULTY_OPTIONS.map((diff) => {
-        const active = difficulty === diff;
-        const diffColor = getDifficultyColor(diff);
-        return (
-          <TouchableOpacity
-            key={diff}
-            style={[
-              styles.chip, 
-              {
-                backgroundColor: active ? diffColor : theme.colors.inputBackground,
-                borderColor: active ? diffColor : theme.colors.inputBorder
-              }
-            ]}
-            onPress={() => {
-              if (Platform.OS === 'ios' && !loading) {
-                Haptics.selectionAsync();
-              }
-              !loading && setDifficulty(diff);
-            }}
-            disabled={loading}
-          >
-            <Text 
-              style={[
-                styles.chipText, 
-                { 
-                  color: active ? theme.colors.buttonText : theme.colors.textSecondary
-                }
-              ]}
-            >
-              {diff}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-
   return (
     <SafeAreaView style={[globalStyles.screen, styles.container]}>
       <StatusBar style="light" />
 
-      <LinearGradient
-        colors={theme.colors.headerGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.header}
+      {/* Main Header */}
+      <Animated.View 
+        style={{
+          opacity: fadeAnim,
+          transform: [{ scale: scaleAnim }]
+        }}
       >
-        <Text style={[styles.title, { color: theme.colors.text }]}>GRC Wizard</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          Master the art of Governance, Risk, and Compliance
-        </Text>
-      </LinearGradient>
+        <LinearGradient
+          colors={[theme.colors.primary + '30', theme.colors.background]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.header}
+        >
+          <Text style={[styles.title, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+            GRC <Text style={{ color: theme.colors.primary }}>WIZARD</Text>
+          </Text>
+          <View style={styles.headerSubtitleBox}>
+            <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+              MASTER THE ART OF GOVERNANCE, RISK, AND COMPLIANCE
+            </Text>
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
       {/* ScrollView for entire content */}
       <ScrollView 
         style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Card for generating a question */}
-        <View style={[styles.wizardCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          <View style={styles.cardHeader}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Generate a Question</Text>
-            <Text style={[styles.cardSubtitle, { color: theme.colors.textSecondary }]}>
-              Select a category and difficulty level
+        {/* Section Header */}
+        <View style={styles.sectionHeader}>
+          <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.primary + '20' }]}>
+            <LinearGradient
+              colors={['transparent', theme.colors.primary + '40', 'transparent']}
+              start={{x: 0, y: 0.5}}
+              end={{x: 1, y: 0.5}}
+              style={styles.sectionTitleGradient}
+            />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+              CONFIGURATION
             </Text>
           </View>
-
-          <View style={styles.controls}>
-            {/* Category selection */}
-            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Category</Text>
-            <TouchableOpacity
-              style={[styles.categoryButton, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}
-              onPress={() => !loading && setShowCategoryModal(true)}
-              disabled={loading}
-            >
-              <Ionicons name="list" size={16} color={theme.colors.primary} />
-              <Text style={[styles.categoryButtonText, { color: theme.colors.inputText }]}>{category}</Text>
-              <Ionicons name="chevron-down" size={16} color={theme.colors.inputText} />
-            </TouchableOpacity>
-
-            {/* Difficulty row of chips */}
-            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Difficulty</Text>
-            {renderDifficultyChips()}
-
-            {/* Generate Button */}
-            <TouchableOpacity
-              style={[
-                styles.generateButton, 
-                { backgroundColor: theme.colors.buttonPrimary },
-                loading && { opacity: 0.7 }
-              ]}
-              onPress={fetchQuestion}
-              disabled={loading}
-            >
-              {loading ? (
-                <View style={styles.buttonContent}>
-                  <ActivityIndicator color={theme.colors.buttonText} size="small" />
-                  <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>Generating</Text>
-                </View>
-              ) : questionData ? (
-                <View style={styles.buttonContent}>
-                  <Ionicons name="sync" size={20} color={theme.colors.buttonText} />
-                  <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>New Question</Text>
-                </View>
-              ) : (
-                <View style={styles.buttonContent}>
-                  <Ionicons name="book" size={20} color={theme.colors.buttonText} />
-                  <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>Generate Question</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+          
+          <View style={[styles.sectionIcon, { backgroundColor: theme.colors.primary }]}>
+            <Ionicons name="settings" size={22} color={theme.colors.buttonText} />
           </View>
         </View>
+        
+        {/* Card for generating a question */}
+        <Animated.View
+          style={{
+            opacity: cardAnims[0],
+            transform: [{ 
+              translateY: cardAnims[0].interpolate({
+                inputRange: [0, 1],
+                outputRange: [30, 0]
+              })
+            }]
+          }}
+        >
+          <View style={[styles.wizardCard, { 
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+            shadowColor: theme.colors.shadow,
+          }]}>
+            <View style={styles.controls}>
+              {/* Category selection */}
+              <Text style={[styles.label, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                CATEGORY
+              </Text>
+              <TouchableOpacity
+                style={[styles.categoryButton, { 
+                  backgroundColor: theme.colors.inputBackground, 
+                  borderColor: theme.colors.inputBorder 
+                }]}
+                onPress={() => !loading && setShowCategoryModal(true)}
+                disabled={loading}
+              >
+                <Ionicons name="list" size={16} color={theme.colors.primary} />
+                <Text style={[styles.categoryButtonText, { 
+                  color: theme.colors.inputText,
+                  fontFamily: 'ShareTechMono'
+                }]}>
+                  {category}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={theme.colors.inputText} />
+              </TouchableOpacity>
+
+              {/* Difficulty row of chips */}
+              <Text style={[styles.label, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                DIFFICULTY
+              </Text>
+              <View style={styles.chipRow}>
+                {DIFFICULTY_OPTIONS.map((diff) => {
+                  const active = difficulty === diff;
+                  const diffColor = getDifficultyColor(diff);
+                  return (
+                    <TouchableOpacity
+                      key={diff}
+                      style={[
+                        styles.chip, 
+                        {
+                          backgroundColor: active ? diffColor : theme.colors.inputBackground,
+                          borderColor: active ? diffColor : theme.colors.inputBorder
+                        }
+                      ]}
+                      onPress={() => {
+                        if (Platform.OS === 'ios' && !loading) {
+                          Haptics.selectionAsync();
+                        }
+                        !loading && setDifficulty(diff);
+                      }}
+                      disabled={loading}
+                    >
+                      <Text 
+                        style={[
+                          styles.chipText, 
+                          { 
+                            color: active ? theme.colors.buttonText : theme.colors.textSecondary,
+                            fontFamily: 'ShareTechMono'
+                          }
+                        ]}
+                      >
+                        {diff.toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Generate Button */}
+              <TouchableOpacity
+                style={[
+                  styles.generateButton, 
+                  { backgroundColor: theme.colors.buttonPrimary },
+                  loading && { opacity: 0.7 }
+                ]}
+                onPress={fetchQuestion}
+                disabled={loading}
+              >
+                {loading ? (
+                  <View style={styles.buttonContent}>
+                    <ActivityIndicator color={theme.colors.buttonText} size="small" />
+                    <Text style={[styles.buttonText, { 
+                      color: theme.colors.buttonText,
+                      fontFamily: 'Orbitron'
+                    }]}>
+                      GENERATING
+                    </Text>
+                  </View>
+                ) : questionData ? (
+                  <View style={styles.buttonContent}>
+                    <Ionicons name="sync" size={20} color={theme.colors.buttonText} />
+                    <Text style={[styles.buttonText, { 
+                      color: theme.colors.buttonText,
+                      fontFamily: 'Orbitron'
+                    }]}>
+                      NEW QUESTION
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.buttonContent}>
+                    <Ionicons name="book" size={20} color={theme.colors.buttonText} />
+                    <Text style={[styles.buttonText, { 
+                      color: theme.colors.buttonText,
+                      fontFamily: 'Orbitron'
+                    }]}>
+                      GENERATE QUESTION
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
 
         {/* Error message box */}
         {errorMessage ? (
-          <View style={[
-            styles.errorContainer, 
-            { 
-              backgroundColor: `${theme.colors.error}10`,
-              borderColor: `${theme.colors.error}30`
-            }
-          ]}>
-            <Ionicons name="warning" size={20} color={theme.colors.error} />
-            <Text style={[styles.errorText, { color: theme.colors.error }]}>{errorMessage}</Text>
-          </View>
+          <Animated.View
+            style={{
+              opacity: cardAnims[1],
+              transform: [{ 
+                translateY: cardAnims[1].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [30, 0]
+                })
+              }]
+            }}
+          >
+            <View style={[
+              styles.errorContainer, 
+              { 
+                backgroundColor: `${theme.colors.error}10`,
+                borderColor: `${theme.colors.error}30`,
+                borderLeftColor: theme.colors.error,
+                borderLeftWidth: 4
+              }
+            ]}>
+              <Ionicons name="warning" size={20} color={theme.colors.error} />
+              <Text style={[styles.errorText, { 
+                color: theme.colors.error,
+                fontFamily: 'ShareTechMono'
+              }]}>
+                {errorMessage}
+              </Text>
+            </View>
+          </Animated.View>
         ) : null}
 
         {/* Loading Card */}
         {loading && !questionData && (
-          <View style={[
-            styles.loadingCard,
-            { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }
-          ]}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={[styles.loadingText, { color: theme.colors.text }]}>
-              Preparing your question...
-            </Text>
-            <Text style={[styles.loadingSubtext, { color: theme.colors.textSecondary }]}>
-              This will only take a moment.
-            </Text>
-          </View>
+          <Animated.View
+            style={{
+              opacity: cardAnims[1],
+              transform: [{ 
+                translateY: cardAnims[1].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [30, 0]
+                })
+              }]
+            }}
+          >
+            <View style={[
+              styles.loadingCard,
+              { 
+                backgroundColor: theme.colors.surface, 
+                borderColor: theme.colors.border,
+                shadowColor: theme.colors.shadow,
+              }
+            ]}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { 
+                color: theme.colors.text,
+                fontFamily: 'Orbitron-Bold'
+              }]}>
+                PREPARING YOUR QUESTION...
+              </Text>
+              <Text style={[styles.loadingSubtext, { 
+                color: theme.colors.textSecondary,
+                fontFamily: 'ShareTechMono'
+              }]}>
+                THIS WILL ONLY TAKE A MOMENT.
+              </Text>
+            </View>
+          </Animated.View>
         )}
 
         {/* If question loaded, show it */}
         {questionData && (
-          <View style={[styles.questionCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-            {/* Top info */}
-            <View style={[styles.questionHeader, { backgroundColor: `${theme.colors.primary}20` }]}>
-              <View style={styles.questionMeta}>
-                <View style={styles.categoryContainer}>
-                  <Ionicons
-                    name={category === 'Random' ? 'shuffle' : 'shield-checkmark'}
-                    size={16}
-                    color={theme.colors.primary}
-                  />
-                  <Text style={[styles.questionCategory, { color: theme.colors.textSecondary }]}> {category}</Text>
-                </View>
-                <View style={styles.difficultyContainer}>
-                  <Ionicons
-                    name={
-                      difficulty === 'Easy'
-                        ? 'bulb-outline'
-                        : difficulty === 'Medium'
-                        ? 'rocket'
-                        : 'trophy'
-                    }
-                    size={16}
-                    color={getDifficultyColor(difficulty)}
-                  />
-                  <Text style={[
-                    styles.questionDifficulty, 
-                    { color: getDifficultyColor(difficulty) }
-                  ]}>
-                    {' '}
-                    {difficulty}
-                  </Text>
-                </View>
+          <Animated.View
+            style={{
+              opacity: cardAnims[2],
+              transform: [{ 
+                translateY: cardAnims[2].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [30, 0]
+                })
+              }]
+            }}
+          >
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.primary + '20' }]}>
+                <LinearGradient
+                  colors={['transparent', theme.colors.primary + '40', 'transparent']}
+                  start={{x: 0, y: 0.5}}
+                  end={{x: 1, y: 0.5}}
+                  style={styles.sectionTitleGradient}
+                />
+                <Text style={[styles.sectionTitle, { 
+                  color: theme.colors.text,
+                  fontFamily: 'Orbitron-Bold'
+                }]}>
+                  GRC CHALLENGE
+                </Text>
               </View>
-              <Text style={[styles.questionTitle, { color: theme.colors.text }]}>Question</Text>
+              
+              <View style={[styles.sectionIcon, { backgroundColor: theme.colors.toolCard }]}>
+                <Ionicons name="shield" size={22} color={theme.colors.buttonText} />
+              </View>
             </View>
+            
+            <View style={[styles.questionCard, { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              shadowColor: theme.colors.shadow,
+            }]}>
+              {/* Top info */}
+              <View style={[styles.questionHeader, { backgroundColor: `${theme.colors.primary}20` }]}>
+                <View style={styles.questionMeta}>
+                  <View style={styles.categoryContainer}>
+                    <Ionicons
+                      name={category === 'Random' ? 'shuffle' : 'shield-checkmark'}
+                      size={16}
+                      color={theme.colors.primary}
+                    />
+                    <Text style={[styles.questionCategory, { 
+                      color: theme.colors.textSecondary,
+                      fontFamily: 'ShareTechMono'
+                    }]}>
+                      {category}
+                    </Text>
+                  </View>
+                  <View style={styles.difficultyContainer}>
+                    <Ionicons
+                      name={
+                        difficulty === 'Easy'
+                          ? 'bulb-outline'
+                          : difficulty === 'Medium'
+                          ? 'rocket'
+                          : 'trophy'
+                      }
+                      size={16}
+                      color={getDifficultyColor(difficulty)}
+                    />
+                    <Text style={[
+                      styles.questionDifficulty, 
+                      { 
+                        color: getDifficultyColor(difficulty),
+                        fontFamily: 'ShareTechMono'
+                      }
+                    ]}>
+                      {difficulty.toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.questionTitle, { 
+                  color: theme.colors.text,
+                  fontFamily: 'Orbitron-Bold'
+                }]}>
+                  QUESTION
+                </Text>
+              </View>
 
-            {/* The question itself */}
-            <View style={styles.questionContent}>
-              <Text style={[styles.questionText, { color: theme.colors.text }]}>{questionData.question}</Text>
+              {/* The question itself */}
+              <View style={styles.questionContent}>
+                <Text style={[styles.questionText, { 
+                  color: theme.colors.text,
+                  fontFamily: 'ShareTechMono'
+                }]}>
+                  {questionData.question}
+                </Text>
 
-              <View style={styles.optionsContainer}>
-                {questionData.options &&
-                  questionData.options.map((option, index) => {
-                    const isCorrect = index === questionData.correct_answer_index;
-                    const isSelected = selectedOption === index;
+                <View style={styles.optionsContainer}>
+                  {questionData.options &&
+                    questionData.options.map((option, index) => {
+                      const isCorrect = index === questionData.correct_answer_index;
+                      const isSelected = selectedOption === index;
 
-                    return (
-                      <TouchableOpacity
-                        key={index}
-                        style={[
-                          styles.option,
-                          { 
-                            backgroundColor: theme.colors.inputBackground,
-                            borderColor: theme.colors.inputBorder
-                          },
-                          isSelected && { 
-                            backgroundColor: `${theme.colors.primary}20`,
-                            borderColor: theme.colors.primary
-                          },
-                          showExplanation && isCorrect && { 
-                            backgroundColor: `${theme.colors.success}20`,
-                            borderColor: theme.colors.success
-                          },
-                          showExplanation && isSelected && !isCorrect && { 
-                            backgroundColor: `${theme.colors.error}20`,
-                            borderColor: theme.colors.error
-                          },
-                        ]}
-                        onPress={() => handleAnswer(index)}
-                        disabled={selectedOption !== null}
-                      >
-                        <View
+                      return (
+                        <TouchableOpacity
+                          key={index}
                           style={[
-                            styles.optionLetter,
-                            { backgroundColor: theme.colors.background },
-                            showExplanation && isCorrect && { backgroundColor: theme.colors.success },
-                            showExplanation && isSelected && !isCorrect && { backgroundColor: theme.colors.error },
+                            styles.option,
+                            { 
+                              backgroundColor: theme.colors.inputBackground,
+                              borderColor: theme.colors.inputBorder
+                            },
+                            isSelected && { 
+                              backgroundColor: `${theme.colors.primary}20`,
+                              borderColor: theme.colors.primary
+                            },
+                            showExplanation && isCorrect && { 
+                              backgroundColor: `${theme.colors.success}20`,
+                              borderColor: theme.colors.success
+                            },
+                            showExplanation && isSelected && !isCorrect && { 
+                              backgroundColor: `${theme.colors.error}20`,
+                              borderColor: theme.colors.error
+                            },
                           ]}
+                          onPress={() => handleAnswer(index)}
+                          disabled={selectedOption !== null}
                         >
-                          <Text 
+                          <View
                             style={[
-                              styles.optionLetterText, 
-                              { color: theme.colors.text },
-                              (showExplanation && (isCorrect || (isSelected && !isCorrect))) && 
-                                { color: theme.colors.buttonText }
+                              styles.optionLetter,
+                              { backgroundColor: theme.colors.background },
+                              showExplanation && isCorrect && { backgroundColor: theme.colors.success },
+                              showExplanation && isSelected && !isCorrect && { backgroundColor: theme.colors.error },
                             ]}
                           >
-                            {getLetterFromIndex(index)}
+                            <Text 
+                              style={[
+                                styles.optionLetterText, 
+                                { 
+                                  color: theme.colors.text,
+                                  fontFamily: 'Orbitron-Bold'
+                                },
+                                (showExplanation && (isCorrect || (isSelected && !isCorrect))) && 
+                                  { color: theme.colors.buttonText }
+                              ]}
+                            >
+                              {getLetterFromIndex(index)}
+                            </Text>
+                          </View>
+                          <Text style={[styles.optionText, { 
+                            color: theme.colors.text,
+                            fontFamily: 'ShareTechMono'
+                          }]}>
+                            {option}
+                          </Text>
+                          {showExplanation && isCorrect && (
+                            <Ionicons name="checkmark" size={20} color={theme.colors.success} style={styles.statusIcon} />
+                          )}
+                          {showExplanation && isSelected && !isCorrect && (
+                            <Ionicons name="close" size={20} color={theme.colors.error} style={styles.statusIcon} />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                </View>
+              </View>
+
+              {/* If explanation is shown */}
+              {showExplanation && selectedOption !== null && (
+                <View style={[styles.explanationContainer, { 
+                  backgroundColor: `${theme.colors.primary}10`, 
+                  borderTopColor: theme.colors.border 
+                }]}>
+                  <View style={styles.explanationHeader}>
+                    <View style={styles.explanationTitleContainer}>
+                      {selectedOption === questionData.correct_answer_index ? (
+                        <>
+                          <Ionicons name="checkmark" size={20} color={theme.colors.success} />
+                          <Text style={[styles.explanationTitle, { 
+                            color: theme.colors.text,
+                            fontFamily: 'Orbitron-Bold'
+                          }]}>
+                            CORRECT ANSWER
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Ionicons name="close" size={20} color={theme.colors.error} />
+                          <Text style={[styles.explanationTitle, { 
+                            color: theme.colors.text,
+                            fontFamily: 'Orbitron-Bold'
+                          }]}>
+                            INCORRECT ANSWER
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.copyButton, 
+                        { backgroundColor: copiedToClipboard ? theme.colors.success : theme.colors.buttonSecondary }
+                      ]}
+                      onPress={handleCopy}
+                    >
+                      {copiedToClipboard ? (
+                        <View style={styles.copyButtonContent}>
+                          <Ionicons name="checkmark" size={16} color={theme.colors.buttonText} />
+                          <Text style={[styles.copyButtonText, { 
+                            color: theme.colors.buttonText,
+                            fontFamily: 'ShareTechMono'
+                          }]}>
+                            COPIED
                           </Text>
                         </View>
-                        <Text style={[styles.optionText, { color: theme.colors.text }]}>{option}</Text>
-                        {showExplanation && isCorrect && (
-                          <Ionicons name="checkmark" size={20} color={theme.colors.success} style={styles.statusIcon} />
-                        )}
-                        {showExplanation && isSelected && !isCorrect && (
-                          <Ionicons name="close" size={20} color={theme.colors.error} style={styles.statusIcon} />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-              </View>
-            </View>
-
-            {/* If explanation is shown */}
-            {showExplanation && selectedOption !== null && (
-              <View style={[styles.explanationContainer, { backgroundColor: `${theme.colors.primary}10`, borderTopColor: theme.colors.border }]}>
-                <View style={styles.explanationHeader}>
-                  <View style={styles.explanationTitleContainer}>
-                    {selectedOption === questionData.correct_answer_index ? (
-                      <>
-                        <Ionicons name="checkmark" size={20} color={theme.colors.success} />
-                        <Text style={[styles.explanationTitle, { color: theme.colors.text }]}> Correct Answer</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Ionicons name="close" size={20} color={theme.colors.error} />
-                        <Text style={[styles.explanationTitle, { color: theme.colors.text }]}> Incorrect Answer</Text>
-                      </>
-                    )}
-                  </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.copyButton, 
-                      { backgroundColor: copiedToClipboard ? theme.colors.success : theme.colors.buttonSecondary }
-                    ]}
-                    onPress={handleCopy}
-                  >
-                    {copiedToClipboard ? (
-                      <View style={styles.copyButtonContent}>
-                        <Ionicons name="checkmark" size={16} color={theme.colors.buttonText} />
-                        <Text style={[styles.copyButtonText, { color: theme.colors.buttonText }]}>Copied</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.copyButtonContent}>
-                        <Ionicons name="copy" size={16} color={theme.colors.buttonText} />
-                        <Text style={[styles.copyButtonText, { color: theme.colors.buttonText }]}>Copy</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.explanationContent}>
-                  <View style={[styles.explanationSection, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
-                    <Text style={[styles.explanationSectionTitle, { color: theme.colors.text }]}>Explanation</Text>
-                    <Text style={[styles.explanationText, { color: theme.colors.textSecondary }]}>
-                      {questionData.explanations && questionData.explanations[selectedOption.toString()]}
-                    </Text>
+                      ) : (
+                        <View style={styles.copyButtonContent}>
+                          <Ionicons name="copy" size={16} color={theme.colors.buttonText} />
+                          <Text style={[styles.copyButtonText, { 
+                            color: theme.colors.buttonText,
+                            fontFamily: 'ShareTechMono'
+                          }]}>
+                            COPY
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
                   </View>
 
-                  <View style={[styles.explanationSection, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
-                    <View style={styles.tipTitleContainer}>
-                      <Ionicons name="bulb" size={18} color={theme.colors.warning} />
-                      <Text style={[styles.explanationSectionTitle, { color: theme.colors.text }]}> Exam Tip</Text>
+                  <View style={styles.explanationContent}>
+                    <View style={[styles.explanationSection, { 
+                      backgroundColor: theme.colors.inputBackground, 
+                      borderColor: theme.colors.inputBorder 
+                    }]}>
+                      <Text style={[styles.explanationSectionTitle, { 
+                        color: theme.colors.text,
+                        fontFamily: 'Orbitron-Bold'
+                      }]}>
+                        EXPLANATION
+                      </Text>
+                      <Text style={[styles.explanationText, { 
+                        color: theme.colors.textSecondary,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        {questionData.explanations && questionData.explanations[selectedOption.toString()]}
+                      </Text>
                     </View>
-                    <Text style={[styles.tipText, { color: theme.colors.textSecondary, borderLeftColor: theme.colors.warning }]}>
-                      {questionData.exam_tip}
-                    </Text>
+
+                    <View style={[styles.explanationSection, { 
+                      backgroundColor: theme.colors.inputBackground, 
+                      borderColor: theme.colors.inputBorder 
+                    }]}>
+                      <View style={styles.tipTitleContainer}>
+                        <Ionicons name="bulb" size={18} color={theme.colors.warning} />
+                        <Text style={[styles.explanationSectionTitle, { 
+                          color: theme.colors.text,
+                          fontFamily: 'Orbitron-Bold'
+                        }]}>
+                          EXAM TIP
+                        </Text>
+                      </View>
+                      <Text style={[styles.tipText, { 
+                        color: theme.colors.textSecondary, 
+                        borderLeftColor: theme.colors.warning,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        {questionData.exam_tip}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* "New Question" button */}
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity 
+                      style={[styles.nextButton, { backgroundColor: theme.colors.buttonPrimary }]} 
+                      onPress={getNewQuestion}
+                    >
+                      <Ionicons name="sync" size={20} color={theme.colors.buttonText} />
+                      <Text style={[styles.nextButtonText, { 
+                        color: theme.colors.buttonText,
+                        fontFamily: 'Orbitron'
+                      }]}>
+                        NEW QUESTION
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-
-                {/* "New Question" button */}
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity 
-                    style={[styles.nextButton, { backgroundColor: theme.colors.buttonPrimary }]} 
-                    onPress={getNewQuestion}
-                  >
-                    <Ionicons name="sync" size={20} color={theme.colors.buttonText} />
-                    <Text style={[styles.nextButtonText, { color: theme.colors.buttonText }]}>New Question</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
+              )}
+            </View>
+          </Animated.View>
         )}
         
         {/* Bottom spacer for better scrolling */}
@@ -555,11 +833,17 @@ const GRCScreen = () => {
             styles.modalContent, 
             { 
               backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.primary
+              borderColor: theme.colors.primary,
+              borderWidth: 1
             }
           ]}>
             <View style={[styles.modalHeader, { backgroundColor: theme.colors.primary }]}>
-              <Text style={[styles.modalTitle, { color: theme.colors.buttonText }]}>Select a Category</Text>
+              <Text style={[styles.modalTitle, { 
+                color: theme.colors.buttonText,
+                fontFamily: 'Orbitron-Bold'
+              }]}>
+                SELECT A CATEGORY
+              </Text>
               <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
                 <Ionicons name="close" size={24} color={theme.colors.buttonText} />
               </TouchableOpacity>
@@ -585,50 +869,87 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 20,
-    borderRadius: 15,
-    margin: 15,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderTopWidth: 4,
+    width: '100%',
+    paddingTop: Platform.OS === 'ios' ? 50 : RNStatusBar.currentHeight + 10,
+    paddingHorizontal: 20,
+    paddingBottom: 15,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 5,
     textAlign: 'center',
-    marginBottom: 8,
+  },
+  headerSubtitleBox: {
+    alignSelf: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 12,
+    letterSpacing: 1,
     textAlign: 'center',
   },
   scrollView: {
     flex: 1,
-    padding: 15,
   },
+  scrollContent: {
+    paddingHorizontal: 15,
+    paddingBottom: 20,
+  },
+  
+  // Section Headers
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 15,
+  },
+  sectionTitleBg: {
+    flex: 1,
+    borderRadius: 6,
+    padding: 8,
+    marginRight: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sectionTitleGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  sectionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
   // "Wizard card" for the top control area
   wizardCard: {
     borderRadius: 15,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 24,
     elevation: 5,
-  },
-  cardHeader: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  cardTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  cardSubtitle: {
-    fontSize: 14,
   },
   controls: {
     gap: 15,
@@ -636,6 +957,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
+    letterSpacing: 0.5,
   },
   // Category selection button
   categoryButton: {
@@ -665,6 +987,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 14,
     fontWeight: '500',
+    letterSpacing: 1,
   },
   // Generate Button
   generateButton: {
@@ -689,6 +1012,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   // Error box
   errorContainer: {
@@ -711,22 +1035,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     marginBottom: 20,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 5,
   },
   loadingText: {
     fontSize: 18,
     fontWeight: 'bold',
     marginTop: 20,
     marginBottom: 5,
+    letterSpacing: 1,
   },
   loadingSubtext: {
     fontSize: 14,
+    letterSpacing: 0.5,
   },
   // Question card
   questionCard: {
     borderRadius: 15,
     overflow: 'hidden',
     borderWidth: 1,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 24,
@@ -749,6 +1078,7 @@ const styles = StyleSheet.create({
   },
   questionCategory: {
     fontSize: 14,
+    letterSpacing: 0.5,
   },
   difficultyContainer: {
     flexDirection: 'row',
@@ -756,10 +1086,12 @@ const styles = StyleSheet.create({
   },
   questionDifficulty: {
     fontSize: 14,
+    letterSpacing: 0.5,
   },
   questionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   questionContent: {
     padding: 20,
@@ -812,10 +1144,12 @@ const styles = StyleSheet.create({
   explanationTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   explanationTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   copyButton: {
     flexDirection: 'row',
@@ -831,6 +1165,7 @@ const styles = StyleSheet.create({
   },
   copyButtonText: {
     fontSize: 14,
+    letterSpacing: 0.5,
   },
   explanationContent: {
     gap: 20,
@@ -844,10 +1179,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+    gap: 8,
   },
   explanationSectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   explanationText: {
     fontSize: 15,
@@ -880,6 +1217,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   // Category modal
   modalOverlay: {
@@ -891,7 +1229,6 @@ const styles = StyleSheet.create({
     width: '90%',
     maxHeight: '70%',
     borderRadius: 15,
-    borderWidth: 1,
     overflow: 'hidden',
     alignSelf: 'center',
   },
@@ -904,6 +1241,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   categoryList: {
     padding: 10,
@@ -919,6 +1257,7 @@ const styles = StyleSheet.create({
   },
   categoryItemText: {
     fontSize: 16,
+    letterSpacing: 0.5,
   },
   bottomSpacer: {
     height: 100, // Extra padding at bottom for scrolling

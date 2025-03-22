@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,17 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  SafeAreaView,
   Platform,
   Modal,
-  Animated
+  Animated,
+  StatusBar,
+  Dimensions
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
+import * as Haptics from 'expo-haptics';
 import { claimDailyBonus, getDailyQuestion, submitDailyAnswer } from '../../api/dailyStationService';
 import { fetchUserData } from '../../store/slices/userSlice';
 import FormattedQuestion from '../../components/FormattedQuestion';
@@ -37,6 +39,12 @@ const DailyStationScreen = () => {
   const dispatch = useDispatch();
   const { userId, username, coins, xp, lastDailyClaim } = useSelector((state) => state.user);
 
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+  const [cardAnims] = useState([...Array(5)].map(() => new Animated.Value(0)));
+
   // Local states for bonus section
   const [bonusError, setBonusError] = useState(null);
   const [claimInProgress, setClaimInProgress] = useState(false);
@@ -56,8 +64,33 @@ const DailyStationScreen = () => {
   const [showCorrectAnimation, setShowCorrectAnimation] = useState(false);
   const [showWrongAnimation, setShowWrongAnimation] = useState(false);
 
-  // Animation values
-  const fadeAnim = useState(new Animated.Value(0))[0];
+  useEffect(() => {
+    // Start all animations at once without delays
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true
+      }),
+      ...cardAnims.map(anim => 
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true
+        })
+      )
+    ]).start();
+  }, []);
 
   // Check if user can claim bonus on initial load
   useEffect(() => {
@@ -183,6 +216,11 @@ const DailyStationScreen = () => {
       return;
     }
     
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
     // IMMEDIATELY hide button and show countdown to prevent double-clicks
     setShowButton(false);
     setClaimInProgress(true);
@@ -212,6 +250,11 @@ const DailyStationScreen = () => {
         setShowBonusAnimation(true);
         setClaimed(true);
         
+        // Haptic success feedback
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        
         // Update the user data in Redux
         dispatch(fetchUserData(userId));
       } else {
@@ -222,6 +265,12 @@ const DailyStationScreen = () => {
     } catch (err) {
       setBonusError('Error: ' + err.message);
       setClaimInProgress(false);
+      
+      // Haptic error feedback
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      
       // Even if there's an error, keep showing the countdown
     }
   };
@@ -253,6 +302,11 @@ const DailyStationScreen = () => {
       return;
     }
     
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
     setQuestionError(null);
     
     try {
@@ -269,77 +323,214 @@ const DailyStationScreen = () => {
       }));
 
       if (ansData.correct) {
+        // Haptic success feedback
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        
         setShowCorrectAnimation(true);
         setTimeout(() => setShowCorrectAnimation(false), 2000);
       } else {
+        // Haptic error feedback
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+        
         setShowWrongAnimation(true);
         setTimeout(() => setShowWrongAnimation(false), 2000);
       }
     } catch (err) {
       setQuestionError('Error: ' + err.message);
+      
+      // Haptic error feedback
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     }
   };
 
   return (
-    <SafeAreaView style={[globalStyles.screen]}>
-      <ScrollView style={styles.scrollView}>
-        {/* Header Section */}
-        <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[globalStyles.title, styles.headerTitle]}>Daily Station</Text>
-          <Text style={[globalStyles.textSecondary, styles.subtitle]}>Claim your daily rewards and answer the challenge</Text>
+    <View style={{ 
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: theme.colors.background,
+      zIndex: 999
+    }}>
+      <StatusBar hidden={true} />
+      
+      <ScrollView 
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Main Header with User Stats */}
+        {/* Main Header with User Stats */}
+        <View style={{ backgroundColor: theme.colors.background }}>
+          <Text style={[styles.mainTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+            DAILY <Text style={{ color: theme.colors.primary }}>STATION</Text>
+          </Text>
+          <View style={styles.headerSubtitleBox}>
+            <Text style={[styles.mainSubtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+              CLAIM REWARDS & COMPLETE DAILY CHALLENGES
+            </Text>
+          </View>
           
           {userId && (
             <View style={styles.userStats}>
-              <View style={[styles.statItem, { backgroundColor: theme.colors.surfaceHighlight }]}>
+              <View style={[styles.statItem, { 
+                backgroundColor: theme.colors.surfaceHighlight,
+                borderWidth: 1,
+                borderColor: theme.colors.border
+              }]}>
                 <Ionicons name="cash" size={18} color={theme.colors.goldBadge} />
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
+                <Text style={[styles.statValue, { 
+                  color: theme.colors.text, 
+                  fontFamily: 'Orbitron-Bold'
+                }]}>
+                  {coins}
+                </Text>
               </View>
-              <View style={[styles.statItem, { backgroundColor: theme.colors.surfaceHighlight }]}>
+              <View style={[styles.statItem, { 
+                backgroundColor: theme.colors.surfaceHighlight,
+                borderWidth: 1,
+                borderColor: theme.colors.border
+              }]}>
                 <Ionicons name="star" size={18} color={theme.colors.primary} />
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{xp}</Text>
+                <Text style={[styles.statValue, { 
+                  color: theme.colors.text,
+                  fontFamily: 'Orbitron-Bold'
+                }]}>
+                  {xp}
+                </Text>
               </View>
             </View>
           )}
         </View>
-
+        
         {/* Main Content */}
-        <View style={[globalStyles.container, styles.content]}>
-          {!userId ? (
-            <View style={[styles.loginRequired, { backgroundColor: theme.colors.surface }]}>
+        {!userId ? (
+          <Animated.View 
+            style={{
+              opacity: cardAnims[0],
+              transform: [{ 
+                translateY: cardAnims[0].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [30, 0]
+                })
+              }]
+            }}
+          >
+            <View style={[styles.loginRequired, { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              shadowColor: theme.colors.shadow
+            }]}>
               <Ionicons name="bulb" size={40} color={theme.colors.primary} style={styles.loginIcon} />
-              <Text style={[globalStyles.title, styles.loginTitle]}>Login Required</Text>
-              <Text style={[globalStyles.text, styles.loginText]}>
-                Please log in to claim daily rewards and participate in daily challenges.
+              <Text style={[styles.loginTitle, { 
+                color: theme.colors.text, 
+                fontFamily: 'Orbitron-Bold' 
+              }]}>
+                LOGIN REQUIRED
+              </Text>
+              <Text style={[styles.loginText, { 
+                color: theme.colors.textSecondary,
+                fontFamily: 'ShareTechMono'
+              }]}>
+                PLEASE LOG IN TO CLAIM DAILY REWARDS AND PARTICIPATE IN DAILY CHALLENGES.
               </Text>
             </View>
-          ) : (
-            <>
-              {/* Daily Bonus Card */}
-              <View style={[globalStyles.card, styles.card]}>
+          </Animated.View>
+        ) : (
+          <>
+            {/* Daily Bonus Card */}
+            <Animated.View 
+              style={{
+                opacity: cardAnims[0],
+                transform: [{ 
+                  translateY: cardAnims[0].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0]
+                  })
+                }]
+              }}
+            >
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.primary + '20' }]}>
+                  <LinearGradient
+                    colors={['transparent', theme.colors.primary + '40', 'transparent']}
+                    start={{x: 0, y: 0.5}}
+                    end={{x: 1, y: 0.5}}
+                    style={styles.sectionTitleGradient}
+                  />
+                  <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                    DAILY REWARD
+                  </Text>
+                </View>
+                
+                <View style={[styles.sectionIcon, { backgroundColor: theme.colors.primary }]}>
+                  <Ionicons name="gift" size={22} color={theme.colors.buttonText} />
+                </View>
+              </View>
+              
+              <View style={[styles.card, { 
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                shadowColor: theme.colors.shadow
+              }]}>
                 <LinearGradient
                   colors={theme.colors.secondaryGradient}
                   start={{x: 0, y: 0}}
                   end={{x: 1, y: 0}}
                   style={styles.cardHeader}
                 >
-                  <Ionicons name="gift" size={20} color={theme.colors.text} />
-                  <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Daily Bonus</Text>
+                  <Ionicons name="gift" size={20} color={theme.colors.buttonText} />
+                  <Text style={[styles.cardTitle, { 
+                    color: theme.colors.buttonText,
+                    fontFamily: 'Orbitron-Bold'
+                  }]}>
+                    DAILY BONUS
+                  </Text>
                 </LinearGradient>
                 
                 <View style={styles.cardContent}>
                   <View style={styles.bonusInfo}>
-                    <View style={[styles.bonusValue, { backgroundColor: theme.colors.surfaceHighlight, borderColor: `${theme.colors.goldBadge}50` }]}>
+                    <View style={[styles.bonusValue, { 
+                      backgroundColor: theme.colors.surfaceHighlight, 
+                      borderColor: `${theme.colors.goldBadge}50`,
+                      borderWidth: 1
+                    }]}>
                       <Ionicons name="cash" size={24} color={theme.colors.goldBadge} />
-                      <Text style={[styles.bonusValueText, { color: theme.colors.text }]}>250</Text>
+                      <Text style={[styles.bonusValueText, { 
+                        color: theme.colors.goldBadge,
+                        fontFamily: 'Orbitron-Bold'
+                      }]}>
+                        250
+                      </Text>
                     </View>
-                    <Text style={[globalStyles.textSecondary, styles.bonusText]}>Claim your free coins every 24 hours!</Text>
+                    <Text style={[styles.bonusText, { 
+                      color: theme.colors.textSecondary,
+                      fontFamily: 'ShareTechMono'
+                    }]}>
+                      CLAIM YOUR FREE COINS EVERY 24 HOURS!
+                    </Text>
                   </View>
                   
                   {/* Show error if any */}
                   {bonusError && !bonusError.includes("Next bonus in") && (
-                    <View style={[globalStyles.errorContainer, styles.errorContainer]}>
+                    <View style={[styles.errorContainer, { 
+                      backgroundColor: `${theme.colors.error}10`,
+                      borderColor: theme.colors.error,
+                      borderLeftWidth: 4
+                    }]}>
                       <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
-                      <Text style={globalStyles.errorText}>{bonusError}</Text>
+                      <Text style={[styles.errorText, { 
+                        color: theme.colors.error,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        {bonusError}
+                      </Text>
                     </View>
                   )}
                   
@@ -347,61 +538,146 @@ const DailyStationScreen = () => {
                   <View style={styles.bonusAction}>
                     {showButton ? (
                       <TouchableOpacity 
-                        style={[globalStyles.buttonSecondary, styles.claimButton]}
+                        style={[styles.claimButton, { 
+                          backgroundColor: theme.colors.buttonPrimary,
+                          shadowColor: theme.colors.shadow
+                        }]}
                         onPress={handleClaimDailyBonus}
                         disabled={claimInProgress}
                       >
                         {claimInProgress ? (
                           <View style={styles.buttonContent}>
                             <ActivityIndicator size="small" color={theme.colors.buttonText} />
-                            <Text style={[globalStyles.buttonText, styles.buttonText]}>Claiming...</Text>
+                            <Text style={[styles.buttonText, { 
+                              color: theme.colors.buttonText,
+                              fontFamily: 'Orbitron-Bold'
+                            }]}>
+                              CLAIMING...
+                            </Text>
                           </View>
                         ) : (
                           <View style={styles.buttonContent}>
                             <Ionicons name="cash" size={20} color={theme.colors.buttonText} />
-                            <Text style={[globalStyles.buttonText, styles.buttonText]}>Claim Bonus</Text>
+                            <Text style={[styles.buttonText, { 
+                              color: theme.colors.buttonText,
+                              fontFamily: 'Orbitron-Bold'
+                            }]}>
+                              CLAIM BONUS
+                            </Text>
                           </View>
                         )}
                       </TouchableOpacity>
                     ) : (
-                      <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                      <View style={[styles.countdown, { 
+                        backgroundColor: theme.colors.surfaceHighlight,
+                        borderColor: theme.colors.border
+                      }]}>
                         <Ionicons name="hourglass" size={24} color={theme.colors.primary} />
                         <View style={styles.countdownInfo}>
-                          <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Next bonus in:</Text>
-                          <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(bonusCountdown)}</Text>
+                          <Text style={[styles.countdownLabel, { 
+                            color: theme.colors.textMuted,
+                            fontFamily: 'ShareTechMono'
+                          }]}>
+                            NEXT BONUS IN:
+                          </Text>
+                          <Text style={[styles.countdownTime, { 
+                            color: theme.colors.text,
+                            fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                            fontWeight: 'bold'
+                          }]}>
+                            {formatCountdown(bonusCountdown)}
+                          </Text>
                         </View>
                       </View>
                     )}
                   </View>
                 </View>
               </View>
+            </Animated.View>
 
-              {/* Daily Question Card */}
-              <View style={[globalStyles.card, styles.card]}>
+            {/* Daily Question Card */}
+            <Animated.View 
+              style={{
+                opacity: cardAnims[1],
+                transform: [{ 
+                  translateY: cardAnims[1].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0]
+                  })
+                }]
+              }}
+            >
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.toolCard + '20' }]}>
+                  <LinearGradient
+                    colors={['transparent', theme.colors.toolCard + '40', 'transparent']}
+                    start={{x: 0, y: 0.5}}
+                    end={{x: 1, y: 0.5}}
+                    style={styles.sectionTitleGradient}
+                  />
+                  <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                    DAILY CHALLENGE
+                  </Text>
+                </View>
+                
+                <View style={[styles.sectionIcon, { backgroundColor: theme.colors.toolCard }]}>
+                  <Ionicons name="bulb" size={22} color={theme.colors.buttonText} />
+                </View>
+              </View>
+              
+              <View style={[styles.card, { 
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                shadowColor: theme.colors.shadow
+              }]}>
                 <LinearGradient
-                  colors={theme.colors.primaryGradient}
+                  colors={[theme.colors.toolCard, theme.colors.toolCard + '80']}
                   start={{x: 0, y: 0}}
                   end={{x: 1, y: 0}}
                   style={styles.cardHeader}
                 >
-                  <Ionicons name="bulb" size={20} color={theme.colors.text} />
-                  <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Daily Challenge</Text>
+                  <Ionicons name="bulb" size={20} color={theme.colors.buttonText} />
+                  <Text style={[styles.cardTitle, { 
+                    color: theme.colors.buttonText,
+                    fontFamily: 'Orbitron-Bold'
+                  }]}>
+                    DAILY CHALLENGE
+                  </Text>
                 </LinearGradient>
                 
                 <View style={styles.cardContent}>
                   {loadingQuestion ? (
                     <View style={styles.loading}>
                       <ActivityIndicator size="large" color={theme.colors.primary} />
-                      <Text style={[globalStyles.textMuted, styles.loadingText]}>Loading challenge...</Text>
+                      <Text style={[styles.loadingText, { 
+                        color: theme.colors.textMuted,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        LOADING CHALLENGE...
+                      </Text>
                     </View>
                   ) : questionError ? (
-                    <View style={[globalStyles.errorContainer, styles.errorContainer]}>
+                    <View style={[styles.errorContainer, { 
+                      backgroundColor: `${theme.colors.error}10`,
+                      borderColor: theme.colors.error,
+                      borderLeftWidth: 4
+                    }]}>
                       <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
-                      <Text style={globalStyles.errorText}>{questionError}</Text>
+                      <Text style={[styles.errorText, { 
+                        color: theme.colors.error,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        {questionError}
+                      </Text>
                     </View>
                   ) : !questionData ? (
                     <View style={styles.emptyState}>
-                      <Text style={[globalStyles.textMuted, styles.emptyText]}>No challenges available today. Check back tomorrow!</Text>
+                      <Text style={[styles.emptyText, { 
+                        color: theme.colors.textMuted,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        NO CHALLENGES AVAILABLE TODAY. CHECK BACK TOMORROW!
+                      </Text>
                     </View>
                   ) : (
                     <View style={[
@@ -409,7 +685,10 @@ const DailyStationScreen = () => {
                       showCorrectAnimation && { borderColor: theme.colors.success, borderWidth: 1 },
                       showWrongAnimation && { borderColor: theme.colors.error, borderWidth: 1 }
                     ]}>
-                      <View style={[styles.questionPrompt, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                      <View style={[styles.questionPrompt, { 
+                        backgroundColor: theme.colors.surfaceHighlight, 
+                        borderColor: theme.colors.border 
+                      }]}>
                         <FormattedQuestion questionText={questionData.prompt} />
                       </View>
                       
@@ -427,10 +706,13 @@ const DailyStationScreen = () => {
                                 size={24} 
                                 color={submitResult.correct ? theme.colors.success : theme.colors.error} 
                               />
-                              <Text style={[globalStyles.text, styles.resultText]}>
+                              <Text style={[styles.resultText, { 
+                                color: theme.colors.text,
+                                fontFamily: 'ShareTechMono'
+                              }]}>
                                 {submitResult.correct ? 
-                                  `Correct! You earned ${submitResult.awardedCoins} coins.` : 
-                                  `Not quite, but you still got ${submitResult.awardedCoins} coins.`}
+                                  `CORRECT! YOU EARNED ${submitResult.awardedCoins} COINS.` : 
+                                  `NOT QUITE, BUT YOU STILL GOT ${submitResult.awardedCoins} COINS.`}
                               </Text>
                             </View>
                           )}
@@ -442,17 +724,37 @@ const DailyStationScreen = () => {
                               borderColor: theme.colors.border,
                               borderLeftColor: theme.colors.primary
                             }]}>
-                              <Text style={[globalStyles.text, { fontWeight: '600' }, styles.explanationTitle]}>Explanation:</Text>
+                              <Text style={[styles.explanationTitle, { 
+                                color: theme.colors.text,
+                                fontFamily: 'Orbitron-Bold',
+                                fontWeight: '600'
+                              }]}>
+                                EXPLANATION:
+                              </Text>
                               <FormattedQuestion questionText={questionData.explanation || (submitResult && submitResult.explanation)} />
                             </View>
                           )}
                           
                           <View style={styles.nextQuestion}>
-                            <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                            <View style={[styles.countdown, { 
+                              backgroundColor: theme.colors.surfaceHighlight, 
+                              borderColor: theme.colors.border 
+                            }]}>
                               <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                               <View style={styles.countdownInfo}>
-                                <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Next challenge in:</Text>
-                                <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(questionCountdown)}</Text>
+                                <Text style={[styles.countdownLabel, { 
+                                  color: theme.colors.textMuted,
+                                  fontFamily: 'ShareTechMono'
+                                }]}>
+                                  NEXT CHALLENGE IN:
+                                </Text>
+                                <Text style={[styles.countdownTime, { 
+                                  color: theme.colors.text,
+                                  fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                                  fontWeight: 'bold'
+                                }]}>
+                                  {formatCountdown(questionCountdown)}
+                                </Text>
                               </View>
                             </View>
                           </View>
@@ -464,17 +766,39 @@ const DailyStationScreen = () => {
                               key={index}
                               style={[
                                 styles.optionItem,
-                                { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border },
+                                { 
+                                  backgroundColor: theme.colors.surfaceHighlight, 
+                                  borderColor: theme.colors.border 
+                                },
                                 selectedAnswer === index && { 
                                   backgroundColor: `${theme.colors.primary}30`, 
                                   borderColor: theme.colors.primary 
                                 }
                               ]}
-                              onPress={() => setSelectedAnswer(index)}
+                              onPress={() => {
+                                if (Platform.OS === 'ios') {
+                                  Haptics.selectionAsync();
+                                }
+                                setSelectedAnswer(index);
+                              }}
                             >
+                              <View style={[styles.optionLetter, { 
+                                backgroundColor: 
+                                  selectedAnswer === index ? 
+                                    theme.colors.primary : 
+                                    'rgba(255, 255, 255, 0.1)'
+                              }]}>
+                                <Text style={[styles.optionLetterText, { 
+                                  color: selectedAnswer === index ? 
+                                    theme.colors.buttonText : theme.colors.text,
+                                  fontFamily: 'Orbitron-Bold'
+                                }]}>
+                                  {String.fromCharCode(65 + index)}
+                                </Text>
+                              </View>
                               <Text style={[
-                                globalStyles.text,
                                 styles.optionText,
+                                { color: theme.colors.text, fontFamily: 'ShareTechMono' },
                                 selectedAnswer === index && { fontWeight: '600' }
                               ]}>
                                 {option}
@@ -487,8 +811,8 @@ const DailyStationScreen = () => {
                           
                           <TouchableOpacity 
                             style={[
-                              globalStyles.buttonPrimary,
                               styles.submitButton,
+                              { backgroundColor: theme.colors.buttonPrimary },
                               selectedAnswer === null && { 
                                 backgroundColor: `${theme.colors.primary}80`,
                               }
@@ -496,15 +820,34 @@ const DailyStationScreen = () => {
                             onPress={handleSubmitAnswer}
                             disabled={selectedAnswer === null}
                           >
-                            <Text style={globalStyles.buttonText}>Submit Answer</Text>
+                            <Text style={[styles.submitButtonText, { 
+                              color: theme.colors.buttonText,
+                              fontFamily: 'Orbitron-Bold'
+                            }]}>
+                              SUBMIT ANSWER
+                            </Text>
                           </TouchableOpacity>
                           
                           <View style={styles.nextQuestion}>
-                            <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                            <View style={[styles.countdown, { 
+                              backgroundColor: theme.colors.surfaceHighlight, 
+                              borderColor: theme.colors.border 
+                            }]}>
                               <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                               <View style={styles.countdownInfo}>
-                                <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Challenge refreshes in:</Text>
-                                <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(questionCountdown)}</Text>
+                                <Text style={[styles.countdownLabel, { 
+                                  color: theme.colors.textMuted,
+                                  fontFamily: 'ShareTechMono'
+                                }]}>
+                                  CHALLENGE REFRESHES IN:
+                                </Text>
+                                <Text style={[styles.countdownTime, { 
+                                  color: theme.colors.text,
+                                  fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                                  fontWeight: 'bold'
+                                }]}>
+                                  {formatCountdown(questionCountdown)}
+                                </Text>
                               </View>
                             </View>
                           </View>
@@ -514,14 +857,20 @@ const DailyStationScreen = () => {
                   )}
                 </View>
               </View>
-            </>
-          )}
-        </View>
+            </Animated.View>
+          </>
+        )}
+        
+        {/* Bottom space */}
+        <View style={{ height: 50 }} />
       </ScrollView>
       
       {/* BONUS CLAIM ANIMATION OVERLAY */}
       {showBonusAnimation && (
-        <Animated.View style={[styles.overlay, {opacity: fadeAnim, backgroundColor: theme.colors.overlay}]}>
+        <Animated.View style={[styles.overlay, {
+          opacity: fadeAnim, 
+          backgroundColor: theme.colors.overlay
+        }]}>
           <View style={[styles.bonusAnimation, { 
             backgroundColor: theme.colors.surface, 
             borderColor: theme.colors.primary,
@@ -529,35 +878,61 @@ const DailyStationScreen = () => {
           }]}>
             <Ionicons name="cash" size={60} color={theme.colors.goldBadge} style={styles.bonusIcon} />
             <View style={styles.bonusAnimationText}>
-              <Text style={[globalStyles.title, styles.bonusAnimationTitle]}>Daily Bonus Claimed!</Text>
-              <Text style={[globalStyles.textSecondary, styles.bonusAnimationSubtitle]}>+250 coins added to your account</Text>
+              <Text style={[styles.bonusAnimationTitle, { 
+                color: theme.colors.text,
+                fontFamily: 'Orbitron-Bold'
+              }]}>
+                DAILY BONUS CLAIMED!
+              </Text>
+              <Text style={[styles.bonusAnimationSubtitle, { 
+                color: theme.colors.textSecondary,
+                fontFamily: 'ShareTechMono'
+              }]}>
+                +250 COINS ADDED TO YOUR ACCOUNT
+              </Text>
             </View>
           </View>
         </Animated.View>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  // Base layout
   scrollView: {
     flex: 1,
   },
-  header: {
-    padding: 20,
-    borderBottomWidth: 1,
-  },
-  headerTitle: {
-    fontSize: 24,
+  
+  // Main Header
+  mainTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginTop: 0,
     marginBottom: 5,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
-  subtitle: {
-    fontSize: 14,
-    marginBottom: 15,
+  headerSubtitleBox: {
+    alignSelf: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  mainSubtitle: {
+    fontSize: 12,
+    letterSpacing: 1,
+    textAlign: 'center',
   },
   userStats: {
     flexDirection: 'row',
-    marginTop: 10,
+    justifyContent: 'center',
+    marginTop: 15,
+    gap: 15,
   },
   statItem: {
     flexDirection: 'row',
@@ -565,21 +940,64 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    marginRight: 10,
   },
   statValue: {
     marginLeft: 6,
     fontWeight: '600',
+    fontSize: 16,
   },
-  content: {
-    padding: 20,
+  
+  // Section Headers
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 15,
+    paddingHorizontal: 15,
   },
+  sectionTitleBg: {
+    flex: 1,
+    borderRadius: 6,
+    padding: 8,
+    marginRight: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sectionTitleGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  sectionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Login Required
   loginRequired: {
     borderRadius: 15,
     padding: 30,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+    marginHorizontal: 15,
+    marginTop: 15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   loginIcon: {
     marginBottom: 15,
@@ -587,17 +1005,25 @@ const styles = StyleSheet.create({
   loginTitle: {
     fontSize: 20,
     marginBottom: 10,
+    letterSpacing: 1,
   },
   loginText: {
     textAlign: 'center',
     lineHeight: 22,
+    letterSpacing: 0.5,
   },
+  
+  // Cards
   card: {
     borderRadius: 15,
     overflow: 'hidden',
+    marginHorizontal: 15,
     marginBottom: 20,
     borderWidth: 1,
-    padding: 0,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -608,10 +1034,13 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   cardContent: {
     padding: 20,
   },
+  
+  // Daily Bonus Section
   bonusInfo: {
     alignItems: 'center',
     marginBottom: 20,
@@ -623,7 +1052,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     marginBottom: 10,
-    borderWidth: 1,
   },
   bonusValueText: {
     fontSize: 20,
@@ -632,11 +1060,21 @@ const styles = StyleSheet.create({
   },
   bonusText: {
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
     marginBottom: 15,
+    borderWidth: 1,
+  },
+  errorText: {
+    marginLeft: 10,
+    flex: 1,
+    fontSize: 14,
+    letterSpacing: 0.5,
   },
   bonusAction: {
     alignItems: 'center',
@@ -655,10 +1093,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     minWidth: 200,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
   countdown: {
     flexDirection: 'row',
@@ -673,11 +1116,14 @@ const styles = StyleSheet.create({
   },
   countdownLabel: {
     fontSize: 12,
+    letterSpacing: 0.5,
   },
   countdownTime: {
     fontSize: 16,
-    fontWeight: '600',
+    letterSpacing: 1,
   },
+  
+  // Question section
   loading: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -685,6 +1131,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
+    letterSpacing: 0.5,
   },
   emptyState: {
     alignItems: 'center',
@@ -692,6 +1139,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   question: {
     borderRadius: 10,
@@ -709,11 +1157,22 @@ const styles = StyleSheet.create({
   optionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     borderRadius: 8,
     padding: 15,
     marginBottom: 10,
     borderWidth: 1,
+  },
+  optionLetter: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15,
+  },
+  optionLetterText: {
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   optionText: {
     flex: 1,
@@ -729,6 +1188,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginTop: 10,
     marginBottom: 20,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
   nextQuestion: {
     alignItems: 'center',
@@ -747,6 +1215,7 @@ const styles = StyleSheet.create({
   resultText: {
     marginLeft: 10,
     flex: 1,
+    letterSpacing: 0.5,
   },
   explanation: {
     borderRadius: 10,
@@ -757,7 +1226,10 @@ const styles = StyleSheet.create({
   },
   explanationTitle: {
     marginBottom: 10,
+    letterSpacing: 0.5,
   },
+  
+  // Animation overlay
   overlay: {
     position: 'absolute',
     top: 0,
@@ -788,9 +1260,12 @@ const styles = StyleSheet.create({
   bonusAnimationTitle: {
     fontSize: 20,
     marginBottom: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
   bonusAnimationSubtitle: {
     fontSize: 16,
+    letterSpacing: 0.5,
   },
 });
 

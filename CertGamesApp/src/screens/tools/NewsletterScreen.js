@@ -103,7 +103,7 @@ const NewsletterScreen = ({ navigation }) => {
   const handleSubscribe = async () => {
     if (!email) {
       setIsError(true);
-      setStatusMsg("Please enter your email address.");
+      setStatusMsg("Email address.");
       setShowStatusMsg(true);
       return;
     }
@@ -133,7 +133,7 @@ const NewsletterScreen = ({ navigation }) => {
         setStatusMsg(response.message || "Already subscribed.");
       } else {
         setIsError(false);
-        setStatusMsg(response.message || "Successfully subscribed to the Daily Cyber Brief!");
+        setStatusMsg(response.message || "Successfully subscribed to the Cyber Brief!");
         // Clear email field on successful subscription
         setEmail("");
         if (Platform.OS === 'ios') {
@@ -157,7 +157,7 @@ const NewsletterScreen = ({ navigation }) => {
   const handleUnsubscribe = async () => {
     if (!email) {
       setIsError(true);
-      setStatusMsg("Please enter your email address to unsubscribe.");
+      setStatusMsg("Email address.");
       setShowStatusMsg(true);
       return;
     }
@@ -187,7 +187,7 @@ const NewsletterScreen = ({ navigation }) => {
         setStatusMsg(response.message || "Email not found in subscriber list.");
       } else {
         setIsError(false);
-        setStatusMsg(response.message || "Successfully unsubscribed from the Daily Cyber Brief.");
+        setStatusMsg(response.message || "Successfully unsubscribed from the Cyber Brief.");
         // Clear email field on successful unsubscription
         setEmail("");
         if (Platform.OS === 'ios') {
@@ -274,7 +274,7 @@ const NewsletterScreen = ({ navigation }) => {
             >
               <View style={styles.headerContent}>
                 <Text style={[styles.mainTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
-                  DAILY CYBER BRIEF
+                  CERT GAMES CYBER BRIEF
                 </Text>
                 <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
                 <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
@@ -316,7 +316,7 @@ const NewsletterScreen = ({ navigation }) => {
                 
                 <View style={styles.cardContent}>
                   <Text style={[globalStyles.text, styles.cardText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
-                    The Daily Cyber Brief delivers curated, actionable cybersecurity intelligence 
+                    The CERT GAMES Cyber Brief delivers curated, actionable cybersecurity intelligence 
                     directly to your inbox. Stay informed about emerging threats, security best 
                     practices, and industry trends.
                   </Text>
@@ -498,7 +498,7 @@ const NewsletterScreen = ({ navigation }) => {
                             fontFamily: 'ShareTechMono'
                           }
                         ]}
-                        placeholder="Enter your email address"
+                        placeholder="Email address"
                         placeholderTextColor={theme.colors.placeholder}
                         value={email}
                         onChangeText={setEmail}
@@ -541,7 +541,7 @@ const NewsletterScreen = ({ navigation }) => {
                               styles.submitButtonText, 
                               { color: theme.colors.buttonText, fontFamily: 'Orbitron' }
                             ]}>
-                              SUBSCRIBE TO DAILY UPDATES
+                              SUBSCRIBE
                             </Text>
                           </View>
                         )}
@@ -580,7 +580,7 @@ const NewsletterScreen = ({ navigation }) => {
                               styles.submitButtonText, 
                               { color: theme.colors.primary, fontFamily: 'Orbitron' }
                             ]}>
-                              UNSUBSCRIBE FROM UPDATES
+                              UNSUBSCRIBE
                             </Text>
                           </View>
                         )}
@@ -646,7 +646,7 @@ const NewsletterScreen = ({ navigation }) => {
                 
                 <View style={styles.cardContent}>
                   <Text style={[globalStyles.text, styles.cardText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
-                    The Daily Cyber Brief is sent every weekday morning. We respect your privacy
+                    Our Cyber Brief is sent a few times every week. We respect your privacy
                     and will never share your email address with third parties. Each newsletter includes
                     an unsubscribe link for easy opt-out at any time.
                   </Text>
@@ -772,6 +772,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     letterSpacing: 1,
+    marginBottom: 25,
   },
   mainContent: {
     padding: 15,

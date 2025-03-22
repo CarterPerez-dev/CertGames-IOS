@@ -15,13 +15,13 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { fetchUserData, claimDailyBonus } from '../store/slices/userSlice';
-import { useTheme } from '../context/ThemeContext'; // Import useTheme hook
+import { useTheme } from '../context/ThemeContext'; 
 
 const { width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { theme } = useTheme(); // Access the theme
+  const { theme } = useTheme(); 
   const { userId, username, level, xp, coins, status, lastDailyClaim } = useSelector((state) => state.user);
   const isLoading = status === 'loading';
   const [refreshing, setRefreshing] = useState(false);
@@ -64,31 +64,31 @@ const HomeScreen = ({ navigation }) => {
     return (now - lastClaim) > (24 * 60 * 60 * 1000);
   };
   
-  // All certification options
+  // All certification options - now use theme.colors.testCard for all
   const certOptions = [
-    { id: 'aplus',     name: 'A+ Core 1 (1101)',    color: theme.colors.primary, icon: 'hardware-chip-outline',  screenName: 'APlusTests' },
-    { id: 'aplus2',    name: 'A+ Core 2 (1102)',    color: theme.colors.primary, icon: 'desktop-outline',  screenName: 'APlus2Tests' },
-    { id: 'nplus',     name: 'Network+ (N10-009)',  color: theme.colors.secondary, icon: 'git-network-outline',     screenName: 'NetworkPlusTests' },
-    { id: 'secplus',   name: 'Security+ (SY0-701)', color: theme.colors.success, icon: 'shield-checkmark-outline', screenName: 'SecurityPlusTests' },
-    { id: 'cysa',      name: 'CySA+ (CS0-003)',     color: theme.colors.info, icon: 'analytics-outline', screenName: 'CySAPlusTests' },
-    { id: 'penplus',   name: 'PenTest+ (PT0-003)',  color: theme.colors.warning, icon: 'bug-outline',       screenName: 'PenPlusTests' },
-    { id: 'linuxplus', name: 'Linux+ (XK0-005)',    color: theme.colors.secondary, icon: 'terminal-outline',  screenName: 'LinuxPlusTests' },
-    { id: 'caspplus',  name: 'CASP+ (CAS-005)',     color: theme.colors.error, icon: 'shield-outline',    screenName: 'CaspPlusTests' },
-    { id: 'cloudplus', name: 'Cloud+ (CV0-004)',    color: theme.colors.info, icon: 'cloud-outline',     screenName: 'CloudPlusTests' },
-    { id: 'dataplus',  name: 'Data+ (DA0-001)',     color: theme.colors.success, icon: 'bar-chart-outline', screenName: 'DataPlusTests' },
-    { id: 'serverplus',name: 'Server+ (SK0-005)',   color: theme.colors.secondary, icon: 'server-outline',    screenName: 'ServerPlusTests' },
-    { id: 'cissp',     name: 'CISSP',               color: theme.colors.surface, icon: 'lock-closed-outline', screenName: 'CisspTests' },
-    { id: 'awscloud',  name: 'AWS Cloud Practitioner', color: theme.colors.warning, icon: 'cloud-outline',  screenName: 'AWSCloudTests' },
+    { id: 'aplus',     name: 'A+ Core 1 (1101)',    icon: 'hardware-chip-outline',  screenName: 'APlusTests' },
+    { id: 'aplus2',    name: 'A+ Core 2 (1102)',    icon: 'desktop-outline',  screenName: 'APlus2Tests' },
+    { id: 'nplus',     name: 'Network+ (N10-009)',  icon: 'git-network-outline',     screenName: 'NetworkPlusTests' },
+    { id: 'secplus',   name: 'Security+ (SY0-701)', icon: 'shield-checkmark-outline', screenName: 'SecurityPlusTests' },
+    { id: 'cysa',      name: 'CySA+ (CS0-003)',     icon: 'analytics-outline', screenName: 'CySAPlusTests' },
+    { id: 'penplus',   name: 'PenTest+ (PT0-003)',  icon: 'bug-outline',       screenName: 'PenPlusTests' },
+    { id: 'linuxplus', name: 'Linux+ (XK0-005)',    icon: 'terminal-outline',  screenName: 'LinuxPlusTests' },
+    { id: 'caspplus',  name: 'CASP+ (CAS-005)',     icon: 'shield-outline',    screenName: 'CaspPlusTests' },
+    { id: 'cloudplus', name: 'Cloud+ (CV0-004)',    icon: 'cloud-outline',     screenName: 'CloudPlusTests' },
+    { id: 'dataplus',  name: 'Data+ (DA0-001)',     icon: 'bar-chart-outline', screenName: 'DataPlusTests' },
+    { id: 'serverplus',name: 'Server+ (SK0-005)',   icon: 'server-outline',    screenName: 'ServerPlusTests' },
+    { id: 'cissp',     name: 'CISSP',               icon: 'lock-closed-outline', screenName: 'CisspTests' },
+    { id: 'awscloud',  name: 'AWS Cloud Practitioner', icon: 'cloud-outline',  screenName: 'AWSCloudTests' },
   ];
   
-  // Tools config
+  // Tools config - now use theme.colors.toolCard for all
   const toolsOptions = [
-    { name: "Analogy Hub", color: theme.colors.secondary, icon: 'bulb-outline', screen: 'AnalogyHub' },
-    { name: "Resources", color: theme.colors.secondary, icon: 'library-outline', screen: 'Resources' },
-    { name: "Scenarios", color: theme.colors.success, icon: 'document-text-outline', screen: 'ScenarioSphere' },
-    { name: "GRC", color: theme.colors.info, icon: 'shield-outline', screen: 'GRC' },
-    { name: "XploitCraft", color: theme.colors.warning, icon: 'code-slash-outline', screen: 'XploitCraft' },
-    { name: "Support", color: theme.colors.info, icon: 'help-circle-outline', screen: 'Support' }
+    { name: "Analogy Hub", icon: 'bulb-outline', screen: 'AnalogyHub' },
+    { name: "Resources", icon: 'library-outline', screen: 'Resources' },
+    { name: "Scenarios", icon: 'document-text-outline', screen: 'ScenarioSphere' },
+    { name: "GRC", icon: 'shield-outline', screen: 'GRC' },
+    { name: "XploitCraft", icon: 'code-slash-outline', screen: 'XploitCraft' },
+    { name: "Support", icon: 'help-circle-outline', screen: 'Support' }
   ];
   
   // Navigate to tests
@@ -132,23 +132,32 @@ const HomeScreen = ({ navigation }) => {
       >
         {/* User Stats Panel */}
         {username && (
-          <View style={[styles.statsPanel, { backgroundColor: theme.colors.surface }]}>
+          <View style={[styles.statsPanel, { 
+            backgroundColor: theme.colors.surface,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            shadowColor: theme.colors.shadow,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 8,
+            elevation: 5,
+          }]}>
             <Text style={[styles.welcomeText, { color: theme.colors.text }]}>Welcome, {username}</Text>
             
             <View style={styles.levelRow}>
-              <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary, borderColor: theme.colors.text }]}>
-                <Text style={[styles.levelText, { color: theme.colors.textInverse }]}>{level}</Text>
+              <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary, borderColor: theme.colors.border }]}>
+                <Text style={[styles.levelText, { color: theme.colors.buttonText }]}>{level}</Text>
               </View>
               
               <View style={styles.xpContainer}>
-                <View style={[styles.xpBar, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
-                  <View style={[styles.xpProgress, { width: `${Math.min((xp % 1000) / 10, 100)}%`, backgroundColor: theme.colors.text }]} />
+                <View style={[styles.xpBar, { backgroundColor: `${theme.colors.border}70` }]}>
+                  <View style={[styles.xpProgress, { width: `${Math.min((xp % 1000) / 10, 100)}%`, backgroundColor: theme.colors.primary }]} />
                 </View>
                 <Text style={[styles.xpText, { color: theme.colors.text }]}>{xp} XP</Text>
               </View>
             </View>
             
-            <View style={[styles.coinsContainer, { backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+            <View style={[styles.coinsContainer, { backgroundColor: theme.colors.surfaceHighlight }]}>
               <Ionicons name="cash" size={20} color={theme.colors.goldBadge} />
               <Text style={[styles.coinsText, { color: theme.colors.text }]}>{coins} Coins</Text>
             </View>
@@ -160,15 +169,24 @@ const HomeScreen = ({ navigation }) => {
           <TouchableOpacity
             style={[
               styles.dailyButton, 
-              { backgroundColor: theme.colors.primary },
+              { 
+                backgroundColor: theme.colors.primary,
+                shadowColor: theme.colors.shadow,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 5,
+                borderWidth: 1,
+                borderColor: `${theme.colors.primary}80`,
+              },
               canClaimDaily() && styles.dailyAvailable
             ]}
             onPress={() => navigateWithHaptic('DailyStation')}
             activeOpacity={0.85}
           >
             <View style={styles.dailyContent}>
-              <Ionicons name="gift-outline" size={24} color={theme.colors.text} style={styles.buttonIcon} />
-              <Text style={[styles.dailyText, { color: theme.colors.text }]}>Claim Daily Bonus</Text>
+              <Ionicons name="gift-outline" size={24} color={theme.colors.buttonText} style={styles.buttonIcon} />
+              <Text style={[styles.dailyText, { color: theme.colors.buttonText }]}>Claim Daily Bonus</Text>
             </View>
             {canClaimDaily() && (
               <View style={[styles.notificationDot, { backgroundColor: theme.colors.error, borderColor: theme.colors.primary }]} />
@@ -176,7 +194,16 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.cyberButton, { backgroundColor: theme.colors.surface }]}
+            style={[styles.cyberButton, { 
+              backgroundColor: theme.colors.surface,
+              shadowColor: theme.colors.shadow,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 8,
+              elevation: 5,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            }]}
             onPress={() => navigateWithHaptic('Newsletter')}
             activeOpacity={0.85}
           >
@@ -191,7 +218,7 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.testsHeaderContainer}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Practice Tests</Text>
           <View style={[styles.gradIconContainer, { backgroundColor: theme.colors.primary }]}>
-            <Ionicons name="school" size={22} color={theme.colors.textInverse} />
+            <Ionicons name="school" size={22} color={theme.colors.buttonText} />
           </View>
         </View>
         
@@ -199,15 +226,24 @@ const HomeScreen = ({ navigation }) => {
           {certOptions.map((cert, index) => (
             <TouchableOpacity
               key={cert.id}
-              style={[styles.certCard, { backgroundColor: cert.color }]}
+              style={[styles.certCard, { 
+                backgroundColor: theme.colors.testCard,
+                shadowColor: theme.colors.shadow,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 5,
+                borderWidth: 1,
+                borderColor: `${theme.colors.toolCard}80`,
+              }]}
               onPress={() => navigateToTests(cert)}
               activeOpacity={0.85}
             >
               <View style={styles.certContent}>
-                <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                  <Ionicons name={cert.icon} size={24} color={theme.colors.textInverse} />
+                <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.buttonText}20` }]}>
+                  <Ionicons name={cert.icon} size={24} color={theme.colors.buttonText} />
                 </View>
-                <Text style={[styles.certName, { color: theme.colors.textInverse }]}>{cert.name}</Text>
+                <Text style={[styles.certName, { color: theme.colors.buttonText }]}>{cert.name}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -217,7 +253,7 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.testsHeaderContainer}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Training Tools</Text>
           <View style={[styles.gradIconContainer, { backgroundColor: theme.colors.secondary }]}>
-            <Ionicons name="hammer" size={22} color={theme.colors.textInverse} />
+            <Ionicons name="hammer" size={22} color={theme.colors.buttonText} />
           </View>
         </View>
         
@@ -225,15 +261,24 @@ const HomeScreen = ({ navigation }) => {
           {toolsOptions.map((tool, index) => (
             <TouchableOpacity
               key={tool.name}
-              style={[styles.certCard, { backgroundColor: tool.color }]}
+              style={[styles.certCard, { 
+                backgroundColor: theme.colors.toolCard,
+                shadowColor: theme.colors.shadow,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 5,
+                borderWidth: 1,
+                borderColor: `${theme.colors.toolCard}80`,
+              }]}
               onPress={() => navigateWithHaptic(tool.screen)}
               activeOpacity={0.85}
             >
               <View style={styles.certContent}>
-                <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                  <Ionicons name={tool.icon} size={24} color={theme.colors.textInverse} />
+                <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.buttonText}20` }]}>
+                  <Ionicons name={tool.icon} size={24} color={theme.colors.buttonText} />
                 </View>
-                <Text style={[styles.certName, { color: theme.colors.textInverse }]}>{tool.name}</Text>
+                <Text style={[styles.certName, { color: theme.colors.buttonText }]}>{tool.name}</Text>
               </View>
             </TouchableOpacity>
           ))}

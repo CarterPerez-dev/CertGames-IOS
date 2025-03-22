@@ -151,7 +151,7 @@ const LeaderboardScreen = () => {
       >
         <LinearGradient
           colors={isCurrentUser 
-            ? [theme.colors.primary, theme.colors.primary + '90'] 
+            ? [theme.colors.shadow, theme.colors.primary + '90'] 
             : [itemColor, itemColor + '90']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -256,7 +256,7 @@ const LeaderboardScreen = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <LinearGradient
-        colors={[theme.colors.primary, theme.colors.secondary]}
+        colors={[theme.colors.shadow, theme.colors.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
@@ -271,7 +271,7 @@ const LeaderboardScreen = () => {
               Top performers ranked by level and experience
             </Text>
             <View style={styles.trophyIcon}>
-              <Ionicons name="trophy" size={24} color="#FFFFFF" />
+              <Ionicons name="trophy" size={24} color="#FFD700" />
             </View>
           </View>
         </Animated.View>

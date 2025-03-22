@@ -5,23 +5,25 @@ import * as SecureStore from 'expo-secure-store';
 
 // Define available themes with comprehensive properties
 const themes = {
+  // Default theme: Dark black background with dark purple primary color
   dark: {
     name: 'dark',
+    displayName: 'Dark Purple',
     colors: {
-      // Base colors - less pink, more darker blues
-      primary: '#4A6DFF',          // Changed from purple to blue
-      secondary: '#3D5AF1',        // Changed from pink to darker blue
+      // Base colors
+      primary: '#6A1B9A',          // Dark purple
+      secondary: '#4527A0',        // Dark indigo
       accent: '#2ECC71',           // Green accent for success/positive actions
       
       // Background colors
-      background: '#0D0F1F',       // Main app background
-      surface: '#161A30',          // Elevated UI elements (cards, etc)
-      surfaceHighlight: '#1A1F38', // Highlighted surface elements
+      background: '#0A0A0A',       // Matte black main app background
+      surface: '#121212',          // Elevated UI elements (cards, etc)
+      surfaceHighlight: '#1E1E1E', // Highlighted surface elements
       
       // Content/Text colors
       text: '#FFFFFF',             // Primary text
-      textSecondary: '#B0B0C0',    // Secondary text (subtitles, etc)
-      textMuted: '#8A8A9E',        // Muted text (hints, inactive states)
+      textSecondary: '#B0B0B0',    // Secondary text (subtitles, etc)
+      textMuted: '#808080',        // Muted text (hints, inactive states)
       textInverse: '#000000',      // Text on colored backgrounds
       
       // Status colors
@@ -31,47 +33,51 @@ const themes = {
       info: '#3498DB',             // Info color
       
       // UI element colors
-      border: '#272A3F',           // Border color
-      divider: '#222230',          // Divider color (subtler than border)
-      icon: '#AAAACC',             // Icon color
-      disabled: '#666680',         // Disabled state
-      placeholder: '#555566',      // Placeholder text color
+      border: '#333333',           // Border color
+      divider: '#222222',          // Divider color (subtler than border)
+      icon: '#BBBBBB',             // Icon color
+      disabled: '#555555',         // Disabled state
+      placeholder: '#555555',      // Placeholder text color
       
       // Input field colors
-      inputBackground: '#0F1126',  // Input field background
+      inputBackground: '#1A1A1A',  // Input field background
       inputText: '#FFFFFF',        // Input text color
-      inputBorder: '#333344',      // Input border color
-      inputFocus: '#4A6DFF',       // Input focus color - changed
+      inputBorder: '#333333',      // Input border color
+      inputFocus: '#6A1B9A',       // Input focus color
       
       // Button colors
-      buttonPrimary: '#4A6DFF',    // Primary button color - changed
-      buttonSecondary: '#454560',  // Secondary button color
+      buttonPrimary: '#6A1B9A',    // Primary button color
+      buttonSecondary: '#333333',  // Secondary button color
       buttonSuccess: '#2EBB77',    // Success button color
       buttonDanger: '#E74C3C',     // Danger/delete button color
       buttonText: '#FFFFFF',       // Button text color
       
       // Navigation
-      tabActive: '#4A6DFF',        // Active tab color - changed
-      tabInactive: '#696989',      // Inactive tab color
-      tabBackground: '#0F0F17',    // Tab bar background
-      headerBackground: '#1E1E2E', // Header background
+      tabActive: '#6A1B9A',        // Active tab color
+      tabInactive: '#666666',      // Inactive tab color
+      tabBackground: '#0A0A0A',    // Tab bar background
+      headerBackground: '#121212', // Header background
       
       // Gradients (start and end colors)
-      primaryGradient: ['#4A6DFF', '#3D5AF1'], // Changed
-      secondaryGradient: ['#3D5AF1', '#2C4BE3'], // Changed
-      headerGradient: ['#1E1E2E', '#0B0C15'],
-      cardGradient: ['#161A30', '#1E2340'],
+      primaryGradient: ['#6A1B9A', '#4527A0'],
+      secondaryGradient: ['#4527A0', '#311B92'],
+      headerGradient: ['#121212', '#0A0A0A'],
+      cardGradient: ['#1A1A1A', '#121212'],
       
       // Specific component colors
-      modal: '#171A23',            // Modal background
-      toast: '#1A1A2A',            // Toast notification background
-      tooltip: '#333344',          // Tooltip background
-      menu: '#1C1C28',             // Menu/dropdown background
+      modal: '#121212',            // Modal background
+      toast: '#1A1A1A',            // Toast notification background
+      tooltip: '#333333',          // Tooltip background
+      menu: '#151515',             // Menu/dropdown background
+      
+      // App-specific card colors
+      testCard: '#4A148C',         // Dark purple for test cards (slightly darker than primary)
+      toolCard: '#303F9F',         // Dark blue for tool cards
       
       // Special elements
-      highlight: '#4A6DFF20',      // Highlight color (with opacity) - changed
-      selection: '#4A6DFF40',      // Selected item background - changed
-      overlay: 'rgba(0,0,0,0.7)',  // Overlay for modals, etc
+      highlight: '#6A1B9A20',      // Highlight color (with opacity)
+      selection: '#6A1B9A40',      // Selected item background
+      overlay: 'rgba(0,0,0,0.8)',  // Overlay for modals, etc
       
       // Game-specific themes
       goldBadge: '#FFD700',
@@ -79,9 +85,9 @@ const themes = {
       bronzeBadge: '#CD7F32',
       
       // Special cases
-      progressTrack: '#333344',     // Progress bar background
-      progressIndicator: '#4A6DFF', // Progress bar fill - changed
-      scrollThumb: '#444455',       // Scrollbar thumb
+      progressTrack: '#333333',     // Progress bar background
+      progressIndicator: '#6A1B9A', // Progress bar fill
+      scrollThumb: '#333333',       // Scrollbar thumb
       shadow: '#000000',            // Shadow color (with opacity for shadow settings)
     },
     
@@ -120,93 +126,99 @@ const themes = {
     },
   },
   
-  cyberpunk: {
-    name: 'cyberpunk',
+  // Modern Monochrome: Black & White theme
+  monochrome: {
+    name: 'monochrome',
+    displayName: 'Monochrome',
     colors: {
       // Base colors
-      primary: '#00FFFF',          // Cyan
-      secondary: '#FF00FF',        // Magenta
-      accent: '#FFFF00',           // Yellow
+      primary: '#FFFFFF',          // White
+      secondary: '#AAAAAA',        // Light gray
+      accent: '#FFFFFF',           // White accent
       
       // Background colors
-      background: '#0D0D2B',       // Deep blue
-      surface: '#1A1A40',          // Card background
-      surfaceHighlight: '#2A2A60', // Highlighted card
+      background: '#0A0A0A',       // Matte black main app background
+      surface: '#151515',          // Elevated UI elements
+      surfaceHighlight: '#202020', // Highlighted surface elements
       
       // Content/Text colors
       text: '#FFFFFF',             // Primary text
-      textSecondary: '#00FFFF',    // Secondary text
-      textMuted: '#4D8585',        // Muted text
-      textInverse: '#000000',      // Inverted text
+      textSecondary: '#BBBBBB',    // Secondary text
+      textMuted: '#888888',        // Muted text
+      textInverse: '#000000',      // Text on colored backgrounds
       
       // Status colors
-      success: '#00FF00',          // Success (neon green)
-      warning: '#FFFF00',          // Warning (yellow)
-      error: '#FF0000',            // Error (red)
-      info: '#00FFFF',             // Info (cyan)
+      success: '#AAAAAA',          // Success (light gray)
+      warning: '#CCCCCC',          // Warning (medium gray)
+      error: '#FFFFFF',            // Error (white)
+      info: '#DDDDDD',             // Info (light gray)
       
       // UI element colors
-      border: '#00FFFF',           // Border (cyan)
-      divider: '#001F1F',          // Divider
-      icon: '#00FFFF',             // Icon
-      disabled: '#555580',         // Disabled
-      placeholder: '#003F3F',      // Placeholder
+      border: '#333333',           // Border color
+      divider: '#222222',          // Divider color
+      icon: '#FFFFFF',             // Icon color
+      disabled: '#444444',         // Disabled state
+      placeholder: '#555555',      // Placeholder text color
       
       // Input field colors
-      inputBackground: '#0A0A22',  // Input background
-      inputText: '#FFFFFF',        // Input text
-      inputBorder: '#00FFFF',      // Input border
-      inputFocus: '#FF00FF',       // Input focus
+      inputBackground: '#1A1A1A',  // Input field background
+      inputText: '#FFFFFF',        // Input text color
+      inputBorder: '#333333',      // Input border color
+      inputFocus: '#FFFFFF',       // Input focus color
       
       // Button colors
-      buttonPrimary: '#00FFFF',    // Primary button
-      buttonSecondary: '#FF00FF',  // Secondary button
-      buttonSuccess: '#00FF00',    // Success button
-      buttonDanger: '#FF0000',     // Danger button
-      buttonText: '#000000',       // Button text (dark for contrast)
+      buttonPrimary: '#FFFFFF',    // Primary button color
+      buttonSecondary: '#333333',  // Secondary button color
+      buttonSuccess: '#BBBBBB',    // Success button color
+      buttonDanger: '#DDDDDD',     // Danger/delete button color
+      buttonText: '#000000',       // Button text color (black on white)
       
       // Navigation
-      tabActive: '#00FFFF',        // Active tab
-      tabInactive: '#4D8585',      // Inactive tab
-      tabBackground: '#0A0A22',    // Tab background
-      headerBackground: '#1A1A40', // Header background
+      tabActive: '#FFFFFF',        // Active tab color
+      tabInactive: '#666666',      // Inactive tab color
+      tabBackground: '#0A0A0A',    // Tab bar background
+      headerBackground: '#151515', // Header background
       
       // Gradients
-      primaryGradient: ['#00FFFF', '#001F1F'],
-      secondaryGradient: ['#FF00FF', '#1F001F'],
-      headerGradient: ['#1A1A40', '#0D0D2B'],
-      cardGradient: ['#1A1A40', '#2A2A60'],
+      primaryGradient: ['#000000', '#cccccc'],
+      secondaryGradient: ['#AAAAAA', '#888888'],
+      headerGradient: ['#151515', '#0A0A0A'],
+      cardGradient: ['#1A1A1A', '#101010'],
       
       // Specific component colors
-      modal: '#1A1A40',            // Modal
-      toast: '#1A1A40',            // Toast
-      tooltip: '#00FFFF',          // Tooltip
-      menu: '#0A0A22',             // Menu
+      modal: '#151515',            // Modal background
+      toast: '#1A1A1A',            // Toast notification background
+      tooltip: '#333333',          // Tooltip background
+      menu: '#151515',             // Menu/dropdown background
+      
+      // App-specific card colors
+      testCard: '#FFFFFF',         // white for test cards
+      toolCard: '#D9D9D9',         // light gray for tool cards
       
       // Special elements
-      highlight: '#00FFFF20',      // Highlight
-      selection: '#00FFFF40',      // Selection
-      overlay: 'rgba(0,10,40,0.7)', // Overlay
+      highlight: '#FFFFFF20',      // Highlight color (with opacity)
+      selection: '#FFFFFF40',      // Selected item background
+      overlay: 'rgba(0,0,0,0.8)',  // Overlay for modals, etc
       
       // Game-specific themes
-      goldBadge: '#FFFF00',
-      silverBadge: '#C0C0C0',
-      bronzeBadge: '#FF8800',
+      goldBadge: '#FFFFFF',        // White for monochrome
+      silverBadge: '#BBBBBB',      // Gray for monochrome
+      bronzeBadge: '#888888',      // Darker gray for monochrome
       
       // Special cases
-      progressTrack: '#0A0A22',     // Progress track
-      progressIndicator: '#00FFFF', // Progress indicator
-      scrollThumb: '#00FFFF',       // Scrollbar
-      shadow: '#000033',            // Shadow
+      progressTrack: '#333333',     // Progress bar background
+      progressIndicator: '#FFFFFF', // Progress bar fill
+      scrollThumb: '#333333',       // Scrollbar thumb
+      shadow: '#000000',            // Shadow color
     },
     
-    // Additional style parameters (same structure)
+    // Additional style parameters - same sizes
     sizes: {
       borderRadius: {
-        sm: 0,  // More angular corners for cyberpunk
-        md: 0,
-        lg: 4,
-        xl: 8,
+        sm: 4,
+        md: 8,
+        lg: 12,
+        xl: 20,
         pill: 9999,
       },
       fontSize: {
@@ -235,93 +247,218 @@ const themes = {
     },
   },
   
-  stealth: {
-    name: 'stealth',
+  // Hacker: Dark background with neon green
+  hacker: {
+    name: 'hacker',
+    displayName: 'Terminal',
     colors: {
       // Base colors
-      primary: '#45B69C',          // Teal
-      secondary: '#6C63FF',        // Indigo
-      accent: '#FF8F70',           // Coral
+      primary: '#00B894',          // Matte green (not too bright)
+      secondary: '#00896D',        // Darker green
+      accent: '#55EEBB',           // Lighter green accent
       
       // Background colors
-      background: '#0A0A0A',       // Near black
-      surface: '#141414',          // Dark card
-      surfaceHighlight: '#1A1A1A', // Highlighted card
+      background: '#0A0A0A',       // Very dark background (almost black)
+      surface: '#0F1010',          // Dark surface with slight green tint
+      surfaceHighlight: '#141915', // Highlighted surface with green tint
       
       // Content/Text colors
-      text: '#E0E0E0',             // Light gray
-      textSecondary: '#999999',    // Medium gray
-      textMuted: '#666666',        // Dark gray
-      textInverse: '#0A0A0A',      // Inverted (dark) text
+      text: '#E5E5E5',             // Off-white text
+      textSecondary: '#AAAAAA',    // Light gray text
+      textMuted: '#777777',        // Medium gray text
+      textInverse: '#000000',      // Black text for contrast on green
       
       // Status colors
-      success: '#45B69C',          // Success (teal)
-      warning: '#FFBB55',          // Warning
-      error: '#FF5252',            // Error
-      info: '#6C63FF',             // Info
+      success: '#00B894',          // Success (same as primary)
+      warning: '#F39C12',          // Warning (amber)
+      error: '#E74C3C',            // Error (red)
+      info: '#3498DB',             // Info (blue)
       
       // UI element colors
-      border: '#222222',           // Border
-      divider: '#1A1A1A',          // Divider
-      icon: '#999999',             // Icon
-      disabled: '#444444',         // Disabled
-      placeholder: '#555555',      // Placeholder
+      border: '#1E2A20',           // Border with slight green tint
+      divider: '#151B17',          // Divider with slight green tint
+      icon: '#00B894',             // Icon - primary green
+      disabled: '#444444',         // Disabled state
+      placeholder: '#555555',      // Placeholder text color
       
       // Input field colors
-      inputBackground: '#0F0F0F',  // Input background
-      inputText: '#E0E0E0',        // Input text
-      inputBorder: '#222222',      // Input border
-      inputFocus: '#45B69C',       // Input focus
+      inputBackground: '#0F1411',  // Input background with slight green tint
+      inputText: '#E5E5E5',        // Input text
+      inputBorder: '#1E2A20',      // Input border
+      inputFocus: '#00B894',       // Input focus - primary green
       
       // Button colors
-      buttonPrimary: '#45B69C',    // Primary button
-      buttonSecondary: '#333333',  // Secondary button
-      buttonSuccess: '#45B69C',    // Success button
-      buttonDanger: '#FF5252',     // Danger button
-      buttonText: '#FFFFFF',       // Button text
+      buttonPrimary: '#00B894',    // Primary button - same as primary
+      buttonSecondary: '#151B17',  // Secondary button - dark with green tint
+      buttonSuccess: '#00B894',    // Success button - same as primary
+      buttonDanger: '#E74C3C',     // Danger button - red
+      buttonText: '#FFFFFF',       // Button text - white
       
       // Navigation
-      tabActive: '#45B69C',        // Active tab
-      tabInactive: '#6B8A84',      // Inactive tab
-      tabBackground: '#0D0D0D',    // Tab background
-      headerBackground: '#0F0F0F', // Header background
+      tabActive: '#00B894',        // Active tab - primary green
+      tabInactive: '#555555',      // Inactive tab - gray
+      tabBackground: '#0A0A0A',    // Tab bar background - dark
+      headerBackground: '#0F1010', // Header background - dark surface
       
       // Gradients
-      primaryGradient: ['#45B69C', '#3A9883'],
-      secondaryGradient: ['#6C63FF', '#554FCC'],
-      headerGradient: ['#141414', '#0A0A0A'],
-      cardGradient: ['#141414', '#1A1A1A'],
+      primaryGradient: ['#00B894', '#00896D'],
+      secondaryGradient: ['#00896D', '#006A56'],
+      headerGradient: ['#0F1411', '#0A0A0A'],
+      cardGradient: ['#0F1411', '#090A09'],
       
       // Specific component colors
-      modal: '#141414',            // Modal
-      toast: '#141414',            // Toast
-      tooltip: '#222222',          // Tooltip
-      menu: '#0F0F0F',             // Menu
+      modal: '#0F1411',            // Modal background
+      toast: '#0F1411',            // Toast background
+      tooltip: '#1E2A20',          // Tooltip background
+      menu: '#0F1411',             // Menu background
+      
+      // App-specific card colors
+      testCard: '#003E31',         // Dark green for test cards
+      toolCard: '#00261D',         // Even darker green for tool cards
       
       // Special elements
-      highlight: '#45B69C20',      // Highlight
-      selection: '#45B69C40',      // Selection
-      overlay: 'rgba(0,0,0,0.8)',  // Overlay
+      highlight: '#00B89420',      // Highlight with opacity
+      selection: '#00B89440',      // Selection with opacity
+      overlay: 'rgba(0,0,0,0.8)',  // Dark overlay
       
       // Game-specific themes
-      goldBadge: '#DFC770',
-      silverBadge: '#B0B0B0',
-      bronzeBadge: '#BE7F4D',
+      goldBadge: '#00FF9D',        // Neon green for gold
+      silverBadge: '#55EEBB',      // Lighter green for silver
+      bronzeBadge: '#00B894',      // Primary green for bronze
       
       // Special cases
-      progressTrack: '#222222',     // Progress track
-      progressIndicator: '#45B69C', // Progress indicator
-      scrollThumb: '#333333',       // Scrollbar
-      shadow: '#000000',            // Shadow
+      progressTrack: '#151B17',     // Progress track - darker green
+      progressIndicator: '#00B894', // Progress indicator - primary green
+      scrollThumb: '#1E2A20',       // Scrollbar thumb - border color
+      shadow: '#000000',            // Shadow - black
     },
     
-    // Additional style parameters
     sizes: {
       borderRadius: {
-        sm: 2,
+        sm: 2, // Sharper corners for terminal look
         md: 4,
-        lg: 6,
-        xl: 10,
+        lg: 8,
+        xl: 12,
+        pill: 9999,
+      },
+      fontSize: {
+        xs: 10, 
+        sm: 12,
+        md: 14,
+        lg: 16,
+        xl: 18,
+        xxl: 24,
+        xxxl: 30,
+      },
+      spacing: {
+        xs: 4,
+        sm: 8,
+        md: 16,
+        lg: 24,
+        xl: 32,
+        xxl: 48,
+      },
+      iconSize: {
+        sm: 16,
+        md: 24,
+        lg: 32,
+        xl: 48,
+      },
+    },
+  },
+  
+  // Light Mode: White background with black text
+  light: {
+    name: 'light',
+    displayName: 'Light',
+    colors: {
+      // Base colors
+      primary: '#212121',          // Almost black
+      secondary: '#424242',        // Dark gray
+      accent: '#757575',           // Medium gray
+      
+      // Background colors
+      background: '#FFFFFF',       // White main background
+      surface: '#F5F5F5',          // Light gray surface
+      surfaceHighlight: '#EEEEEE', // Slightly darker surface for highlights
+      
+      // Content/Text colors
+      text: '#212121',             // Near black text
+      textSecondary: '#616161',    // Dark gray secondary text
+      textMuted: '#9E9E9E',        // Medium gray muted text
+      textInverse: '#FFFFFF',      // White text for dark backgrounds
+      
+      // Status colors
+      success: '#2ECC71',          // Success (green)
+      warning: '#F39C12',          // Warning (amber)
+      error: '#E74C3C',            // Error (red)
+      info: '#3498DB',             // Info (blue)
+      
+      // UI element colors
+      border: '#E0E0E0',           // Light gray border
+      divider: '#EEEEEE',          // Very light gray divider
+      icon: '#757575',             // Medium gray icon
+      disabled: '#BDBDBD',         // Light gray disabled
+      placeholder: '#9E9E9E',      // Medium gray placeholder
+      
+      // Input field colors
+      inputBackground: '#FFFFFF',  // White input background
+      inputText: '#212121',        // Black input text
+      inputBorder: '#E0E0E0',      // Light gray input border
+      inputFocus: '#212121',       // Black input focus
+      
+      // Button colors
+      buttonPrimary: '#212121',    // Black primary button
+      buttonSecondary: '#F5F5F5',  // Light gray secondary button
+      buttonSuccess: '#2ECC71',    // Green success button
+      buttonDanger: '#E74C3C',     // Red danger button
+      buttonText: '#FFFFFF',       // White button text
+      
+      // Navigation
+      tabActive: '#212121',        // Black active tab
+      tabInactive: '#9E9E9E',      // Gray inactive tab
+      tabBackground: '#FFFFFF',    // White tab background
+      headerBackground: '#F5F5F5', // Light gray header
+      
+      // Gradients
+      primaryGradient: ['#FFFFFF', '#424242'],
+      secondaryGradient: ['#424242', '#616161'],
+      headerGradient: ['#F5F5F5', '#FFFFFF'],
+      cardGradient: ['#F5F5F5', '#FFFFFF'],
+      
+      // Specific component colors
+      modal: '#FFFFFF',            // White modal
+      toast: '#F5F5F5',            // Light gray toast
+      tooltip: '#212121',          // Black tooltip
+      menu: '#FFFFFF',             // White menu
+      
+      // App-specific card colors
+      testCard: '#212121',         // Black test cards
+      toolCard: '#424242',         // Dark gray tool cards
+      
+      // Special elements
+      highlight: '#21212120',      // Black highlight with opacity
+      selection: '#21212140',      // Black selection with opacity
+      overlay: 'rgba(0,0,0,0.6)',  // Dark overlay
+      
+      // Game-specific themes
+      goldBadge: '#FFC107',        // Gold
+      silverBadge: '#9E9E9E',      // Silver
+      bronzeBadge: '#A1887F',      // Bronze
+      
+      // Special cases
+      progressTrack: '#E0E0E0',     // Light gray progress track
+      progressIndicator: '#212121', // Black progress indicator
+      scrollThumb: '#BDBDBD',       // Gray scrollbar thumb
+      shadow: '#000000',            // Black shadow
+    },
+    
+    sizes: {
+      borderRadius: {
+        sm: 4,
+        md: 8,
+        lg: 12,
+        xl: 20,
         pill: 9999,
       },
       fontSize: {
@@ -357,7 +494,7 @@ const ThemeContext = createContext();
 // Theme provider component
 export const ThemeProvider = ({ children }) => {
   const deviceTheme = useColorScheme();
-  const [themeName, setThemeName] = useState('stealth'); // Changed default from 'dark' to 'stealth'
+  const [themeName, setThemeName] = useState('dark'); // Default to dark theme
   const [isLoading, setIsLoading] = useState(true);
   
   // Load saved theme on startup
@@ -368,13 +505,13 @@ export const ThemeProvider = ({ children }) => {
         if (savedTheme && themes[savedTheme]) {
           setThemeName(savedTheme);
         } else {
-          // Default to stealth theme (changed from dark)
-          setThemeName('stealth');
+          // Default to dark theme if no saved theme
+          setThemeName('dark');
         }
       } catch (error) {
         console.error('Failed to load theme', error);
-        // Default to stealth theme if there's an error (changed from dark)
-        setThemeName('stealth');
+        // Default to dark theme if there's an error
+        setThemeName('dark');
       } finally {
         setIsLoading(false);
       }
@@ -390,7 +527,7 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [themeName, isLoading]);
   
-  const theme = themes[themeName] || themes.stealth; // Default fallback to stealth theme
+  const theme = themes[themeName] || themes.dark; // Default fallback to dark theme
   
   const setTheme = (name) => {
     if (themes[name]) {
@@ -401,7 +538,7 @@ export const ThemeProvider = ({ children }) => {
   const getAvailableThemes = () => {
     return Object.keys(themes).map(key => ({
       name: key,
-      displayName: key.charAt(0).toUpperCase() + key.slice(1),
+      displayName: themes[key].displayName || key.charAt(0).toUpperCase() + key.slice(1),
       colors: themes[key].colors
     }));
   };

@@ -400,7 +400,7 @@ const AnalogyHubScreen = () => {
               <View style={styles.outputTitleContainer}>
                 <Ionicons name="document-text-outline" size={22} color={theme.colors.primary} />
                 <Text style={[styles.outputTitle, { color: theme.colors.text }]}>
-                  Generated Analogy
+                  Analogy
                 </Text>
               </View>
               

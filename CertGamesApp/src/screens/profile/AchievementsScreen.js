@@ -178,7 +178,7 @@ const AchievementsScreen = ({ navigation }) => {
             <Text style={[
               styles.tabButtonText,
               { color: theme.colors.textMuted },
-              activeCategory === item.id && { color: theme.colors.text }
+              activeCategory === item.id && { color: theme.colors.textInverse }
             ]}>
               {item.label}
             </Text>

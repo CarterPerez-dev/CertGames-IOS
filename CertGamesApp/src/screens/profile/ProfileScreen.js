@@ -445,7 +445,7 @@ const ProfileScreen = ({ navigation }) => {
                       ]} 
                     />
                   </View>
-                  <Text style={[styles.xpText, { color: theme.colors.text + 'E6' }]}>{xp} XP</Text>
+                  <Text style={[styles.xpText, { color: theme.colors.textInverse + 'E6' }]}>{xp} XP</Text>
                 </View>
               </View>
               
@@ -486,7 +486,7 @@ const ProfileScreen = ({ navigation }) => {
               { color: theme.colors.textMuted },
               activeTab === 'overview' && [
                 styles.activeTabText, 
-                { color: theme.colors.text }
+                { color: theme.colors.textInverse }
               ]
             ]}>Overview</Text>
           </TouchableOpacity>
@@ -506,7 +506,7 @@ const ProfileScreen = ({ navigation }) => {
               { color: theme.colors.textMuted },
               activeTab === 'account' && [
                 styles.activeTabText, 
-                { color: theme.colors.text }
+                { color: theme.colors.textInverse }
               ]
             ]}>Account</Text>
           </TouchableOpacity>
@@ -526,7 +526,7 @@ const ProfileScreen = ({ navigation }) => {
               { color: theme.colors.textMuted },
               activeTab === 'achievements' && [
                 styles.activeTabText, 
-                { color: theme.colors.text }
+                { color: theme.colors.textInverse }
               ]
             ]}>Achievements</Text>
           </TouchableOpacity>
@@ -974,7 +974,7 @@ const ProfileScreen = ({ navigation }) => {
             
             <TouchableOpacity 
               style={[
-                globalStyles.buttonSecondary,
+                globalStyles.buttonDanger,
                 styles.supportButton
               ]} 
               onPress={goToSupport}

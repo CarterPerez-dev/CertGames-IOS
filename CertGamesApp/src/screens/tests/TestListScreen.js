@@ -537,7 +537,7 @@ const TestListScreen = ({ route, navigation }) => {
             <TouchableOpacity 
               style={[
                 styles.toggle, 
-                { backgroundColor: examMode ? theme.colors.primary : theme.colors.surface }
+                { backgroundColor: examMode ? theme.colors.primary: theme.colors.accent }
               ]}
               onPress={toggleExamMode}
             >

@@ -240,12 +240,12 @@ const NewsletterScreen = () => {
                     <Ionicons 
                       name="checkmark" 
                       size={18} 
-                      color={activeSection === 'subscribe' ? theme.colors.text : theme.colors.textMuted} 
+                      color={activeSection === 'subscribe' ? theme.colors.textInverse : theme.colors.textMuted} 
                     />
                     <Text 
                       style={[
                         styles.tabText, 
-                        { color: activeSection === 'subscribe' ? theme.colors.text : theme.colors.textMuted }
+                        { color: activeSection === 'subscribe' ? theme.colors.textInverse : theme.colors.textMuted }
                       ]}
                     >
                       Subscribe
@@ -262,12 +262,12 @@ const NewsletterScreen = () => {
                     <Ionicons 
                       name="close" 
                       size={18} 
-                      color={activeSection === 'unsubscribe' ? theme.colors.text : theme.colors.textMuted} 
+                      color={activeSection === 'unsubscribe' ? theme.colors.textInverse : theme.colors.textMuted} 
                     />
                     <Text 
                       style={[
                         styles.tabText, 
-                        { color: activeSection === 'unsubscribe' ? theme.colors.text : theme.colors.textMuted }
+                        { color: activeSection === 'unsubscribe' ? theme.colors.textInverse : theme.colors.textMuted }
                       ]}
                     >
                       Unsubscribe

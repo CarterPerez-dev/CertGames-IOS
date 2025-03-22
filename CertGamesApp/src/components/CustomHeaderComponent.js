@@ -75,7 +75,7 @@ const CustomHeaderComponent = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: Platform.OS === 'ios' ? 44 : 16, // Account for status bar
+    paddingTop: Platform.OS === 'ios' ? 25 : 16, // Account for status bar
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',

@@ -148,18 +148,21 @@ const NewsletterScreen = () => {
 
   return (
     <SafeAreaView style={[globalStyles.screen]}>
-      {/* Custom Header */}
-      <CustomHeaderComponent 
-        title="Daily Cyber Brief" 
-        subtitle="Your essential cybersecurity intelligence"
-        gradientColors={theme.colors.primaryGradient}
-      />
-      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <ScrollView style={styles.scrollView}>
+          {/* Custom Header - Moved inside ScrollView to scroll with content */}
+          <View style={styles.compactHeaderContainer}>
+            <CustomHeaderComponent 
+              title="Cyber Brief" 
+              gradientColors={theme.colors.primaryGradient}
+              // Use custom style prop for smaller header
+              customStyles={styles.compactHeader}
+            />
+          </View>
+          
           <View style={[globalStyles.container, styles.mainContent]}>
             {/* Intro Card */}
             <View style={[globalStyles.card, styles.card]}>
@@ -391,8 +394,17 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  // New styles for compact header
+  compactHeaderContainer: {
+    overflow: 'hidden',
+  },
+  compactHeader: {
+    paddingTop: Platform.OS === 'ios' ? 30 : 10, // ~30% smaller (was 44:16)
+    paddingBottom: 10, // ~30% smaller (was 16)
+    height: Platform.OS === 'ios' ? 70 : 50, // Add explicit height constraint
+  },
   mainContent: {
-    padding: 20,
+    padding: 15,
   },
   card: {
     marginBottom: 20,

@@ -13,7 +13,6 @@ import {
   Modal,
   Dimensions,
   StatusBar,
-  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,37 +51,8 @@ const AchievementsScreen = ({ navigation }) => {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [sortOrder, setSortOrder] = useState('default'); // 'default', 'alphabetical', 'locked'
   
-  // Animation values
-  const headerHeight = new Animated.Value(1);
-  
   // Stats about achievements
   const { total, unlocked, completionPercentage } = getAchievementStats();
-  
-  // Effect to animate header on scroll
-  useEffect(() => {
-    const listenerId = navigation.addListener('focus', () => {
-      // Reset header height when screen comes into focus
-      Animated.timing(headerHeight, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
-    });
-    
-    return () => navigation.removeListener('focus', listenerId);
-  }, [navigation]);
-  
-  // Handle scroll to animate header
-  const handleScroll = (event) => {
-    const scrollOffset = event.nativeEvent.contentOffset.y;
-    const newHeight = scrollOffset > 50 ? 0 : 1;
-    
-    Animated.spring(headerHeight, {
-      toValue: newHeight,
-      friction: 10,
-      useNativeDriver: false,
-    }).start();
-  };
   
   // Get sorted achievements
   const getSortedAchievements = () => {
@@ -234,8 +204,16 @@ const AchievementsScreen = ({ navigation }) => {
         animationType="fade"
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
-          <View style={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}>
+        <TouchableOpacity 
+          style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]} 
+          activeOpacity={1}
+          onPress={() => setModalVisible(false)}
+        >
+          <TouchableOpacity 
+            style={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setModalVisible(false)}
@@ -288,42 +266,15 @@ const AchievementsScreen = ({ navigation }) => {
                 </Text>
               </View>
             </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     );
   };
   
-  // Calculate header height for animation
-  const animatedHeaderHeight = headerHeight.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 120],
-  });
-  
-  return (
-    <SafeAreaView style={[globalStyles.screen, styles.container]}>
-      <StatusBar barStyle="light-content" />
-      
-      {/* Animated Header */}
-      <Animated.View style={[
-        styles.header,
-        { height: animatedHeaderHeight, overflow: 'hidden' }
-      ]}>
-        <LinearGradient
-          colors={theme.colors.headerGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.headerGradient}
-        >
-          <View style={styles.headerContent}>
-            <Text style={[styles.title, { color: theme.colors.text }]}>Achievements</Text>
-            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-              Track your progress and unlock achievements
-            </Text>
-          </View>
-        </LinearGradient>
-      </Animated.View>
-      
+  // Render the list header (stats, filters, categories)
+  const renderListHeader = () => (
+    <>
       {/* Stats Cards */}
       <View style={styles.statsContainer}>
         <LinearGradient
@@ -395,8 +346,14 @@ const AchievementsScreen = ({ navigation }) => {
       <View style={[styles.tabsContainer, { backgroundColor: theme.colors.background }]}>
         <CategoryTabs />
       </View>
+    </>
+  );
+  
+  return (
+    <SafeAreaView style={[globalStyles.screen, styles.container]}>
+      <StatusBar barStyle="light-content" />
       
-      {/* Achievements List */}
+      {/* Main Content - Now everything is scrollable */}
       <FlatList
         data={getSortedAchievements()}
         renderItem={renderAchievementItem}
@@ -409,8 +366,7 @@ const AchievementsScreen = ({ navigation }) => {
         key={viewMode} // Force re-render when changing view mode
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmpty}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
+        ListHeaderComponent={renderListHeader}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -441,31 +397,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    overflow: 'hidden',
-  },
-  headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
-    paddingBottom: 15,
-    paddingHorizontal: 16,
-  },
-  headerContent: {
-    marginTop: 4,
-  },
-  // Removed back button styles
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-  },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 12,
-    paddingTop: 0,
+    paddingTop: 16, // Regular padding, no need for extra space for back button
   },
   statCard: {
     width: '48%',
@@ -552,7 +488,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   listContent: {
-    padding: 12,
+    paddingHorizontal: 12,
   },
   emptyContainer: {
     alignItems: 'center',

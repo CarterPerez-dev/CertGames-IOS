@@ -1,5 +1,5 @@
 // src/screens/LeaderboardScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,15 +12,17 @@ import {
   Platform,
   Image,
   Animated,
-  Dimensions
+  Dimensions,
+  StatusBar
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchLeaderboard } from '../api/leaderboardService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
+import * as Haptics from 'expo-haptics';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const LeaderboardScreen = () => {
   // Access theme context
@@ -29,6 +31,7 @@ const LeaderboardScreen = () => {
   // Animation values
   const fadeAnim = useState(new Animated.Value(0))[0];
   const translateY = useState(new Animated.Value(20))[0];
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // State for leaderboard data
   const [leaderboardData, setLeaderboardData] = useState([]);
@@ -38,9 +41,13 @@ const LeaderboardScreen = () => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
+  const [scrolledDown, setScrolledDown] = useState(false);
+  
+  // FlatList ref for scrolling to top
+  const flatListRef = useRef(null);
   
   const pageSize = 20;
-  const { username } = useSelector((state) => state.user);
+  const { username, userId } = useSelector((state) => state.user);
   
   // Animation when component mounts
   useEffect(() => {
@@ -65,8 +72,18 @@ const LeaderboardScreen = () => {
         setRefreshing(true);
         setPage(0);
         pageNum = 0;
+        // Clear existing data immediately for smoother refresh
+        setLeaderboardData([]);
       } else if (pageNum > 0) {
         setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      
+      // Add a small delay to ensure loading state is rendered
+      // This prevents flickering and partial renders
+      if (pageNum === 0 && !refresh) {
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
       
       const skip = pageNum * pageSize;
@@ -78,18 +95,24 @@ const LeaderboardScreen = () => {
         rank: skip + idx + 1, // Ensure rank is calculated
       }));
       
-      if (refresh || pageNum === 0) {
-        setLeaderboardData(processedData);
-      } else {
-        setLeaderboardData(prevData => [...prevData, ...processedData]);
-      }
-      
-      setHasMore(processedData.length === pageSize);
-      setError(null);
+      // Use a small timeout to ensure state updates don't cause visual glitches
+      setTimeout(() => {
+        if (refresh || pageNum === 0) {
+          setLeaderboardData(processedData);
+        } else {
+          setLeaderboardData(prevData => [...prevData, ...processedData]);
+        }
+        
+        setHasMore(processedData.length === pageSize);
+        setError(null);
+        
+        setLoading(false);
+        setRefreshing(false);
+        setLoadingMore(false);
+      }, 100);
     } catch (err) {
       setError('Failed to load leaderboard. Please try again.');
       console.error('Leaderboard error:', err);
-    } finally {
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
@@ -103,10 +126,30 @@ const LeaderboardScreen = () => {
   
   // Refresh handler
   const onRefresh = () => {
+    // Reset animations when refreshing
+    fadeAnim.setValue(0);
+    translateY.setValue(20);
+    
     setRefreshing(true);
-    loadLeaderboard(0, true).finally(() => {
-      setRefreshing(false);
-    });
+    // Clear animations array to recreate them
+    listItemAnimations.length = 0;
+    
+    loadLeaderboard(0, true)
+      .finally(() => {
+        // Animate back in
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
   };
   
   // Load more data handler
@@ -117,75 +160,316 @@ const LeaderboardScreen = () => {
       loadLeaderboard(nextPage);
     }
   };
+
+  // Handle scroll event
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { 
+      useNativeDriver: false,
+      listener: (event) => {
+        const offsetY = event.nativeEvent.contentOffset.y;
+        setScrolledDown(offsetY > 200);
+      }
+    }
+  );
+
+  // Scroll to top function
+  const scrollToTop = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    if (flatListRef.current) {
+      flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+    }
+  };
+
+  // Find user rank function
+  const findUserRank = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    const userIndex = leaderboardData.findIndex(item => item.username === username);
+    
+    if (userIndex !== -1 && flatListRef.current) {
+      flatListRef.current.scrollToIndex({
+        index: userIndex,
+        animated: true,
+        viewPosition: 0.5, // Center the item
+        viewOffset: 50 // Additional offset
+      });
+    } else {
+      // If user not found in current data, we could fetch more data or show a message
+      // For now, let's just scroll to top
+      scrollToTop();
+    }
+  };
   
-  // Render rank item
+  // Render top 3 podium
+  const renderPodium = () => {
+    // Get top 3 users
+    const topThree = leaderboardData.slice(0, 3);
+    
+    // If we don't have at least 3 users yet, show a loading state
+    if (topThree.length < 3 && loading) {
+      return (
+        <View style={styles.podiumContainer}>
+          <View style={styles.podiumLoader}>
+            <ActivityIndicator color={theme.colors.primary} size="large" />
+          </View>
+        </View>
+      );
+    }
+    
+    // Fill with placeholders if we don't have 3 users yet
+    while (topThree.length < 3) {
+      topThree.push({ placeholder: true, rank: topThree.length + 1 });
+    }
+    
+    // Position users on podium (2nd, 1st, 3rd)
+    const [secondPlace, firstPlace, thirdPlace] = [topThree[1], topThree[0], topThree[2]];
+    
+    return (
+      <View style={styles.podiumContainer}>
+        
+        <View style={styles.podiumStands}>
+          {/* Second Place - Left */}
+          <View style={styles.standContainer}>
+            <PodiumUser 
+              user={secondPlace} 
+              position={2} 
+              theme={theme} 
+              currentUsername={username} 
+            />
+            <View style={[
+              styles.standSecond, 
+              { backgroundColor: theme.colors.silverBadge }
+            ]}>
+              <Text style={styles.standText}>2</Text>
+            </View>
+          </View>
+          
+          {/* First Place - Center */}
+          <View style={[styles.standContainer, styles.standContainerFirst]}>
+            <PodiumUser 
+              user={firstPlace} 
+              position={1} 
+              theme={theme} 
+              currentUsername={username} 
+              isFirst={true}
+            />
+            <View style={[
+              styles.standFirst, 
+              { backgroundColor: theme.colors.goldBadge }
+            ]}>
+              <Text style={styles.standText}>1</Text>
+            </View>
+          </View>
+          
+          {/* Third Place - Right */}
+          <View style={styles.standContainer}>
+            <PodiumUser 
+              user={thirdPlace} 
+              position={3} 
+              theme={theme} 
+              currentUsername={username} 
+            />
+            <View style={[
+              styles.standThird, 
+              { backgroundColor: theme.colors.bronzeBadge }
+            ]}>
+              <Text style={styles.standText}>3</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  };
+  
+  // Podium User component
+  const PodiumUser = ({ user, position, theme, currentUsername, isFirst = false }) => {
+    if (user.placeholder) {
+      return (
+        <View style={[
+          styles.podiumUserContainer,
+          isFirst && styles.podiumUserContainerFirst
+        ]}>
+          <View style={[styles.placeholderAvatar, { 
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderColor: 'rgba(255, 255, 255, 0.2)',
+            width: isFirst ? 70 : 60,
+            height: isFirst ? 70 : 60,
+            borderRadius: isFirst ? 35 : 30,
+          }]}>
+            <Ionicons name="person" size={isFirst ? 36 : 30} color="rgba(255, 255, 255, 0.3)" />
+          </View>
+          <View style={styles.podiumUserInfo}>
+            <Text style={[styles.podiumUsername, { 
+              color: 'rgba(255, 255, 255, 0.4)',
+              fontSize: isFirst ? 16 : 14
+            }]}>
+              Loading...
+            </Text>
+          </View>
+        </View>
+      );
+    }
+    
+    const isCurrentUser = user.username === currentUsername;
+    
+    return (
+      <View style={[
+        styles.podiumUserContainer,
+        isFirst && styles.podiumUserContainerFirst
+      ]}>
+        {/* User Avatar */}
+        {user.avatarUrl ? (
+          <Image 
+            source={{ uri: user.avatarUrl }} 
+            style={[styles.podiumAvatar, {
+              width: isFirst ? 70 : 60,
+              height: isFirst ? 70 : 60,
+              borderRadius: isFirst ? 35 : 30,
+              borderWidth: isCurrentUser ? 2 : 1,
+              borderColor: isCurrentUser ? theme.colors.primary : 'rgba(255, 255, 255, 0.3)'
+            }]}
+            defaultSource={require('../../assets/default-avatar.png')}
+          />
+        ) : (
+          <View style={[styles.placeholderAvatar, { 
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderColor: isCurrentUser ? theme.colors.primary : 'rgba(255, 255, 255, 0.2)',
+            borderWidth: isCurrentUser ? 2 : 1,
+            width: isFirst ? 70 : 60,
+            height: isFirst ? 70 : 60,
+            borderRadius: isFirst ? 35 : 30,
+          }]}>
+            <Text style={styles.avatarInitial}>
+              {user.username?.charAt(0).toUpperCase() || '?'}
+            </Text>
+          </View>
+        )}
+        
+        {/* User Info */}
+        <View style={styles.podiumUserInfo}>
+          <Text style={[styles.podiumUsername, { 
+            color: isCurrentUser ? theme.colors.primary : theme.colors.text,
+            fontWeight: isCurrentUser ? 'bold' : '600',
+            fontSize: isFirst ? 16 : 14
+          }]} numberOfLines={1} ellipsizeMode="tail">
+            {user.username}
+            {isCurrentUser && <Text style={{ color: theme.colors.primary }}> (You)</Text>}
+          </Text>
+          
+          <Text style={[styles.podiumLevel, { 
+            color: theme.colors.textSecondary,
+            fontSize: isFirst ? 14 : 12
+          }]}>
+            Lvl {user.level} • {user.xp?.toLocaleString() || 0} XP
+          </Text>
+        </View>
+      </View>
+    );
+  };
+  
+  // Animated values for list items - created once and reused
+  const [listItemAnimations] = useState([]);
+  
+  // Prepare animations when data changes
+  useEffect(() => {
+    // Only create animations for new items
+    const startIndex = listItemAnimations.length;
+    const itemsToAnimate = leaderboardData.slice(3).slice(startIndex);
+    
+    // Create animations for new items
+    itemsToAnimate.forEach((_, idx) => {
+      const itemOpacity = new Animated.Value(0);
+      const itemTranslateY = new Animated.Value(10);
+      listItemAnimations.push({ opacity: itemOpacity, translateY: itemTranslateY });
+      
+      // Start animation with staggered delay
+      Animated.parallel([
+        Animated.timing(itemOpacity, {
+          toValue: 1,
+          duration: 250,
+          delay: Math.min(idx * 20, 500), // Cap the delay to prevent too long animations
+          useNativeDriver: true,
+        }),
+        Animated.timing(itemTranslateY, {
+          toValue: 0,
+          duration: 250,
+          delay: Math.min(idx * 20, 500),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  }, [leaderboardData.length]);
+  
+  // Render rank item (for ranks 4+)
   const renderRankItem = ({ item, index }) => {
+    // Top 3 handled by podium, start with rank 4
+    const actualIndex = index + 3; 
     const isCurrentUser = item.username === username;
-    const itemColor = index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : theme.colors.card;
+    const isTopTen = actualIndex < 10; // Ranks 4-10
     
-    // Animations for rank items
-    const itemOpacity = new Animated.Value(0);
-    const itemTranslateY = new Animated.Value(10);
+    // Background gradient based on rank
+    let gradientColors;
     
-    Animated.parallel([
-      Animated.timing(itemOpacity, {
-        toValue: 1,
-        duration: 400,
-        delay: index * 50,
-        useNativeDriver: true,
-      }),
-      Animated.timing(itemTranslateY, {
-        toValue: 0,
-        duration: 400,
-        delay: index * 50,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    if (isCurrentUser) {
+      gradientColors = [theme.colors.primary + '80', theme.colors.primary + '40'];
+    } else if (isTopTen) {
+      gradientColors = ['rgba(0, 156, 255, 0.2)', 'rgba(0, 156, 255, 0.05)'];
+    } else {
+      gradientColors = [theme.colors.surface, theme.colors.surface];
+    }
+    
+    // Get or create animation values for this item
+    const animation = listItemAnimations[index] || { 
+      opacity: new Animated.Value(1), 
+      translateY: new Animated.Value(0) 
+    };
     
     return (
       <Animated.View 
         style={{
-          opacity: itemOpacity,
-          transform: [{ translateY: itemTranslateY }],
+          opacity: animation.opacity,
+          transform: [{ translateY: animation.translateY }],
         }}
       >
         <LinearGradient
-          colors={isCurrentUser 
-            ? [theme.colors.shadow, theme.colors.primary + '90'] 
-            : [itemColor, itemColor + '90']}
+          colors={gradientColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[
             styles.rankItem,
             isCurrentUser && styles.currentUserItem,
-            index < 3 && styles.topRankItem
           ]}
         >
           <View style={styles.rankNumberContainer}>
-            {index < 3 ? (
-              <View style={[
-                styles.topRankBadge,
-                index === 0 && styles.goldBadge,
-                index === 1 && styles.silverBadge,
-                index === 2 && styles.bronzeBadge
-              ]}>
-                <Text style={styles.topRankText}>{item.rank || index + 1}</Text>
-              </View>
-            ) : (
-              <Text style={styles.rankNumber}>{item.rank || index + 1}</Text>
-            )}
+            <Text style={[
+              styles.rankNumber, 
+              isTopTen ? { color: '#00BFFF' } : { color: theme.colors.textSecondary }
+            ]}>
+              {item.rank || (actualIndex + 1)}
+            </Text>
           </View>
           
           {/* Avatar */}
           {item.avatarUrl ? (
             <Image 
               source={{ uri: item.avatarUrl }} 
-              style={styles.avatarImage}
+              style={[
+                styles.avatarImage,
+                isCurrentUser && { borderColor: theme.colors.primary }
+              ]}
               defaultSource={require('../../assets/default-avatar.png')}
-              onError={() => console.log('Avatar image failed to load:', item.avatarUrl)}
             />
           ) : (
-            <View style={styles.placeholderAvatar}>
+            <View style={[
+              styles.placeholderAvatar,
+              isCurrentUser && { borderColor: theme.colors.primary }
+            ]}>
               <Text style={styles.avatarInitial}>
                 {item.username?.charAt(0).toUpperCase() || '?'}
               </Text>
@@ -231,7 +515,7 @@ const LeaderboardScreen = () => {
     return (
       <View style={styles.footerContainer}>
         <ActivityIndicator size="small" color={theme.colors.primary} />
-        <Text style={styles.footerText}>Loading more...</Text>
+        <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>Loading more...</Text>
       </View>
     );
   };
@@ -243,48 +527,58 @@ const LeaderboardScreen = () => {
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="trophy-outline" size={60} color={theme.colors.primary} />
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
           {error || 'No leaderboard data available'}
         </Text>
-        <TouchableOpacity style={[styles.retryButton, { backgroundColor: theme.colors.primary }]} onPress={onRefresh}>
-          <Text style={styles.retryText}>Retry</Text>
+        <TouchableOpacity 
+          style={[styles.retryButton, { backgroundColor: theme.colors.primary }]} 
+          onPress={onRefresh}
+        >
+          <Text style={[styles.retryText, { color: theme.colors.buttonText }]}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
   };
+
+  // List header component - contains podium
+  const renderListHeader = () => {
+    return (
+      <View>
+        {renderPodium()}
+        <View style={styles.listHeaderSeparator}>
+          <Text style={[styles.listHeaderText, { color: theme.colors.textSecondary }]}>
+            Leaderboard Rankings
+          </Text>
+          <View style={[styles.listHeaderLine, { backgroundColor: theme.colors.divider }]} />
+        </View>
+      </View>
+    );
+  };
   
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <LinearGradient
-        colors={[theme.colors.shadow, theme.colors.secondary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
-        <Animated.View style={{
-          opacity: fadeAnim,
-          transform: [{ translateY: translateY }]
-        }}>
-          <Text style={styles.title}>Leaderboard</Text>
-          <View style={styles.headerContent}>
-            <Text style={styles.subtitle}>
-              Top performers ranked by level and experience
-            </Text>
-            <View style={styles.trophyIcon}>
-              <Ionicons name="trophy" size={24} color="#FFD700" />
-            </View>
-          </View>
-        </Animated.View>
-      </LinearGradient>
-      
-      {loading && !refreshing ? (
+  // Prevent list render until loading is done
+  const renderContent = () => {
+    if (loading && !refreshing) {
+      return (
         <View style={styles.mainLoadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Loading leaderboard...</Text>
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+            Loading leaderboard...
+          </Text>
         </View>
-      ) : (
+      );
+    }
+    
+    // Only render FlatList after data is loaded
+    return (
+      <Animated.View 
+        style={[
+          styles.listContainer,
+          { opacity: fadeAnim }
+        ]}
+      >
         <FlatList
-          data={leaderboardData}
+          ref={flatListRef}
+          data={leaderboardData.slice(3)} // Skip top 3 since they're in the podium
           renderItem={renderRankItem}
           keyExtractor={(item, index) => `${item._id || item.username}-${index}`}
           contentContainerStyle={styles.listContent}
@@ -295,14 +589,68 @@ const LeaderboardScreen = () => {
               onRefresh={onRefresh}
               colors={[theme.colors.primary]}
               tintColor={theme.colors.primary}
+              progressViewOffset={20}
             />
           }
           ListEmptyComponent={renderEmpty}
+          ListHeaderComponent={renderListHeader}
           ListFooterComponent={renderFooter}
           onEndReached={loadMoreData}
           onEndReachedThreshold={0.2}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          removeClippedSubviews={true}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={10}
+          updateCellsBatchingPeriod={50}
+          bounces={true}
+          bouncesZoom={false}
+          alwaysBounceVertical={true}
+          overScrollMode="never"
+          scrollsToTop={true}
+          showsHorizontalScrollIndicator={false}
+          disableIntervalMomentum={true}
         />
+      </Animated.View>
+    );
+  };
+  
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Title Bar */}
+      <View style={[styles.titleBar, { borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles.titleText, { color: theme.colors.text }]}>Leaderboard</Text>
+      </View>
+      
+      {/* Main Content */}
+      {renderContent()}
+      
+      {/* Back to Top Button */}
+      {scrolledDown && (
+        <TouchableOpacity 
+          style={[styles.backToTopButton, { backgroundColor: '#FFFFFF' }]}
+          onPress={scrollToTop}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="arrow-up" size={20} color='#000000' />
+        </TouchableOpacity>
       )}
+      
+      {/* Find My Rank Button */}
+      <TouchableOpacity 
+        style={[styles.findRankButton, { 
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border
+        }]}
+        onPress={findUserRank}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="locate" size={16} color='#FFFFFF' />
+        <Text style={[styles.findRankText, { color: '#FFFFFF' }]}>Find Me</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -311,55 +659,125 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 15 : 25,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    marginBottom: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  headerContent: {
-    flexDirection: 'row',
+  titleBar: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    flex: 1,
-    marginRight: 10,
-  },
-  trophyIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: 5,
+  },
+  titleText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  listContainer: {
+    flex: 1,
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    paddingBottom: 100, // Extra space at bottom
+    paddingBottom: 100, 
   },
+  
+  // Podium styles
+  podiumContainer: {
+    marginTop: 20,
+    marginBottom: 20,
+    paddingHorizontal: 4,
+    paddingTop: 40, 
+  },
+  podiumLoader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 180,
+  },
+  podiumStands: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    height: 200, // Increased height to ensure everything fits
+  },
+  standContainer: {
+    alignItems: 'center',
+    width: width / 3 - 16,
+  },
+  standContainerFirst: {
+    marginTop: -20, // Reduced the negative margin to lower the 1st place position
+  },
+  standFirst: {
+    width: 60,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  standSecond: {
+    width: 50,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  standThird: {
+    width: 50,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  standText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 20,
+  },
+  podiumUserContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  podiumUserContainerFirst: {
+    marginBottom: 20,
+  },
+  podiumAvatar: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 6,
+  },
+  trophyIconContainer: {
+    position: 'absolute',
+    top: -5,
+    right: 30,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  podiumUserInfo: {
+    alignItems: 'center',
+  },
+  podiumUsername: {
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  podiumLevel: {
+    textAlign: 'center',
+  },
+  
+  // List header styles
+  listHeaderSeparator: {
+    marginTop: 20, // Increased spacing
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  listHeaderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  listHeaderLine: {
+    height: 1,
+    width: '80%',
+  },
+  
+  // Rank item styles
   rankItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -378,55 +796,18 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  topRankItem: {
-    ...Platform.select({
-      ios: {
-        shadowColor: '#FFD700',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
   currentUserItem: {
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   rankNumberContainer: {
-    width: 40,
+    width: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rankNumber: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  topRankBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  goldBadge: {
-    backgroundColor: 'rgba(255, 215, 0, 0.7)',
-  },
-  silverBadge: {
-    backgroundColor: 'rgba(192, 192, 192, 0.7)',
-  },
-  bronzeBadge: {
-    backgroundColor: 'rgba(205, 127, 50, 0.7)',
-  },
-  topRankText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#000000',
   },
   avatarImage: {
     width: 44,
@@ -434,7 +815,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     marginRight: 12,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   placeholderAvatar: {
@@ -445,7 +826,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   avatarInitial: {
@@ -507,6 +888,8 @@ const styles = StyleSheet.create({
   currentUserStats: {
     color: '#FFFFFF',
   },
+  
+  // Loading states
   mainLoadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -515,7 +898,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: '#AAAAAA',
     fontSize: 16,
   },
   emptyContainer: {
@@ -526,7 +908,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#AAAAAA',
     textAlign: 'center',
     marginTop: 10,
     marginBottom: 20,
@@ -537,7 +918,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryText: {
-    color: '#FFFFFF',
     fontWeight: 'bold',
   },
   footerContainer: {
@@ -547,9 +927,58 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   footerText: {
-    color: '#AAAAAA',
     marginLeft: 8,
-  }
+  },
+  
+  // Utility buttons
+  backToTopButton: {
+    position: 'absolute',
+    bottom: 90,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  findRankButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  findRankText: {
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 6,
+  },
 });
 
 export default LeaderboardScreen;

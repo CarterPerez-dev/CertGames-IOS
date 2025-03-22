@@ -1,5 +1,5 @@
-// src/screens/HomeScreen.js
-import React, { useEffect, useState } from 'react';
+// src/screens/HomeScreen.js - VERSION 2
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -9,13 +9,16 @@ import {
   RefreshControl,
   Dimensions,
   StatusBar,
-  Platform
+  Platform,
+  Animated,
+  ImageBackground
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { fetchUserData, claimDailyBonus } from '../store/slices/userSlice';
 import { useTheme } from '../context/ThemeContext'; 
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +28,58 @@ const HomeScreen = ({ navigation }) => {
   const { userId, username, level, xp, coins, status, lastDailyClaim } = useSelector((state) => state.user);
   const isLoading = status === 'loading';
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Animation references
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const coinsFlashAnim = useRef(new Animated.Value(0)).current;
+  
+  // Animated values for cards
+  const [cardAnims] = useState([...Array(20)].map(() => new Animated.Value(0)));
+  
+  // Start coin flash animation
+  const flashCoins = () => {
+    Animated.sequence([
+      Animated.timing(coinsFlashAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true
+      }),
+      Animated.timing(coinsFlashAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true
+      })
+    ]).start();
+  };
+  
+  // Animation on mount
+  useEffect(() => {
+    // Animate main content
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true
+      })
+    ]).start();
+    
+    // Animated cards staggered
+    cardAnims.forEach((anim, i) => {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 500,
+        delay: 100 + (i * 70),
+        useNativeDriver: true
+      }).start();
+    });
+  }, []);
   
   useEffect(() => {
     if (userId) {
@@ -50,6 +105,7 @@ const HomeScreen = ({ navigation }) => {
     if (userId) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       dispatch(claimDailyBonus(userId));
+      flashCoins();
     }
   };
   
@@ -64,7 +120,7 @@ const HomeScreen = ({ navigation }) => {
     return (now - lastClaim) > (24 * 60 * 60 * 1000);
   };
   
-  // All certification options - now use theme.colors.testCard for all
+  // All certification options
   const certOptions = [
     { id: 'aplus',     name: 'A+ Core 1 (1101)',    icon: 'hardware-chip-outline',  screenName: 'APlusTests' },
     { id: 'aplus2',    name: 'A+ Core 2 (1102)',    icon: 'desktop-outline',  screenName: 'APlus2Tests' },
@@ -81,7 +137,7 @@ const HomeScreen = ({ navigation }) => {
     { id: 'awscloud',  name: 'AWS Cloud Practitioner', icon: 'cloud-outline',  screenName: 'AWSCloudTests' },
   ];
   
-  // Tools config - now use theme.colors.toolCard for all
+  // Tools config
   const toolsOptions = [
     { name: "Analogy Hub", icon: 'bulb-outline', screen: 'AnalogyHub' },
     { name: "Resources", icon: 'library-outline', screen: 'Resources' },
@@ -111,11 +167,49 @@ const HomeScreen = ({ navigation }) => {
     });
   };
 
+  // Calculate XP percentage for progress bar
+  const xpPercentage = Math.min((xp % 1000) / 10, 100);
+
+  // Parallax header effect
+  const headerTranslateY = scrollY.interpolate({
+    inputRange: [0, 200],
+    outputRange: [0, -30],
+    extrapolate: 'clamp'
+  });
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.titleContainer}>
-        <Text style={[styles.titleText, { color: theme.colors.text }]}>Dashboard</Text>
-      </View>
+      {/* Header with animated parallax effect */}
+      <Animated.View 
+        style={[
+          styles.headerContainer,
+          {
+            transform: [{ translateY: headerTranslateY }]
+          }
+        ]}
+      >
+        <ImageBackground
+          source={require('../../assets/background2.webp')}
+          style={styles.headerBackground}
+          imageStyle={[styles.headerBackgroundImage, { tintColor: theme.colors.primary + '40' }]}
+        >
+          <LinearGradient
+            colors={[theme.colors.background + '00', theme.colors.background]}
+            start={{x: 0, y: 0}}
+            end={{x: 0, y: 1}}
+            style={styles.headerGradient}
+          >
+            <Text style={[styles.headerTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+              <Text style={{ color: theme.colors.primary }}>CERT</Text>GAMES
+            </Text>
+            <View style={styles.headerSubtitleBox}>
+              <Text style={[styles.headerSubtitle, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                DASHBOARD
+              </Text>
+            </View>
+          </LinearGradient>
+        </ImageBackground>
+      </Animated.View>
       
       <ScrollView
         style={styles.scrollView}
@@ -129,39 +223,128 @@ const HomeScreen = ({ navigation }) => {
             colors={[theme.colors.primary]}
           />
         }
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }  // Changed to false
+        )}
+        scrollEventThrottle={16}
       >
         {/* User Stats Panel */}
         {username && (
-          <View style={[styles.statsPanel, { 
-            backgroundColor: theme.colors.surface,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            shadowColor: theme.colors.shadow,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 5,
-          }]}>
-            <Text style={[styles.welcomeText, { color: theme.colors.text }]}>Welcome, {username}</Text>
+          <Animated.View 
+            style={[
+              styles.statsPanel, 
+              { 
+                backgroundColor: theme.colors.surface,
+                borderWidth: 1,
+                borderColor: theme.colors.primary + '40',
+                shadowColor: theme.colors.shadow,
+                opacity: fadeAnim,
+                transform: [{ scale: scaleAnim }]
+              }
+            ]}
+          >
+            <View style={styles.statsPanelHeader}>
+              <LinearGradient
+                colors={[theme.colors.primary, theme.colors.primary + '30']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 0}}
+                style={styles.statsPanelHeaderGradient}
+              >
+                <Text style={[styles.welcomeText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+                  AGENT: {username.toUpperCase()}
+                </Text>
+                <View style={styles.userStatusIndicator}>
+                  <View style={styles.statusDot} />
+                  <Text style={[styles.userStatusText, { color: theme.colors.buttonText, fontFamily: 'ShareTechMono' }]}>
+                    ONLINE
+                  </Text>
+                </View>
+              </LinearGradient>
+            </View>
             
-            <View style={styles.levelRow}>
-              <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary, borderColor: theme.colors.border }]}>
-                <Text style={[styles.levelText, { color: theme.colors.buttonText }]}>{level}</Text>
+            <View style={styles.statsContent}>
+              <View style={styles.statsRow}>
+                <View style={[styles.statsBox, { borderColor: theme.colors.border }]}>
+                  <Text style={[styles.statsLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                    AGENT LEVEL
+                  </Text>
+                  <View style={styles.statsValueRow}>
+                    <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary }]}>
+                      <Text style={[styles.levelText, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+                        {level}
+                      </Text>
+                    </View>
+                    <View style={styles.levelProgress}>
+                      <Text style={[styles.levelProgressText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                        NEXT LVL: {1000 - (xp % 1000)} XP
+                      </Text>
+                      <View style={[styles.progressBarContainer, { backgroundColor: theme.colors.border + '40' }]}>
+                        <View style={[styles.progressBar, { width: `${xpPercentage}%`, backgroundColor: theme.colors.primary }]} />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+                
+                <Animated.View 
+                  style={[
+                    styles.coinsBox, 
+                    { 
+                      borderColor: theme.colors.border,
+                      backgroundColor: coinsFlashAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [theme.colors.surface, theme.colors.goldBadge + '30']
+                      })
+                    }
+                  ]}
+                >
+                  <Ionicons name="cash" size={24} color={theme.colors.goldBadge} style={styles.coinsIcon} />
+                  <Text style={[styles.coinsValue, { color: theme.colors.goldBadge, fontFamily: 'Orbitron-Bold' }]}>
+                    {coins.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.coinsLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                    CREDITS
+                  </Text>
+                </Animated.View>
               </View>
               
-              <View style={styles.xpContainer}>
-                <View style={[styles.xpBar, { backgroundColor: `${theme.colors.border}70` }]}>
-                  <View style={[styles.xpProgress, { width: `${Math.min((xp % 1000) / 10, 100)}%`, backgroundColor: theme.colors.primary }]} />
+              <View style={[styles.experienceBox, { borderColor: theme.colors.border }]}>
+                <View style={styles.experienceHeader}>
+                  <Text style={[styles.experienceLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                    EXPERIENCE POINTS
+                  </Text>
+                  <Text style={[styles.experienceValue, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
+                    {xp.toLocaleString()}
+                  </Text>
                 </View>
-                <Text style={[styles.xpText, { color: theme.colors.text }]}>{xp} XP</Text>
+                <View style={styles.expBar}>
+                  <View 
+                    style={[
+                      styles.expBarSegment, 
+                      { 
+                        backgroundColor: theme.colors.primary,
+                        width: '25%',
+                        borderTopLeftRadius: 3,
+                        borderBottomLeftRadius: 3
+                      }
+                    ]} 
+                  />
+                  <View style={[styles.expBarSegment, { backgroundColor: theme.colors.secondary, width: '45%' }]} />
+                  <View 
+                    style={[
+                      styles.expBarSegment, 
+                      { 
+                        backgroundColor: theme.colors.accent || theme.colors.error,
+                        width: '30%',
+                        borderTopRightRadius: 3,
+                        borderBottomRightRadius: 3
+                      }
+                    ]} 
+                  />
+                </View>
               </View>
             </View>
-            
-            <View style={[styles.coinsContainer, { backgroundColor: theme.colors.surfaceHighlight }]}>
-              <Ionicons name="cash" size={20} color={theme.colors.goldBadge} />
-              <Text style={[styles.coinsText, { color: theme.colors.text }]}>{coins} Coins</Text>
-            </View>
-          </View>
+          </Animated.View>
         )}
         
         {/* Quick Actions */}
@@ -170,37 +353,47 @@ const HomeScreen = ({ navigation }) => {
             style={[
               styles.dailyButton, 
               { 
-                backgroundColor: theme.colors.primary,
+                backgroundColor: theme.colors.surface,
                 shadowColor: theme.colors.shadow,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.2,
-                shadowRadius: 8,
-                elevation: 5,
                 borderWidth: 1,
-                borderColor: `${theme.colors.primary}80`,
+                borderColor: canClaimDaily() ? 
+                  theme.colors.success + '60' : 
+                  theme.colors.border,
               },
-              canClaimDaily() && styles.dailyAvailable
+              canClaimDaily() && { borderColor: theme.colors.success }
             ]}
             onPress={() => navigateWithHaptic('DailyStation')}
             activeOpacity={0.85}
           >
             <View style={styles.dailyContent}>
-              <Ionicons name="gift-outline" size={24} color={theme.colors.buttonText} style={styles.buttonIcon} />
-              <Text style={[styles.dailyText, { color: theme.colors.buttonText }]}>Claim Daily Bonus</Text>
+              <View style={[
+                styles.actionIconContainer, 
+                { backgroundColor: canClaimDaily() ? theme.colors.success : theme.colors.primary }
+              ]}>
+                <Ionicons 
+                  name="gift-outline" 
+                  size={24} 
+                  color={theme.colors.buttonText}
+                />
+                {canClaimDaily() && (
+                  <View style={[styles.pulseCircle, { borderColor: theme.colors.success }]} />
+                )}
+              </View>
+              <View style={styles.actionTextContainer}>
+                <Text style={[styles.actionTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
+                  DAILY BONUS
+                </Text>
+                <Text style={[styles.actionSubtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                  {canClaimDaily() ? 'AVAILABLE NOW' : 'CHECK BACK LATER'}
+                </Text>
+              </View>
             </View>
-            {canClaimDaily() && (
-              <View style={[styles.notificationDot, { backgroundColor: theme.colors.error, borderColor: theme.colors.primary }]} />
-            )}
           </TouchableOpacity>
           
           <TouchableOpacity
             style={[styles.cyberButton, { 
               backgroundColor: theme.colors.surface,
               shadowColor: theme.colors.shadow,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.2,
-              shadowRadius: 8,
-              elevation: 5,
               borderWidth: 1,
               borderColor: theme.colors.border,
             }]}
@@ -208,80 +401,155 @@ const HomeScreen = ({ navigation }) => {
             activeOpacity={0.85}
           >
             <View style={styles.cyberContent}>
-              <Ionicons name="newspaper-outline" size={24} color={theme.colors.text} style={styles.buttonIcon} />
-              <Text style={[styles.cyberText, { color: theme.colors.text }]}>Cyber Brief</Text>
+              <View style={[styles.actionIconContainer, { backgroundColor: theme.colors.secondary }]}>
+                <Ionicons 
+                  name="newspaper-outline" 
+                  size={24} 
+                  color={theme.colors.buttonText}
+                />
+              </View>
+              <View style={styles.actionTextContainer}>
+                <Text style={[styles.actionTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
+                  CYBER BRIEF
+                </Text>
+                <Text style={[styles.actionSubtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                  DAILY INTEL
+                </Text>
+              </View>
             </View>
           </TouchableOpacity>
         </View>
         
         {/* Practice Tests Section */}
-        <View style={styles.testsHeaderContainer}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Practice Tests</Text>
-          <View style={[styles.gradIconContainer, { backgroundColor: theme.colors.primary }]}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.primary + '20' }]}>
+            <LinearGradient
+              colors={['transparent', theme.colors.primary + '40', 'transparent']}
+              start={{x: 0, y: 0.5}}
+              end={{x: 1, y: 0.5}}
+              style={styles.sectionTitleGradient}
+            />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+              PRACTICE TESTS
+            </Text>
+          </View>
+          
+          <View style={[styles.sectionIcon, { backgroundColor: theme.colors.primary }]}>
             <Ionicons name="school" size={22} color={theme.colors.buttonText} />
           </View>
         </View>
         
         <View style={styles.testsGrid}>
-          {certOptions.map((cert, index) => (
-            <TouchableOpacity
-              key={cert.id}
-              style={[styles.certCard, { 
-                backgroundColor: theme.colors.testCard,
-                shadowColor: theme.colors.shadow,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.2,
-                shadowRadius: 8,
-                elevation: 5,
-                borderWidth: 1,
-                borderColor: `${theme.colors.toolCard}80`,
-              }]}
-              onPress={() => navigateToTests(cert)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.certContent}>
-                <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.buttonText}20` }]}>
-                  <Ionicons name={cert.icon} size={24} color={theme.colors.buttonText} />
-                </View>
-                <Text style={[styles.certName, { color: theme.colors.buttonText }]}>{cert.name}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {certOptions.map((cert, index) => {
+            const animIndex = Math.min(index, cardAnims.length - 1);
+            
+            return (
+              <Animated.View
+                key={cert.id}
+                style={{
+                  opacity: cardAnims[animIndex],
+                  transform: [{
+                    translateY: cardAnims[animIndex].interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [30, 0]
+                    })
+                  }]
+                }}
+              >
+                <TouchableOpacity
+                  style={[styles.certCard, { 
+                    backgroundColor: theme.colors.surface,
+                    shadowColor: theme.colors.shadow,
+                    borderWidth: 1,
+                    borderColor: theme.colors.border,
+                  }]}
+                  onPress={() => navigateToTests(cert)}
+                  activeOpacity={0.85}
+                >
+                  <LinearGradient
+                    colors={[theme.colors.testCard + '80', theme.colors.testCard]}
+                    start={{x: 0, y: 0}}
+                    end={{x: 0, y: 1}}
+                    style={styles.certCardHeader}
+                  >
+                    <Ionicons name={cert.icon} size={20} color={theme.colors.buttonText} />
+                  </LinearGradient>
+                  
+                  <View style={styles.certCardBody}>
+                    <Text style={[styles.certName, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                      {cert.name}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            );
+          })}
         </View>
         
         {/* Training Tools Section */}
-        <View style={styles.testsHeaderContainer}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Training Tools</Text>
-          <View style={[styles.gradIconContainer, { backgroundColor: theme.colors.secondary }]}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.secondary + '20' }]}>
+            <LinearGradient
+              colors={['transparent', theme.colors.secondary + '40', 'transparent']}
+              start={{x: 0, y: 0.5}}
+              end={{x: 1, y: 0.5}}
+              style={styles.sectionTitleGradient}
+            />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+              TRAINING TOOLS
+            </Text>
+          </View>
+          
+          <View style={[styles.sectionIcon, { backgroundColor: theme.colors.secondary }]}>
             <Ionicons name="hammer" size={22} color={theme.colors.buttonText} />
           </View>
         </View>
         
         <View style={styles.testsGrid}>
-          {toolsOptions.map((tool, index) => (
-            <TouchableOpacity
-              key={tool.name}
-              style={[styles.certCard, { 
-                backgroundColor: theme.colors.toolCard,
-                shadowColor: theme.colors.shadow,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.2,
-                shadowRadius: 8,
-                elevation: 5,
-                borderWidth: 1,
-                borderColor: `${theme.colors.toolCard}80`,
-              }]}
-              onPress={() => navigateWithHaptic(tool.screen)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.certContent}>
-                <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.buttonText}20` }]}>
-                  <Ionicons name={tool.icon} size={24} color={theme.colors.buttonText} />
-                </View>
-                <Text style={[styles.certName, { color: theme.colors.buttonText }]}>{tool.name}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {toolsOptions.map((tool, index) => {
+            const animIndex = Math.min(index + certOptions.length, cardAnims.length - 1);
+            
+            return (
+              <Animated.View
+                key={tool.name}
+                style={{
+                  opacity: cardAnims[animIndex],
+                  transform: [{
+                    translateY: cardAnims[animIndex].interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [30, 0]
+                    })
+                  }]
+                }}
+              >
+                <TouchableOpacity
+                  style={[styles.toolCard, { 
+                    backgroundColor: theme.colors.surface,
+                    shadowColor: theme.colors.shadow,
+                    borderWidth: 1,
+                    borderColor: theme.colors.border,
+                  }]}
+                  onPress={() => navigateWithHaptic(tool.screen)}
+                  activeOpacity={0.85}
+                >
+                  <LinearGradient
+                    colors={[theme.colors.toolCard + '80', theme.colors.toolCard]}
+                    start={{x: 0, y: 0}}
+                    end={{x: 0, y: 1}}
+                    style={styles.toolCardHeader}
+                  >
+                    <Ionicons name={tool.icon} size={20} color={theme.colors.buttonText} />
+                  </LinearGradient>
+                  
+                  <View style={styles.toolCardBody}>
+                    <Text style={[styles.toolName, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                      {tool.name}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            );
+          })}
         </View>
         
         {/* Bottom space */}
@@ -295,156 +563,305 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  titleContainer: {
+  headerContainer: {
+    height: 150,
     width: '100%',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
-    paddingBottom: 10,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
   },
-  titleText: {
-    fontSize: 24,
+  headerBackground: {
+    width: '100%',
+    height: '100%',
+  },
+  headerBackgroundImage: {
+    opacity: 0.5,
+  },
+  headerGradient: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+  },
+  headerTitle: {
+    fontSize: 30,
     fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 5,
+  },
+  headerSubtitleBox: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    letterSpacing: 1,
   },
   scrollView: {
     flex: 1,
+    paddingTop: 150, // Match header height
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
+    paddingTop: 15,
     paddingBottom: 20,
   },
   
   // Stats Panel
   statsPanel: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: 12,
+    marginVertical: 10,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  statsPanelHeader: {
+    overflow: 'hidden',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  statsPanelHeaderGradient: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
   },
   welcomeText: {
-    fontSize: 28,
+    fontSize: 16,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
+    letterSpacing: 1,
   },
-  levelRow: {
+  userStatusIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#2ECC71',
+    marginRight: 6,
+  },
+  userStatusText: {
+    fontSize: 10,
+    letterSpacing: 1,
+  },
+  statsContent: {
+    padding: 15,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  statsBox: {
+    flex: 2,
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+  },
+  statsLabel: {
+    fontSize: 10,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  statsValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   levelBadge: {
-    width: 75,
-    height: 75,
-    borderRadius: 40,
+    width: 40,
+    height: 40,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
-    borderWidth: 3,
+    marginRight: 10,
   },
   levelText: {
-    fontSize: 36,
+    fontSize: 20,
     fontWeight: 'bold',
   },
-  xpContainer: {
+  levelProgress: {
     flex: 1,
   },
-  xpBar: {
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
+  levelProgressText: {
+    fontSize: 10,
     marginBottom: 5,
   },
-  xpProgress: {
+  progressBarContainer: {
+    height: 6,
+    borderRadius: 3,
+    width: '100%',
+  },
+  progressBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
     height: '100%',
-    borderRadius: 5,
+    borderRadius: 3,
   },
-  xpText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  coinsContainer: {
-    flexDirection: 'row',
+  coinsBox: {
+    flex: 1,
+    marginLeft: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 25,
-    borderRadius: 30,
   },
-  coinsText: {
-    fontSize: 20,
+  coinsIcon: {
+    marginBottom: 5,
+  },
+  coinsValue: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginLeft: 10,
+  },
+  coinsLabel: {
+    fontSize: 10,
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  experienceBox: {
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 10,
+  },
+  experienceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  experienceLabel: {
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  experienceValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  expBar: {
+    height: 6,
+    borderRadius: 3,
+    flexDirection: 'row',
+  },
+  expBarSegment: {
+    height: '100%',
   },
   
   // Quick Actions
   quickActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 25,
+    marginVertical: 15,
   },
   dailyButton: {
     flex: 1,
-    borderRadius: 15,
-    paddingVertical: 16,
+    borderRadius: 10,
     marginRight: 8,
-    position: 'relative',
-  },
-  dailyAvailable: {
-    // Styling applied if daily is available - any additional styles go here
-  },
-  dailyContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonIcon: {
-    marginRight: 10,
-  },
-  dailyText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   cyberButton: {
     flex: 1,
-    borderRadius: 15,
-    paddingVertical: 16,
+    borderRadius: 10,
     marginLeft: 8,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  dailyContent: {
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   cyberContent: {
+    padding: 15,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  actionIconContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 10,
     justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    position: 'relative',
   },
-  cyberText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  notificationDot: {
+  pulseCircle: {
     position: 'absolute',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    right: 15,
-    top: 15,
+    width: '130%',
+    height: '130%',
+    borderRadius: 40,
     borderWidth: 2,
+    opacity: 0.6,
+  },
+  actionTextContainer: {
+    flex: 1,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  actionSubtitle: {
+    fontSize: 10,
+    letterSpacing: 0.5,
   },
   
-  // Practice Tests Section
-  testsHeaderContainer: {
+  // Section Headers
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
     marginBottom: 15,
-    marginTop: 10,
+  },
+  sectionTitleBg: {
+    flex: 1,
+    borderRadius: 6,
+    padding: 8,
+    marginRight: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sectionTitleGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   sectionTitle: {
-    fontSize: 28,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginRight: 10,
+    letterSpacing: 1,
+    textAlign: 'center',
   },
-  gradIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  sectionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -454,31 +871,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   certCard: {
-    width: (width - 50) / 2,
-    height: 110,
-    borderRadius: 16,
+    width: (width - 40) / 2,
+    height: 100,
+    borderRadius: 10,
     marginBottom: 10,
     overflow: 'hidden',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  certContent: {
+  certCardHeader: {
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  certCardBody: {
     flex: 1,
-    padding: 16,
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    padding: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
   certName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    lineHeight: 22,
+    fontSize: 13,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    lineHeight: 18,
+  },
+  toolCard: {
+    width: (width - 40) / 2,
+    height: 100,
+    borderRadius: 10,
+    marginBottom: 10,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  toolCardHeader: {
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolCardBody: {
+    flex: 1,
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toolName: {
+    fontSize: 13,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    lineHeight: 18,
   },
   
   // Bottom spacer

@@ -24,6 +24,32 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "fonts": [
+      {
+        "asset": "./assets/fonts/Orbitron-Regular.ttf",
+        "family": "Orbitron"
+      },
+      {
+        "asset": "./assets/fonts/Orbitron-Bold.ttf",
+        "family": "Orbitron-Bold"
+      },
+      {
+        "asset": "./assets/fonts/Orbitron-Medium.ttf",
+        "family": "Orbitron-Medium"
+      },
+      {
+        "asset": "./assets/fonts/Orbitron-Black.ttf",
+        "family": "Orbitron-Black"
+      },
+      {
+        "asset": "./assets/fonts/ShareTechMono-Regular.ttf",
+        "family": "ShareTechMono"
+      },
+      {
+        "asset": "./assets/fonts/FiraCode-Regular.ttf",
+        "family": "FiraCode"
+      }
+    ]
   }
 }

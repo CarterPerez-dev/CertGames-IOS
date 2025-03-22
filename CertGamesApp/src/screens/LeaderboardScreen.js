@@ -13,11 +13,12 @@ import {
   Image,
   Animated,
   Dimensions,
-  StatusBar
+  StatusBar,
+  Alert
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchLeaderboard } from '../api/leaderboardService';
+import { fetchLeaderboard, fetchUserRanking } from '../api/leaderboardService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import * as Haptics from 'expo-haptics';
@@ -38,6 +39,7 @@ const LeaderboardScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [findingUser, setFindingUser] = useState(false); // New state for tracking "Find Me" operation
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
@@ -184,27 +186,205 @@ const LeaderboardScreen = () => {
     }
   };
 
-  // Find user rank function
-  const findUserRank = () => {
+  // Find user rank function - IMPROVED VERSION
+  const findUserRank = useCallback(async () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     
+    // Prevent running this function if already finding user
+    if (findingUser) return;
+    
+    // First, check if the user is already in loaded data
     const userIndex = leaderboardData.findIndex(item => item.username === username);
     
     if (userIndex !== -1 && flatListRef.current) {
-      flatListRef.current.scrollToIndex({
-        index: userIndex,
-        animated: true,
-        viewPosition: 0.5, // Center the item
-        viewOffset: 50 // Additional offset
-      });
-    } else {
-      // If user not found in current data, we could fetch more data or show a message
-      // For now, let's just scroll to top
-      scrollToTop();
+      // User is already loaded, just scroll to their position
+      const adjustedIndex = userIndex >= 3 ? userIndex - 3 : 0; // Adjust for podium display
+      
+      // Use scrollToOffset instead of scrollToIndex for better reliability
+      const itemHeight = 90; // Average item height including margin
+      const headerHeight = 320; // Approximate podium + header height
+      const scrollPosition = headerHeight + (adjustedIndex * itemHeight);
+      
+      setTimeout(() => {
+        if (flatListRef.current) {
+          flatListRef.current.scrollToOffset({
+            offset: scrollPosition,
+            animated: true
+          });
+          
+          // Highlight the user's row by making it flash briefly
+          // This will help the user see where they are in the list
+          const userItem = leaderboardData[userIndex];
+          if (userItem) {
+            // We'll temporarily mark the item as flashing and update it
+            setLeaderboardData(prevData => {
+              const newData = [...prevData];
+              newData[userIndex] = { ...newData[userIndex], isFlashing: true };
+              return newData;
+            });
+            
+            // Remove the flashing effect after a moment
+            setTimeout(() => {
+              setLeaderboardData(prevData => {
+                const newData = [...prevData];
+                if (newData[userIndex]) {
+                  newData[userIndex] = { ...newData[userIndex], isFlashing: false };
+                }
+                return newData;
+              });
+            }, 1500);
+          }
+        }
+      }, 100);
+      
+      return;
     }
-  };
+    
+    // User not in loaded data, need to find their position - start loading indicator
+    setFindingUser(true);
+    
+    try {
+      // We'll do an optimized approach to find the user
+      // First, let's try the first 5 pages all at once to see if user is in there
+      // This helps quickly find users without having to load page by page
+      
+      let foundUserIndex = -1;
+      let foundUserPage = -1;
+      let allLoadedData = [...leaderboardData];
+      
+      const MAX_PAGES_TO_SEARCH = 20; // Higher limit in case user is far down
+      const BATCH_SIZE = 5; // Load this many pages at once before checking
+      
+      // First, we'll try loading in batches to be more efficient
+      for (let batchStart = page + 1; batchStart < MAX_PAGES_TO_SEARCH; batchStart += BATCH_SIZE) {
+        if (foundUserIndex !== -1) break; // Exit if user was found
+        
+        // Load BATCH_SIZE pages at once (or less if near the limit)
+        const pagesToLoad = Math.min(BATCH_SIZE, MAX_PAGES_TO_SEARCH - batchStart);
+        const batchData = [];
+        
+        for (let i = 0; i < pagesToLoad; i++) {
+          const pageNum = batchStart + i;
+          const skip = pageNum * pageSize;
+          
+          try {
+            console.log(`Loading page ${pageNum} in batch search...`);
+            const response = await fetchLeaderboard(skip, pageSize);
+            
+            if (!response.data || response.data.length === 0) {
+              // No more data available
+              break;
+            }
+            
+            const pageData = response.data.map((item, idx) => ({
+              ...item,
+              rank: skip + idx + 1,
+            }));
+            
+            batchData.push(...pageData);
+            
+            // Check if user is in this page
+            const userIdxInPage = pageData.findIndex(item => item.username === username);
+            if (userIdxInPage !== -1) {
+              foundUserIndex = userIdxInPage;
+              foundUserPage = pageNum;
+              break; // Stop loading more pages in this batch
+            }
+          } catch (loadError) {
+            console.error(`Error loading page ${pageNum}:`, loadError);
+            // Continue to next page even if one fails
+          }
+        }
+        
+        // Add batch data to our full dataset
+        if (batchData.length > 0) {
+          allLoadedData = [...allLoadedData, ...batchData];
+          
+          // Update state progressively to show user the data is loading
+          setLeaderboardData(allLoadedData);
+          setPage(batchStart + pagesToLoad - 1);
+        }
+      }
+      
+      // If user was found, scroll to their position after a delay to let FlatList render
+      if (foundUserIndex !== -1 && foundUserPage !== -1) {
+        // Wait for FlatList to finish rendering
+        setTimeout(() => {
+          if (!flatListRef.current) {
+            setFindingUser(false);
+            return;
+          }
+          
+          // Calculate the user's position in the overall data
+          const totalLoadedBeforeUserPage = foundUserPage * pageSize;
+          const userPositionInList = (totalLoadedBeforeUserPage - 3) + foundUserIndex;
+          
+          // Use scrollToOffset for more reliable scrolling
+          const itemHeight = 90; // Approximate item height with margins
+          const headerHeight = 320; // Approximate podium + header height
+          const scrollPosition = headerHeight + (userPositionInList * itemHeight);
+          
+          // First scroll to about 5 items before user position to load that area
+          flatListRef.current.scrollToOffset({
+            offset: Math.max(0, scrollPosition - (5 * itemHeight)),
+            animated: false
+          });
+          
+          // Give time for those items to render, then scroll to exact position
+          setTimeout(() => {
+            if (flatListRef.current) {
+              flatListRef.current.scrollToOffset({
+                offset: scrollPosition,
+                animated: true
+              });
+              
+              // Highlight the row by making it flash briefly
+              const userIndexInFullData = leaderboardData.findIndex(item => item.username === username);
+              if (userIndexInFullData !== -1) {
+                // Mark the item as flashing
+                setLeaderboardData(prevData => {
+                  const newData = [...prevData];
+                  newData[userIndexInFullData] = { ...newData[userIndexInFullData], isFlashing: true };
+                  return newData;
+                });
+                
+                // Remove flashing after a moment
+                setTimeout(() => {
+                  setLeaderboardData(prevData => {
+                    const newData = [...prevData];
+                    if (newData[userIndexInFullData]) {
+                      newData[userIndexInFullData] = { ...newData[userIndexInFullData], isFlashing: false };
+                    }
+                    return newData;
+                  });
+                }, 1500);
+              }
+            }
+            
+            setFindingUser(false);
+          }, 500);
+        }, 1000); // Longer delay to ensure rendering is complete
+      } else {
+        // User wasn't found
+        Alert.alert(
+          "User Not Found",
+          "Couldn't locate your position on the leaderboard after searching the top rankings.",
+          [{ text: "OK" }]
+        );
+        setFindingUser(false);
+      }
+    } catch (error) {
+      console.error('Error finding user rank:', error);
+      Alert.alert(
+        "Error",
+        "There was a problem finding your rank on the leaderboard.",
+        [{ text: "OK" }]
+      );
+      setFindingUser(false);
+    }
+  }, [username, leaderboardData, page, pageSize, fetchLeaderboard, findingUser]);
   
   // Render top 3 podium
   const renderPodium = () => {
@@ -412,11 +592,15 @@ const LeaderboardScreen = () => {
     const actualIndex = index + 3; 
     const isCurrentUser = item.username === username;
     const isTopTen = actualIndex < 10; // Ranks 4-10
+    const isFlashing = item.isFlashing; // Check if this item should be flashing (for Find Me feature)
     
-    // Background gradient based on rank
+    // Background gradient based on rank and status
     let gradientColors;
     
-    if (isCurrentUser) {
+    if (isFlashing) {
+      // Alternating bright flash colors for "Find Me" feature
+      gradientColors = ['#FFFFFF', theme.colors.primary];
+    } else if (isCurrentUser) {
       gradientColors = [theme.colors.primary + '80', theme.colors.primary + '40'];
     } else if (isTopTen) {
       gradientColors = ['rgba(0, 156, 255, 0.2)', 'rgba(0, 156, 255, 0.05)'];
@@ -444,12 +628,14 @@ const LeaderboardScreen = () => {
           style={[
             styles.rankItem,
             isCurrentUser && styles.currentUserItem,
+            isFlashing && { borderWidth: 2, borderColor: '#FFFFFF' }
           ]}
         >
           <View style={styles.rankNumberContainer}>
             <Text style={[
               styles.rankNumber, 
-              isTopTen ? { color: '#00BFFF' } : { color: theme.colors.textSecondary }
+              isTopTen ? { color: '#00BFFF' } : { color: theme.colors.textSecondary },
+              isFlashing && { color: theme.colors.primary }
             ]}>
               {item.rank || (actualIndex + 1)}
             </Text>
@@ -461,14 +647,16 @@ const LeaderboardScreen = () => {
               source={{ uri: item.avatarUrl }} 
               style={[
                 styles.avatarImage,
-                isCurrentUser && { borderColor: theme.colors.primary }
+                isCurrentUser && { borderColor: theme.colors.primary },
+                isFlashing && { borderColor: '#FFFFFF', borderWidth: 2 }
               ]}
               defaultSource={require('../../assets/default-avatar.png')}
             />
           ) : (
             <View style={[
               styles.placeholderAvatar,
-              isCurrentUser && { borderColor: theme.colors.primary }
+              isCurrentUser && { borderColor: theme.colors.primary },
+              isFlashing && { borderColor: '#FFFFFF', borderWidth: 2 }
             ]}>
               <Text style={styles.avatarInitial}>
                 {item.username?.charAt(0).toUpperCase() || '?'}
@@ -479,26 +667,38 @@ const LeaderboardScreen = () => {
           <View style={styles.userInfoContainer}>
             <Text style={[
               styles.username,
-              isCurrentUser && styles.currentUsername
+              isCurrentUser && styles.currentUsername,
+              isFlashing && { color: '#000000', fontWeight: 'bold' }
             ]}>
               {item.username}
               {isCurrentUser && (
-                <Text style={styles.youText}> (You)</Text>
+                <Text style={[styles.youText, isFlashing && { color: '#000000' }]}> (You)</Text>
               )}
             </Text>
           </View>
           
-          <View style={styles.statsContainer}>
+          <View style={[
+            styles.statsContainer,
+            isFlashing && { backgroundColor: 'rgba(255, 255, 255, 0.3)' }
+          ]}>
             <View style={styles.levelContainer}>
-              <Text style={styles.levelLabel}>Level</Text>
-              <Text style={[styles.levelValue, isCurrentUser && styles.currentUserStats]}>
+              <Text style={[styles.levelLabel, isFlashing && { color: '#000000' }]}>Level</Text>
+              <Text style={[
+                styles.levelValue, 
+                isCurrentUser && styles.currentUserStats,
+                isFlashing && { color: '#000000', fontWeight: 'bold' }
+              ]}>
                 {item.level}
               </Text>
             </View>
             
             <View style={styles.xpContainer}>
-              <Text style={styles.xpLabel}>XP</Text>
-              <Text style={[styles.xpValue, isCurrentUser && styles.currentUserStats]}>
+              <Text style={[styles.xpLabel, isFlashing && { color: '#000000' }]}>XP</Text>
+              <Text style={[
+                styles.xpValue, 
+                isCurrentUser && styles.currentUserStats,
+                isFlashing && { color: '#000000', fontWeight: 'bold' }
+              ]}>
                 {item.xp?.toLocaleString() || '0'}
               </Text>
             </View>
@@ -599,11 +799,28 @@ const LeaderboardScreen = () => {
           onEndReachedThreshold={0.2}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          removeClippedSubviews={true}
-          initialNumToRender={8}
-          maxToRenderPerBatch={8}
-          windowSize={10}
-          updateCellsBatchingPeriod={50}
+          removeClippedSubviews={false} // Changed to false to prevent rendering issues
+          initialNumToRender={20} // Increased for better initial render
+          maxToRenderPerBatch={10} // Increased slightly
+          windowSize={21} // Increased for better offscreen rendering
+          updateCellsBatchingPeriod={100} // Increased to batch updates better
+          maintainVisibleContentPosition={{ // Added to maintain position during updates
+            minIndexForVisible: 0,
+          }}
+          onScrollToIndexFailed={(info) => {
+            // Fallback handler for scroll failures
+            console.log('Scroll to index failed:', info);
+            // Wait a bit and try scrolling to an offset instead
+            const wait = new Promise(resolve => setTimeout(resolve, 500));
+            wait.then(() => {
+              if (flatListRef.current) {
+                flatListRef.current.scrollToOffset({
+                  offset: info.index * 90, // Approximate item height
+                  animated: true
+                });
+              }
+            });
+          }}
           bounces={true}
           bouncesZoom={false}
           alwaysBounceVertical={true}
@@ -642,14 +859,24 @@ const LeaderboardScreen = () => {
       {/* Find My Rank Button */}
       <TouchableOpacity 
         style={[styles.findRankButton, { 
-          backgroundColor: theme.colors.surface,
+          backgroundColor: findingUser ? theme.colors.primary + '80' : theme.colors.surface,
           borderColor: theme.colors.border
         }]}
         onPress={findUserRank}
         activeOpacity={0.8}
+        disabled={findingUser || loading}
       >
-        <Ionicons name="locate" size={16} color='#FFFFFF' />
-        <Text style={[styles.findRankText, { color: '#FFFFFF' }]}>Find Me</Text>
+        {findingUser ? (
+          <>
+            <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={[styles.findRankText, { color: '#FFFFFF' }]}>Finding...</Text>
+          </>
+        ) : (
+          <>
+            <Ionicons name="locate" size={16} color='#FFFFFF' />
+            <Text style={[styles.findRankText, { color: '#FFFFFF' }]}>Find Me</Text>
+          </>
+        )}
       </TouchableOpacity>
     </SafeAreaView>
   );

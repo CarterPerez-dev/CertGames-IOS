@@ -1,5 +1,5 @@
 // src/screens/tools/NewsletterScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,9 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Animated,
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,18 +20,68 @@ import { subscribeToNewsletter, unsubscribeFromNewsletter } from '../../api/news
 import CustomHeaderComponent from '../../components/CustomHeaderComponent';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
+import * as Haptics from 'expo-haptics';
 
-const NewsletterScreen = () => {
+const { width } = Dimensions.get('window');
+
+const NewsletterScreen = ({ navigation }) => {
   // Theme integration
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
 
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [cardAnims] = useState([...Array(5)].map(() => new Animated.Value(0)));
+
+  // Component state
   const [email, setEmail] = useState('');
   const [activeSection, setActiveSection] = useState('subscribe');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [isError, setIsError] = useState(false);
   const [showStatusMsg, setShowStatusMsg] = useState(false);
+
+  // Header opacity animation
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Animation on mount
+  useEffect(() => {
+    // Main animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true
+      })
+    ]).start();
+    
+    // Staggered card animations
+    cardAnims.forEach((anim, i) => {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 500,
+        delay: 200 + (i * 120),
+        useNativeDriver: true
+      }).start();
+    });
+  }, []);
 
   // Clear status message after 5 seconds
   useEffect(() => {
@@ -63,6 +115,10 @@ const NewsletterScreen = () => {
       return;
     }
 
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
     setIsSubmitting(true);
     setStatusMsg("");
     setShowStatusMsg(false);
@@ -80,6 +136,9 @@ const NewsletterScreen = () => {
         setStatusMsg(response.message || "Successfully subscribed to the Daily Cyber Brief!");
         // Clear email field on successful subscription
         setEmail("");
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
       }
       setShowStatusMsg(true);
     } catch (err) {
@@ -87,6 +146,9 @@ const NewsletterScreen = () => {
       const fallback = "Subscription failed. Please try again.";
       setStatusMsg(err.message || fallback);
       setShowStatusMsg(true);
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -107,6 +169,10 @@ const NewsletterScreen = () => {
       return;
     }
 
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
     setIsSubmitting(true);
     setStatusMsg("");
     setShowStatusMsg(false);
@@ -124,6 +190,9 @@ const NewsletterScreen = () => {
         setStatusMsg(response.message || "Successfully unsubscribed from the Daily Cyber Brief.");
         // Clear email field on successful unsubscription
         setEmail("");
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
       }
       setShowStatusMsg(true);
     } catch (err) {
@@ -131,256 +200,510 @@ const NewsletterScreen = () => {
       const fallback = "Unsubscribe failed. Please try again.";
       setStatusMsg(err.message || fallback);
       setShowStatusMsg(true);
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      if (activeSection === "subscribe") {
-        handleSubscribe();
-      } else {
-        handleUnsubscribe();
+  const handleTabChange = (section) => {
+    if (section !== activeSection) {
+      setActiveSection(section);
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
   };
 
   return (
     <SafeAreaView style={[globalStyles.screen]}>
+      {/* Animated Header */}
+      <Animated.View 
+        style={[
+          styles.animatedHeader, 
+          { 
+            opacity: headerOpacity,
+            backgroundColor: theme.colors.headerBackground,
+            borderBottomColor: theme.colors.border,
+          }
+        ]}
+      >
+        <LinearGradient
+          colors={theme.colors.primaryGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <Text style={[styles.headerTitle, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+            CYBER BRIEF
+          </Text>
+        </LinearGradient>
+      </Animated.View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView style={styles.scrollView}>
-          {/* Custom Header - Moved inside ScrollView to scroll with content */}
-          <View style={styles.compactHeaderContainer}>
-            <CustomHeaderComponent 
-              title="Cyber Brief" 
-              gradientColors={theme.colors.primaryGradient}
-              // Use custom style prop for smaller header
-              customStyles={styles.compactHeader}
-            />
-          </View>
-          
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false }
+          )}
+          scrollEventThrottle={16}
+        >
+          {/* Header Section */}
+          <Animated.View 
+            style={[
+              styles.headerContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: scaleAnim }]
+              }
+            ]}
+          >
+            <LinearGradient
+              colors={['rgba(0,0,0,0.3)', 'transparent']}
+              start={{x: 0.5, y: 0}}
+              end={{x: 0.5, y: 1}}
+              style={styles.headerBackground}
+            >
+              <View style={styles.headerContent}>
+                <Text style={[styles.mainTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                  DAILY CYBER BRIEF
+                </Text>
+                <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
+                <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                  STAY AHEAD OF CYBER THREATS
+                </Text>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+
           <View style={[globalStyles.container, styles.mainContent]}>
             {/* Intro Card */}
-            <View style={[globalStyles.card, styles.card]}>
-              <LinearGradient
-                colors={theme.colors.primaryGradient}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 0}}
-                style={styles.cardHeader}
-              >
-                <Ionicons name="shield" size={20} color={theme.colors.text} />
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Stay Ahead of Cyber Threats</Text>
-              </LinearGradient>
-              
-              <View style={styles.cardContent}>
-                <Text style={[globalStyles.text, styles.cardText]}>
-                  The Daily Cyber Brief delivers curated, actionable cybersecurity intelligence 
-                  directly to your inbox. Stay informed about emerging threats, security best 
-                  practices, and industry trends.
-                </Text>
+            <Animated.View
+              style={{
+                opacity: cardAnims[0],
+                transform: [{
+                  translateY: cardAnims[0].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0]
+                  })
+                }]
+              }}
+            >
+              <View style={[globalStyles.card, styles.card, { 
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                shadowColor: theme.colors.shadow
+              }]}>
+                <LinearGradient
+                  colors={theme.colors.primaryGradient}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 0}}
+                  style={styles.cardHeader}
+                >
+                  <Ionicons name="shield" size={20} color={theme.colors.buttonText} />
+                  <Text style={[styles.cardTitle, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+                    SECURITY INTELLIGENCE NETWORK
+                  </Text>
+                </LinearGradient>
                 
-                <View style={styles.features}>
-                  <View style={[styles.feature, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
-                    <Ionicons name="lock-closed" size={20} color={theme.colors.secondary} />
-                    <View style={styles.featureTextContainer}>
-                      <Text style={[styles.featureTitle, { color: theme.colors.text }]}>Threat Intelligence</Text>
-                      <Text style={[styles.featureText, { color: theme.colors.textSecondary }]}>Get the latest on emerging cyber threats and vulnerabilities</Text>
-                    </View>
-                  </View>
+                <View style={styles.cardContent}>
+                  <Text style={[globalStyles.text, styles.cardText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                    The Daily Cyber Brief delivers curated, actionable cybersecurity intelligence 
+                    directly to your inbox. Stay informed about emerging threats, security best 
+                    practices, and industry trends.
+                  </Text>
                   
-                  <View style={[styles.feature, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
-                    <Ionicons name="trending-up" size={20} color={theme.colors.secondary} />
-                    <View style={styles.featureTextContainer}>
-                      <Text style={[styles.featureTitle, { color: theme.colors.text }]}>Industry Trends</Text>
-                      <Text style={[styles.featureText, { color: theme.colors.textSecondary }]}>Track industry trends and stay ahead of the curve</Text>
+                  <View style={styles.features}>
+                    <View style={[styles.feature, { 
+                      backgroundColor: theme.colors.surfaceHighlight, 
+                      borderColor: theme.colors.border 
+                    }]}>
+                      <Ionicons name="lock-closed" size={20} color={theme.colors.primary} />
+                      <View style={styles.featureTextContainer}>
+                        <Text style={[styles.featureTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
+                          THREAT INTELLIGENCE
+                        </Text>
+                        <Text style={[styles.featureText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                          Latest intelligence on emerging cyber threats and vulnerabilities
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  
-                  <View style={[styles.feature, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
-                    <Ionicons name="construct" size={20} color={theme.colors.secondary} />
-                    <View style={styles.featureTextContainer}>
-                      <Text style={[styles.featureTitle, { color: theme.colors.text }]}>Security Tools</Text>
-                      <Text style={[styles.featureText, { color: theme.colors.textSecondary }]}>Practical security tools and techniques for implementation</Text>
+                    
+                    <View style={[styles.feature, { 
+                      backgroundColor: theme.colors.surfaceHighlight, 
+                      borderColor: theme.colors.border 
+                    }]}>
+                      <Ionicons name="trending-up" size={20} color={theme.colors.primary} />
+                      <View style={styles.featureTextContainer}>
+                        <Text style={[styles.featureTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
+                          INDUSTRY TRENDS
+                        </Text>
+                        <Text style={[styles.featureText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                          Track industry trends and stay ahead of the curve
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  
-                  <View style={[styles.feature, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
-                    <Ionicons name="bulb" size={20} color={theme.colors.secondary} />
-                    <View style={styles.featureTextContainer}>
-                      <Text style={[styles.featureTitle, { color: theme.colors.text }]}>Expert Insights</Text>
-                      <Text style={[styles.featureText, { color: theme.colors.textSecondary }]}>Gain insights from security experts and thought leaders</Text>
+                    
+                    <View style={[styles.feature, { 
+                      backgroundColor: theme.colors.surfaceHighlight, 
+                      borderColor: theme.colors.border 
+                    }]}>
+                      <Ionicons name="construct" size={20} color={theme.colors.primary} />
+                      <View style={styles.featureTextContainer}>
+                        <Text style={[styles.featureTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
+                          SECURITY TOOLS
+                        </Text>
+                        <Text style={[styles.featureText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                          Practical security tools and techniques for implementation
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <View style={[styles.feature, { 
+                      backgroundColor: theme.colors.surfaceHighlight, 
+                      borderColor: theme.colors.border 
+                    }]}>
+                      <Ionicons name="bulb" size={20} color={theme.colors.primary} />
+                      <View style={styles.featureTextContainer}>
+                        <Text style={[styles.featureTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
+                          EXPERT INSIGHTS
+                        </Text>
+                        <Text style={[styles.featureText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                          Gain insights from security experts and thought leaders
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 </View>
               </View>
-            </View>
+            </Animated.View>
 
             {/* Signup Card */}
-            <View style={[globalStyles.card, styles.card]}>
-              <LinearGradient
-                colors={theme.colors.primaryGradient}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 0}}
-                style={styles.cardHeader}
-              >
-                <Ionicons name="notifications" size={20} color={theme.colors.text} />
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Join the Cyber Brief Community</Text>
-              </LinearGradient>
-              
-              <View style={styles.cardContent}>
-                <View style={[styles.tabs, { backgroundColor: theme.colors.inputBackground }]}>
-                  <TouchableOpacity 
-                    style={[
-                      styles.tab, 
-                      activeSection === 'subscribe' && { backgroundColor: theme.colors.primary }
-                    ]}
-                    onPress={() => setActiveSection('subscribe')}
-                  >
-                    <Ionicons 
-                      name="checkmark" 
-                      size={18} 
-                      color={activeSection === 'subscribe' ? theme.colors.textInverse : theme.colors.textMuted} 
-                    />
-                    <Text 
+            <Animated.View
+              style={{
+                opacity: cardAnims[1],
+                transform: [{
+                  translateY: cardAnims[1].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0]
+                  })
+                }]
+              }}
+            >
+              <View style={[globalStyles.card, styles.card, { 
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                shadowColor: theme.colors.shadow 
+              }]}>
+                <LinearGradient
+                  colors={theme.colors.primaryGradient}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 0}}
+                  style={styles.cardHeader}
+                >
+                  <Ionicons name="notifications" size={20} color={theme.colors.buttonText} />
+                  <Text style={[styles.cardTitle, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+                    JOIN THE CYBER BRIEF NETWORK
+                  </Text>
+                </LinearGradient>
+                
+                <View style={styles.cardContent}>
+                  <View style={[styles.tabs, { backgroundColor: theme.colors.surfaceHighlight }]}>
+                    <TouchableOpacity 
                       style={[
-                        styles.tabText, 
-                        { color: activeSection === 'subscribe' ? theme.colors.textInverse : theme.colors.textMuted }
+                        styles.tab, 
+                        activeSection === 'subscribe' && { 
+                          backgroundColor: theme.colors.primary,
+                          borderColor: theme.colors.primary + '60',
+                          borderWidth: 1
+                        }
                       ]}
+                      onPress={() => handleTabChange('subscribe')}
                     >
-                      Subscribe
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={[
-                      styles.tab, 
-                      activeSection === 'unsubscribe' && { backgroundColor: theme.colors.primary }
-                    ]}
-                    onPress={() => setActiveSection('unsubscribe')}
-                  >
-                    <Ionicons 
-                      name="close" 
-                      size={18} 
-                      color={activeSection === 'unsubscribe' ? theme.colors.textInverse : theme.colors.textMuted} 
-                    />
-                    <Text 
+                      <Ionicons 
+                        name="checkmark" 
+                        size={18} 
+                        color={activeSection === 'subscribe' ? theme.colors.buttonText : theme.colors.textMuted} 
+                      />
+                      <Text 
+                        style={[
+                          styles.tabText, 
+                          { 
+                            color: activeSection === 'subscribe' ? theme.colors.buttonText : theme.colors.textMuted,
+                            fontFamily: 'ShareTechMono',
+                            letterSpacing: 0.5
+                          }
+                        ]}
+                      >
+                        SUBSCRIBE
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
                       style={[
-                        styles.tabText, 
-                        { color: activeSection === 'unsubscribe' ? theme.colors.textInverse : theme.colors.textMuted }
+                        styles.tab, 
+                        activeSection === 'unsubscribe' && { 
+                          backgroundColor: theme.colors.primary,
+                          borderColor: theme.colors.primary + '60',
+                          borderWidth: 1
+                        }
                       ]}
+                      onPress={() => handleTabChange('unsubscribe')}
                     >
-                      Unsubscribe
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.form}>
-                  <View style={[
-                    styles.inputContainer, 
-                    { 
-                      backgroundColor: theme.colors.inputBackground, 
-                      borderColor: theme.colors.inputBorder 
-                    }
-                  ]}>
-                    <Ionicons name="mail" size={20} color={theme.colors.icon} style={styles.inputIcon} />
-                    <TextInput
-                      style={[globalStyles.input, styles.input, { backgroundColor: 'transparent', borderWidth: 0 }]}
-                      placeholder="Enter your email address"
-                      placeholderTextColor={theme.colors.placeholder}
-                      value={email}
-                      onChangeText={setEmail}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      editable={!isSubmitting}
-                      onSubmitEditing={() => activeSection === 'subscribe' ? handleSubscribe() : handleUnsubscribe()}
-                    />
+                      <Ionicons 
+                        name="close" 
+                        size={18} 
+                        color={activeSection === 'unsubscribe' ? theme.colors.buttonText : theme.colors.textMuted} 
+                      />
+                      <Text 
+                        style={[
+                          styles.tabText, 
+                          { 
+                            color: activeSection === 'unsubscribe' ? theme.colors.buttonText : theme.colors.textMuted,
+                            fontFamily: 'ShareTechMono',
+                            letterSpacing: 0.5
+                          }
+                        ]}
+                      >
+                        UNSUBSCRIBE
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
-                  {activeSection === 'subscribe' ? (
-                    <TouchableOpacity 
-                      style={[globalStyles.buttonPrimary, styles.submitButton]}
-                      onPress={handleSubscribe}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? (
-                        <View style={styles.buttonContent}>
-                          <ActivityIndicator size="small" color={theme.colors.buttonText} />
-                          <Text style={[globalStyles.buttonText, styles.submitButtonText]}>Subscribing...</Text>
-                        </View>
-                      ) : (
-                        <View style={styles.buttonContent}>
-                          <Ionicons name="rocket" size={20} color={theme.colors.buttonText} />
-                          <Text style={[globalStyles.buttonText, styles.submitButtonText]}>Subscribe to Daily Updates</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity 
-                      style={[globalStyles.buttonSecondary, styles.submitButton]}
-                      onPress={handleUnsubscribe}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? (
-                        <View style={styles.buttonContent}>
-                          <ActivityIndicator size="small" color={theme.colors.buttonText} />
-                          <Text style={[globalStyles.buttonText, styles.submitButtonText]}>Processing...</Text>
-                        </View>
-                      ) : (
-                        <View style={styles.buttonContent}>
-                          <Ionicons name="close" size={20} color={theme.colors.buttonText} />
-                          <Text style={[globalStyles.buttonText, styles.submitButtonText]}>Unsubscribe from Updates</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
+                  <View style={styles.form}>
+                    <View style={[
+                      styles.inputContainer, 
+                      { 
+                        backgroundColor: theme.colors.inputBackground, 
+                        borderColor: theme.colors.inputBorder 
+                      }
+                    ]}>
+                      <Ionicons name="mail" size={20} color={theme.colors.icon} style={styles.inputIcon} />
+                      <TextInput
+                        style={[
+                          globalStyles.input, 
+                          styles.input, 
+                          { 
+                            backgroundColor: 'transparent', 
+                            borderWidth: 0,
+                            color: theme.colors.text,
+                            fontFamily: 'ShareTechMono'
+                          }
+                        ]}
+                        placeholder="Enter your email address"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        editable={!isSubmitting}
+                        onSubmitEditing={() => activeSection === 'subscribe' ? handleSubscribe() : handleUnsubscribe()}
+                      />
+                    </View>
+
+                    {activeSection === 'subscribe' ? (
+                      <TouchableOpacity 
+                        style={[
+                          globalStyles.buttonPrimary, 
+                          styles.submitButton, 
+                          { 
+                            backgroundColor: theme.colors.primary,
+                            shadowColor: theme.colors.shadow
+                          }
+                        ]}
+                        onPress={handleSubscribe}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <View style={styles.buttonContent}>
+                            <ActivityIndicator size="small" color={theme.colors.buttonText} />
+                            <Text style={[
+                              globalStyles.buttonText, 
+                              styles.submitButtonText, 
+                              { color: theme.colors.buttonText, fontFamily: 'Orbitron' }
+                            ]}>
+                              SUBSCRIBING...
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.buttonContent}>
+                            <Ionicons name="rocket" size={20} color={theme.colors.buttonText} />
+                            <Text style={[
+                              globalStyles.buttonText, 
+                              styles.submitButtonText, 
+                              { color: theme.colors.buttonText, fontFamily: 'Orbitron' }
+                            ]}>
+                              SUBSCRIBE TO DAILY UPDATES
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity 
+                        style={[
+                          globalStyles.buttonSecondary, 
+                          styles.submitButton,
+                          {
+                            backgroundColor: theme.colors.surface,
+                            borderColor: theme.colors.primary,
+                            borderWidth: 1,
+                            shadowColor: theme.colors.shadow
+                          }
+                        ]}
+                        onPress={handleUnsubscribe}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <View style={styles.buttonContent}>
+                            <ActivityIndicator size="small" color={theme.colors.primary} />
+                            <Text style={[
+                              globalStyles.buttonText, 
+                              styles.submitButtonText, 
+                              { color: theme.colors.primary, fontFamily: 'Orbitron' }
+                            ]}>
+                              PROCESSING...
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.buttonContent}>
+                            <Ionicons name="close" size={20} color={theme.colors.primary} />
+                            <Text style={[
+                              globalStyles.buttonText, 
+                              styles.submitButtonText, 
+                              { color: theme.colors.primary, fontFamily: 'Orbitron' }
+                            ]}>
+                              UNSUBSCRIBE FROM UPDATES
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {showStatusMsg && (
+                    <View style={[
+                      styles.statusMsg,
+                      isError ? 
+                        { backgroundColor: theme.colors.error + '20', borderColor: theme.colors.error } : 
+                        { backgroundColor: theme.colors.success + '20', borderColor: theme.colors.success }
+                    ]}>
+                      <Ionicons 
+                        name={isError ? "alert-circle" : "checkmark-circle"} 
+                        size={20} 
+                        color={isError ? theme.colors.error : theme.colors.success} 
+                      />
+                      <Text style={[
+                        styles.statusText, 
+                        { 
+                          color: isError ? theme.colors.error : theme.colors.success,
+                          fontFamily: 'ShareTechMono'
+                        }
+                      ]}>
+                        {statusMsg}
+                      </Text>
+                    </View>
                   )}
                 </View>
-
-                {showStatusMsg && (
-                  <View style={[
-                    styles.statusMsg,
-                    isError ? globalStyles.errorContainer : globalStyles.successContainer
-                  ]}>
-                    <Ionicons 
-                      name={isError ? "alert-circle" : "checkmark-circle"} 
-                      size={20} 
-                      color={isError ? theme.colors.error : theme.colors.success} 
-                    />
-                    <Text style={isError ? globalStyles.errorText : globalStyles.successText}>{statusMsg}</Text>
-                  </View>
-                )}
               </View>
-            </View>
+            </Animated.View>
 
             {/* Info Card */}
-            <View style={[globalStyles.card, styles.card]}>
-              <LinearGradient
-                colors={theme.colors.primaryGradient}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 0}}
-                style={styles.cardHeader}
-              >
-                <Ionicons name="information-circle" size={20} color={theme.colors.text} />
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>About Our Newsletter</Text>
-              </LinearGradient>
-              
-              <View style={styles.cardContent}>
-                <Text style={[globalStyles.text, styles.cardText]}>
-                  The Daily Cyber Brief is sent every weekday morning. We respect your privacy
-                  and will never share your email address with third parties. Each newsletter includes
-                  an unsubscribe link for easy opt-out at any time.
-                </Text>
-                <Text style={[globalStyles.text, styles.cardText]}>
-                  Our team of security experts curates the most important cybersecurity news and
-                  practical advice to help you protect your digital life and stay informed about
-                  the evolving threat landscape.
-                </Text>
+            <Animated.View
+              style={{
+                opacity: cardAnims[2],
+                transform: [{
+                  translateY: cardAnims[2].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0]
+                  })
+                }]
+              }}
+            >
+              <View style={[globalStyles.card, styles.card, { 
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                shadowColor: theme.colors.shadow
+              }]}>
+                <LinearGradient
+                  colors={theme.colors.secondaryGradient}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 0}}
+                  style={styles.cardHeader}
+                >
+                  <Ionicons name="information-circle" size={20} color={theme.colors.buttonText} />
+                  <Text style={[styles.cardTitle, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+                    ABOUT OUR INTEL NETWORK
+                  </Text>
+                </LinearGradient>
+                
+                <View style={styles.cardContent}>
+                  <Text style={[globalStyles.text, styles.cardText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                    The Daily Cyber Brief is sent every weekday morning. We respect your privacy
+                    and will never share your email address with third parties. Each newsletter includes
+                    an unsubscribe link for easy opt-out at any time.
+                  </Text>
+                  <Text style={[globalStyles.text, styles.cardText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                    Our team of security experts curates the most important cybersecurity news and
+                    practical advice to help you protect your digital life and stay informed about
+                    the evolving threat landscape.
+                  </Text>
+                  
+                  <View style={[styles.securityBox, { 
+                    backgroundColor: theme.colors.surfaceHighlight,
+                    borderLeftColor: theme.colors.primary,
+                    borderColor: theme.colors.border 
+                  }]}>
+                    <View style={styles.securityHeader}>
+                      <Ionicons name="shield-checkmark" size={18} color={theme.colors.primary} />
+                      <Text style={[styles.securityTitle, { 
+                        color: theme.colors.text,
+                        fontFamily: 'Orbitron-Bold'
+                      }]}>
+                        SECURITY COMMITMENT
+                      </Text>
+                    </View>
+                    <Text style={[styles.securityText, { 
+                      color: theme.colors.textSecondary,
+                      fontFamily: 'ShareTechMono'
+                    }]}>
+                      Your data is protected with industry-standard encryption and never shared with 
+                      third parties. Our privacy-first approach means we only collect what's 
+                      necessary to deliver our service.
+                    </Text>
+                  </View>
+                </View>
               </View>
-            </View>
+            </Animated.View>
+            
+            {/* Back Button */}
+            <TouchableOpacity 
+              style={[styles.backButton, { 
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                shadowColor: theme.colors.shadow
+              }]}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={18} color={theme.colors.text} />
+              <Text style={[styles.backButtonText, { 
+                color: theme.colors.text,
+                fontFamily: 'Orbitron'
+              }]}>
+                BACK TO DASHBOARD
+              </Text>
+            </TouchableOpacity>
           </View>
+          
+          {/* Bottom space */}
+          <View style={styles.bottomSpacer} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -394,22 +717,76 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  // New styles for compact header
-  compactHeaderContainer: {
-    overflow: 'hidden',
+  scrollContent: {
+    paddingTop: 0,
+    paddingBottom: 20,
   },
-  compactHeader: {
-    paddingTop: Platform.OS === 'ios' ? 30 : 10, // ~30% smaller (was 44:16)
-    paddingBottom: 10, // ~30% smaller (was 16)
-    height: Platform.OS === 'ios' ? 70 : 50, // Add explicit height constraint
+  // Animated Header
+  animatedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    borderBottomWidth: 1,
+  },
+  headerGradient: {
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  // Header Section
+  headerContainer: {
+    width: '100%',
+    height: 180,
+  },
+  headerBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerContent: {
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+  },
+  mainTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginBottom: 12,
+  },
+  headerDivider: {
+    width: 60,
+    height: 3,
+    borderRadius: 2,
+    marginBottom: 12,
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    letterSpacing: 1,
   },
   mainContent: {
     padding: 15,
   },
+  // Cards
   card: {
     marginBottom: 20,
     padding: 0,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -420,6 +797,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   cardContent: {
     padding: 20,
@@ -429,6 +807,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 15,
   },
+  // Features
   features: {
     marginTop: 10,
   },
@@ -447,11 +826,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 5,
+    letterSpacing: 0.5,
   },
   featureText: {
     fontSize: 14,
     lineHeight: 20,
   },
+  // Tabs
   tabs: {
     flexDirection: 'row',
     borderRadius: 8,
@@ -470,6 +851,7 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
   },
+  // Form
   form: {
     marginBottom: 20,
   },
@@ -497,19 +879,80 @@ const styles = StyleSheet.create({
   submitButton: {
     borderRadius: 8,
     padding: 15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
+  // Status Message
   statusMsg: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
     borderRadius: 8,
     marginTop: 15,
+    borderWidth: 1,
+    borderLeftWidth: 4,
   },
+  statusText: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+  },
+  // Security Box
+  securityBox: {
+    borderRadius: 8,
+    padding: 15,
+    marginTop: 15,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+  },
+  securityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 8,
+  },
+  securityTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  securityText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  // Back Button
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 10,
+    marginBottom: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    gap: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+  },
+  // Bottom space
+  bottomSpacer: {
+    height: 50,
+  }
 });
 
 export default NewsletterScreen;

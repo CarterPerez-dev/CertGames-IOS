@@ -13,7 +13,9 @@ import {
   Modal,
   SafeAreaView,
   Platform,
-  Animated
+  Animated,
+  StatusBar,
+  Dimensions
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchUserData, logout } from '../../store/slices/userSlice';
@@ -27,14 +29,18 @@ import { createGlobalStyles } from '../../styles/globalStyles';
 // Import profile service to handle API calls
 import { changeUsername, changeEmail, changePassword, getAvatarUrl } from '../../api/profileService';
 
+const { width, height } = Dimensions.get('window');
+
 const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { theme } = useTheme(); // Access theme context
-  const globalStyles = createGlobalStyles(theme); // Get global styles
+  const { theme } = useTheme();
+  const globalStyles = createGlobalStyles(theme);
   
   // Animated values
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const translateY = useRef(new Animated.Value(20)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
   
   // Get user data from Redux store
   const {
@@ -49,6 +55,7 @@ const ProfileScreen = ({ navigation }) => {
     nameColor,
     purchasedItems,
     subscriptionActive,
+    lastDailyClaim,
     status
   } = useSelector((state) => state.user);
   
@@ -85,7 +92,12 @@ const ProfileScreen = ({ navigation }) => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 500,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
         useNativeDriver: true,
       }),
       Animated.timing(translateY, {
@@ -94,7 +106,7 @@ const ProfileScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [fadeAnim, translateY]);
+  }, [fadeAnim, scaleAnim, translateY]);
   
   // Calculate XP to next level
   const calculateXpPercentage = () => {
@@ -183,9 +195,6 @@ const ProfileScreen = ({ navigation }) => {
           onPress: async () => {
             await SecureStore.deleteItemAsync('userId');
             dispatch(logout());
-            // Removed explicit navigation to Login
-            // The AppNavigator will automatically switch to AuthNavigator
-            // when userId is cleared from Redux state
           },
           style: 'destructive'
         }
@@ -376,9 +385,40 @@ const ProfileScreen = ({ navigation }) => {
     console.log('Avatar image failed to load');
     setAvatarError(true);
   };
-  
+
+  // Header animation effect
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
   return (
     <SafeAreaView style={[globalStyles.screen]}>
+      <StatusBar barStyle="light-content" />
+
+      {/* Animated Header */}
+      <Animated.View 
+        style={[
+          styles.animatedHeader, 
+          { 
+            opacity: headerOpacity,
+            backgroundColor: theme.colors.headerBackground 
+          }
+        ]}
+      >
+        <LinearGradient
+          colors={theme.colors.primaryGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <Text style={[styles.headerTitle, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+            USER PROFILE
+          </Text>
+        </LinearGradient>
+      </Animated.View>
+      
       <StatusModal 
         visible={showStatusModal}
         message={statusMessage}
@@ -390,16 +430,21 @@ const ProfileScreen = ({ navigation }) => {
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollViewContent}
-        refreshing={refreshing}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
         onRefresh={handleRefresh}
+        refreshing={refreshing}
       >
         {/* Profile Header */}
         <Animated.View 
           style={[
-            styles.header,
+            styles.profileHeader,
             { 
               opacity: fadeAnim,
-              transform: [{ translateY: translateY }]
+              transform: [{ scale: scaleAnim }]
             }
           ]}
         >
@@ -407,70 +452,95 @@ const ProfileScreen = ({ navigation }) => {
             colors={theme.colors.primaryGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.headerGradient}
+            style={styles.profileHeaderGradient}
           >
-            <View style={styles.avatarContainer}>
-              {/* Use properly formatted avatar URL */}
-              {!avatarError && currentAvatar ? (
-                <Image 
-                  source={{ uri: getProfilePicUrl() }}
-                  style={[styles.avatar, { borderColor: theme.colors.text + '30' }]}
-                  onError={handleAvatarError}
-                />
-              ) : (
-                <Image 
-                  source={require('../../../assets/default-avatar.png')}
-                  style={[styles.avatar, { borderColor: theme.colors.text + '30' }]}
-                />
-              )}
+            <View style={styles.avatarSection}>
+              <View style={[styles.avatarContainer, { borderColor: theme.colors.buttonText + '40' }]}>
+                {!avatarError && currentAvatar ? (
+                  <Image 
+                    source={{ uri: getProfilePicUrl() }}
+                    style={styles.avatar}
+                    onError={handleAvatarError}
+                  />
+                ) : (
+                  <Image 
+                    source={require('../../../assets/default-avatar.png')}
+                    style={styles.avatar}
+                  />
+                )}
+              </View>
+              
+              <View style={styles.profileInfo}>
+                <Text style={[styles.usernameText, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+                  {username ? username.toUpperCase() : 'USER'}
+                </Text>
+                
+                <View style={styles.levelContainer}>
+                  <View style={[styles.levelBadge, { backgroundColor: theme.colors.buttonText + '30' }]}>
+                    <Text style={[styles.levelText, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+                      {level}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.xpContainer}>
+                    <View style={[styles.xpBar, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}>
+                      <View 
+                        style={[
+                          styles.xpProgress, 
+                          { 
+                            width: `${xpPercentage}%`,
+                            backgroundColor: theme.colors.buttonText
+                          }
+                        ]} 
+                      />
+                    </View>
+                    <Text style={[styles.xpText, { color: theme.colors.buttonText + 'E6', fontFamily: 'ShareTechMono' }]}>
+                      {xp} XP
+                    </Text>
+                  </View>
+                </View>
+                
+                <View style={styles.statsRow}>
+                  <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+                    <Ionicons name="wallet-outline" size={18} color={theme.colors.goldBadge} />
+                    <Text style={[styles.statText, { color: theme.colors.buttonText, fontFamily: 'ShareTechMono' }]}>
+                      {coins}
+                    </Text>
+                  </View>
+                  
+                  <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+                    <Ionicons name="trophy-outline" size={18} color={theme.colors.goldBadge} />
+                    <Text style={[styles.statText, { color: theme.colors.buttonText, fontFamily: 'ShareTechMono' }]}>
+                      {achievements.length}
+                    </Text>
+                  </View>
+                  
+                  <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+                    <Ionicons name="star-outline" size={18} color={theme.colors.goldBadge} />
+                    <Text style={[styles.statText, { color: theme.colors.buttonText, fontFamily: 'ShareTechMono' }]}>
+                      {purchasedItems.length}
+                    </Text>
+                  </View>
+                </View>
+              </View>
             </View>
             
-            <View style={styles.userInfo}>
-              <Text style={[styles.username, { color: theme.colors.text }]}>{username}</Text>
-              
-              <View style={styles.levelContainer}>
-                <View style={[styles.levelBadge, { backgroundColor: theme.colors.accent }]}>
-                  <Text style={[styles.levelText, { color: theme.colors.textInverse }]}>{level}</Text>
-                </View>
-                
-                <View style={styles.xpContainer}>
-                  <View style={[styles.xpBar, { backgroundColor: 'rgba(255, 255, 255, 0.3)' }]}>
-                    <View 
-                      style={[
-                        styles.xpProgress, 
-                        { 
-                          width: `${xpPercentage}%`,
-                          backgroundColor: theme.colors.text
-                        }
-                      ]} 
-                    />
-                  </View>
-                  <Text style={[styles.xpText, { color: theme.colors.textInverse + 'E6' }]}>{xp} XP</Text>
-                </View>
+            <View style={[styles.securityIndicator, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+              <View style={styles.securityStatus}>
+                <View style={[styles.statusDot, { backgroundColor: '#2ECC71' }]} />
+                <Text style={[styles.securityText, { color: theme.colors.buttonText, fontFamily: 'ShareTechMono' }]}>
+                  USER DATABASE
+                </Text>
               </View>
-              
-              <View style={styles.statsRow}>
-                <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-                  <Ionicons name="wallet-outline" size={18} color={theme.colors.goldBadge} />
-                  <Text style={[styles.statText, { color: theme.colors.text }]}>{coins}</Text>
-                </View>
-                
-                <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-                  <Ionicons name="trophy-outline" size={18} color={theme.colors.goldBadge} />
-                  <Text style={[styles.statText, { color: theme.colors.text }]}>{achievements.length}</Text>
-                </View>
-                
-                <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-                  <Ionicons name="star-outline" size={18} color={theme.colors.goldBadge} />
-                  <Text style={[styles.statText, { color: theme.colors.text }]}>{purchasedItems.length}</Text>
-                </View>
-              </View>
+              <Text style={[styles.idText, { color: theme.colors.buttonText + '80', fontFamily: 'ShareTechMono' }]}>
+                ID: {userId ? userId.substring(0, 8).toUpperCase() : 'XXXXXXXX'}
+              </Text>
             </View>
           </LinearGradient>
         </Animated.View>
         
         {/* Tabs Navigation */}
-        <View style={[styles.tabsContainer, { backgroundColor: theme.colors.card }]}>
+        <View style={[styles.tabsContainer, { backgroundColor: theme.colors.surfaceHighlight }]}>
           <TouchableOpacity 
             style={[
               styles.tab, 
@@ -483,12 +553,14 @@ const ProfileScreen = ({ navigation }) => {
           >
             <Text style={[
               styles.tabText, 
-              { color: theme.colors.textMuted },
+              { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' },
               activeTab === 'overview' && [
                 styles.activeTabText, 
-                { color: theme.colors.textInverse }
+                { color: theme.colors.buttonText }
               ]
-            ]}>Overview</Text>
+            ]}>
+              OVERVIEW
+            </Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -503,538 +575,749 @@ const ProfileScreen = ({ navigation }) => {
           >
             <Text style={[
               styles.tabText, 
-              { color: theme.colors.textMuted },
+              { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' },
               activeTab === 'account' && [
                 styles.activeTabText, 
-                { color: theme.colors.textInverse }
+                { color: theme.colors.buttonText }
               ]
-            ]}>Account</Text>
+            ]}>
+              ACCOUNT
+            </Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={[
               styles.tab, 
-              activeTab === 'achievements' && [
+              activeTab === 'security' && [
                 styles.activeTab, 
                 { backgroundColor: theme.colors.primary }
               ]
             ]}
-            onPress={() => setActiveTab('achievements')}
+            onPress={() => setActiveTab('security')}
           >
             <Text style={[
               styles.tabText, 
-              { color: theme.colors.textMuted },
-              activeTab === 'achievements' && [
+              { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' },
+              activeTab === 'security' && [
                 styles.activeTabText, 
-                { color: theme.colors.textInverse }
+                { color: theme.colors.buttonText }
               ]
-            ]}>Achievements</Text>
+            ]}>
+              SECURITY
+            </Text>
           </TouchableOpacity>
         </View>
         
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <View style={styles.tabContent}>
-            <View style={[globalStyles.card, styles.customCard]}>
-              <LinearGradient
-                colors={theme.colors.primaryGradient}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.cardHeader}
-              >
-                <Ionicons name="person-outline" size={20} color={theme.colors.text} />
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>User Profile</Text>
-              </LinearGradient>
+          <Animated.View 
+            style={[
+              styles.tabContent,
+              { opacity: fadeAnim, transform: [{ translateY }] }
+            ]}
+          >
+            {/* Profile Stats Section */}
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.primary + '20' }]}>
+                <LinearGradient
+                  colors={['transparent', theme.colors.primary + '40', 'transparent']}
+                  start={{x: 0, y: 0.5}}
+                  end={{x: 1, y: 0.5}}
+                  style={styles.sectionTitleGradient}
+                />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                  USER STATISTICS
+                </Text>
+              </View>
               
-              <View style={styles.cardBody}>
-                <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Username:</Text>
-                  <Text style={[styles.detailValue, { color: theme.colors.text }]}>{username}</Text>
+              <View style={[styles.sectionIcon, { backgroundColor: theme.colors.primary }]}>
+                <Ionicons name="analytics" size={22} color={theme.colors.buttonText} />
+              </View>
+            </View>
+            
+            <View style={[styles.statsPanel, { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              shadowColor: theme.colors.shadow,
+            }]}>
+              <View style={styles.statsContent}>
+                <View style={[styles.statsRow, { borderBottomColor: theme.colors.border }]}>
+                  <View style={styles.statBlock}>
+                    <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>LEVEL</Text>
+                    <Text style={[styles.statValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>{level}</Text>
+                  </View>
+                  
+                  <View style={styles.statBlock}>
+                    <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>XP POINTS</Text>
+                    <Text style={[styles.statValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>{xp.toLocaleString()}</Text>
+                  </View>
                 </View>
                 
-                <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Email:</Text>
-                  <Text style={[styles.detailValue, { color: theme.colors.text }]}>{email}</Text>
+                <View style={[styles.statsRow, { borderBottomColor: theme.colors.border }]}>
+                  <View style={styles.statBlock}>
+                    <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>COINS</Text>
+                    <Text style={[styles.statValue, { color: theme.colors.goldBadge, fontFamily: 'Orbitron-Bold' }]}>{coins.toLocaleString()}</Text>
+                  </View>
+                  
+                  <View style={styles.statBlock}>
+                    <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>ACHIEVEMENTS</Text>
+                    <Text style={[styles.statValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>{achievements.length}</Text>
+                  </View>
                 </View>
                 
-                <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Level:</Text>
-                  <Text style={[styles.detailValue, { color: theme.colors.text }]}>{level}</Text>
-                </View>
-                
-                <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>XP:</Text>
-                  <Text style={[styles.detailValue, { color: theme.colors.text }]}>{xp}</Text>
-                </View>
-                
-                <View style={[styles.profileDetail, { borderBottomColor: theme.colors.border }]}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Coins:</Text>
-                  <Text style={[styles.detailValue, { color: theme.colors.text }]}>{coins}</Text>
-                </View>
-                
-                <View style={styles.profileDetail}>
-                  <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Subscription:</Text>
-                  <Text style={[
-                    styles.detailValue, 
-                    subscriptionActive ? [
-                      styles.activeSubscription, 
-                      { color: theme.colors.success }
-                    ] : [
-                      styles.inactiveSubscription, 
-                      { color: theme.colors.textSecondary }
-                    ]
-                  ]}>
-                    {subscriptionActive ? 'Active' : 'Inactive'}
-                  </Text>
+                <View style={styles.statsRow}>
+                  <View style={styles.statBlock}>
+                    <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>ITEMS</Text>
+                    <Text style={[styles.statValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>{purchasedItems.length}</Text>
+                  </View>
+                  
+                  <View style={styles.statBlock}>
+                    <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>SUBSCRIPTION</Text>
+                    <Text style={[
+                      styles.statValue, 
+                      { 
+                        color: subscriptionActive ? theme.colors.success : theme.colors.error,
+                        fontFamily: 'Orbitron-Bold' 
+                      }
+                    ]}>
+                      {subscriptionActive ? 'ACTIVE' : 'INACTIVE'}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
             
-            <View style={[globalStyles.card, styles.customCard]}>
-              <LinearGradient
-                colors={theme.colors.primaryGradient}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.cardHeader}
-              >
-                <Ionicons name="trophy-outline" size={20} color={theme.colors.text} />
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Achievements</Text>
-              </LinearGradient>
+            {/* Quick Actions Section */}
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.secondary + '20' }]}>
+                <LinearGradient
+                  colors={['transparent', theme.colors.secondary + '40', 'transparent']}
+                  start={{x: 0, y: 0.5}}
+                  end={{x: 1, y: 0.5}}
+                  style={styles.sectionTitleGradient}
+                />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                  QUICK ACTIONS
+                </Text>
+              </View>
               
-              <View style={styles.cardBody}>
-                {achievements.length > 0 ? (
-                  <>
-                    <Text style={[styles.achievementsText, { color: theme.colors.text }]}>
-                      You have unlocked {achievements.length} achievements!
-                    </Text>
-                    <TouchableOpacity 
-                      style={[
-                        styles.viewMoreButton, 
-                        { backgroundColor: theme.colors.highlight }
-                      ]} 
-                      onPress={goToAchievements}
-                    >
-                      <Text style={[styles.viewMoreText, { color: theme.colors.primary }]}>View All Achievements</Text>
-                      <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
-                    Complete quizzes and challenges to earn achievements!
-                  </Text>
-                )}
+              <View style={[styles.sectionIcon, { backgroundColor: theme.colors.secondary }]}>
+                <Ionicons name="flash" size={22} color={theme.colors.buttonText} />
               </View>
             </View>
             
-            <View style={[globalStyles.card, styles.customCard]}>
-              <LinearGradient
-                colors={theme.colors.primaryGradient}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.cardHeader}
+            <View style={styles.actionsGrid}>
+              <TouchableOpacity
+                style={[styles.actionCard, { 
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  shadowColor: theme.colors.shadow,
+                }]}
+                onPress={goToAchievements}
+                activeOpacity={0.7}
               >
-                <Ionicons name="cart-outline" size={20} color={theme.colors.text} />
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Shop Items</Text>
-              </LinearGradient>
-              
-              <View style={styles.cardBody}>
-                {purchasedItems.length > 0 ? (
-                  <>
-                    <Text style={[styles.itemsText, { color: theme.colors.text }]}>
-                      You have purchased {purchasedItems.length} items from the shop!
-                    </Text>
-                    <TouchableOpacity 
-                      style={[
-                        styles.viewMoreButton, 
-                        { backgroundColor: theme.colors.highlight }
-                      ]} 
-                      onPress={goToShop}
-                    >
-                      <Text style={[styles.viewMoreText, { color: theme.colors.primary }]}>Visit Shop</Text>
-                      <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
-                    Visit the shop to purchase avatars and other items!
+                <LinearGradient
+                  colors={[theme.colors.primary + '80', theme.colors.primary]}
+                  start={{x: 0, y: 0}}
+                  end={{x: 0, y: 1}}
+                  style={styles.actionCardHeader}
+                >
+                  <Ionicons name="trophy" size={24} color={theme.colors.buttonText} />
+                </LinearGradient>
+                
+                <View style={styles.actionCardBody}>
+                  <Text style={[styles.actionCardTitle, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                    ACHIEVEMENTS
                   </Text>
-                )}
-              </View>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.actionCard, { 
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  shadowColor: theme.colors.shadow,
+                }]}
+                onPress={goToShop}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={[theme.colors.toolCard + '80', theme.colors.toolCard]}
+                  start={{x: 0, y: 0}}
+                  end={{x: 0, y: 1}}
+                  style={styles.actionCardHeader}
+                >
+                  <Ionicons name="cart" size={24} color={theme.colors.buttonText} />
+                </LinearGradient>
+                
+                <View style={styles.actionCardBody}>
+                  <Text style={[styles.actionCardTitle, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                    SHOP
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.actionCard, { 
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  shadowColor: theme.colors.shadow,
+                }]}
+                onPress={goToThemeSettings}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={[theme.colors.secondary + '80', theme.colors.secondary]}
+                  start={{x: 0, y: 0}}
+                  end={{x: 0, y: 1}}
+                  style={styles.actionCardHeader}
+                >
+                  <Ionicons name="color-palette" size={24} color={theme.colors.buttonText} />
+                </LinearGradient>
+                
+                <View style={styles.actionCardBody}>
+                  <Text style={[styles.actionCardTitle, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                    THEMES
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.actionCard, { 
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  shadowColor: theme.colors.shadow,
+                }]}
+                onPress={goToSupport}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={[theme.colors.testCard + '80', theme.colors.testCard]}
+                  start={{x: 0, y: 0}}
+                  end={{x: 0, y: 1}}
+                  style={styles.actionCardHeader}
+                >
+                  <Ionicons name="help-circle" size={24} color={theme.colors.buttonText} />
+                </LinearGradient>
+                
+                <View style={styles.actionCardBody}>
+                  <Text style={[styles.actionCardTitle, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                    SUPPORT
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
             
             <TouchableOpacity 
               style={[
-                globalStyles.buttonDanger,
-                styles.logoutButton
+                styles.logoutButton,
+                { backgroundColor: theme.colors.error }
               ]} 
               onPress={handleLogout}
             >
-              <Ionicons name="log-out-outline" size={20} color={theme.colors.buttonText} />
-              <Text style={[globalStyles.buttonText]}>Logout</Text>
+              <Ionicons name="log-out" size={20} color={theme.colors.buttonText} />
+              <Text style={[styles.logoutButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+                LOGOUT
+              </Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
         
         {activeTab === 'account' && (
-          <View style={styles.tabContent}>
-            <View style={[globalStyles.card, styles.customCard]}>
-              <LinearGradient
-                colors={theme.colors.primaryGradient}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.cardHeader}
-              >
-                <Ionicons name="person-outline" size={20} color={theme.colors.text} />
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Account Settings</Text>
-              </LinearGradient>
+          <Animated.View 
+            style={[
+              styles.tabContent,
+              { opacity: fadeAnim, transform: [{ translateY }] }
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.primary + '20' }]}>
+                <LinearGradient
+                  colors={['transparent', theme.colors.primary + '40', 'transparent']}
+                  start={{x: 0, y: 0.5}}
+                  end={{x: 1, y: 0.5}}
+                  style={styles.sectionTitleGradient}
+                />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                  ACCOUNT SETTINGS
+                </Text>
+              </View>
               
-              <View style={styles.cardBody}>
-                {/* Change Username */}
-                <View style={[styles.settingSection, { borderBottomColor: theme.colors.border }]}>
-                  <View style={styles.settingHeader}>
-                    <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Username</Text>
-                    <Text style={[styles.settingValue, { color: theme.colors.textSecondary }]}>{username}</Text>
-                  </View>
-                  
-                  {showChangeUsername ? (
-                    <View style={styles.changeForm}>
-                      <TextInput
-                        style={[
-                          globalStyles.input,
-                          { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }
-                        ]}
-                        placeholder="New username"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={newUsername}
-                        onChangeText={setNewUsername}
-                        autoCapitalize="none"
-                        editable={!usernameLoading}
-                      />
-                      
-                      <View style={styles.formButtons}>
-                        <TouchableOpacity 
-                          style={[globalStyles.buttonPrimary, styles.saveButton]}
-                          onPress={handleChangeUsername}
-                          disabled={usernameLoading}
-                        >
-                          {usernameLoading ? (
-                            <ActivityIndicator color={theme.colors.buttonText} size="small" />
-                          ) : (
-                            <Text style={[globalStyles.buttonText]}>Save</Text>
-                          )}
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                          style={[
-                            styles.cancelButton, 
-                            { backgroundColor: theme.colors.background }
-                          ]}
-                          onPress={() => {
-                            setShowChangeUsername(false);
-                            setNewUsername('');
-                          }}
-                          disabled={usernameLoading}
-                        >
-                          <Text style={[styles.cancelText, { color: theme.colors.text }]}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity 
-                      style={[
-                        globalStyles.buttonPrimary,
-                        styles.changeButton
-                      ]}
-                      onPress={() => setShowChangeUsername(true)}
-                    >
-                      <Ionicons name="create-outline" size={16} color={theme.colors.buttonText} />
-                      <Text style={[globalStyles.buttonText]}>Change Username</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {/* Change Email */}
-                <View style={[styles.settingSection, { borderBottomColor: theme.colors.border }]}>
-                  <View style={styles.settingHeader}>
-                    <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Email</Text>
-                    <Text style={[styles.settingValue, { color: theme.colors.textSecondary }]}>{email}</Text>
-                  </View>
-                  
-                  {showChangeEmail ? (
-                    <View style={styles.changeForm}>
-                      <TextInput
-                        style={[
-                          globalStyles.input,
-                          { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }
-                        ]}
-                        placeholder="New email address"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={newEmail}
-                        onChangeText={setNewEmail}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                        editable={!emailLoading}
-                      />
-                      
-                      <View style={styles.formButtons}>
-                        <TouchableOpacity 
-                          style={[globalStyles.buttonPrimary, styles.saveButton]}
-                          onPress={handleChangeEmail}
-                          disabled={emailLoading}
-                        >
-                          {emailLoading ? (
-                            <ActivityIndicator color={theme.colors.buttonText} size="small" />
-                          ) : (
-                            <Text style={[globalStyles.buttonText]}>Save</Text>
-                          )}
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                          style={[
-                            styles.cancelButton, 
-                            { backgroundColor: theme.colors.background }
-                          ]}
-                          onPress={() => {
-                            setShowChangeEmail(false);
-                            setNewEmail('');
-                          }}
-                          disabled={emailLoading}
-                        >
-                          <Text style={[styles.cancelText, { color: theme.colors.text }]}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity 
-                      style={[
-                        globalStyles.buttonPrimary,
-                        styles.changeButton
-                      ]}
-                      onPress={() => setShowChangeEmail(true)}
-                    >
-                      <Ionicons name="create-outline" size={16} color={theme.colors.buttonText} />
-                      <Text style={[globalStyles.buttonText]}>Change Email</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {/* Change Password */}
-                <View style={[styles.settingSection, { borderBottomColor: theme.colors.border }]}>
-                  <View style={styles.settingHeader}>
-                    <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Password</Text>
-                    <Text style={[styles.settingValue, { color: theme.colors.textSecondary }]}>••••••••</Text>
-                  </View>
-                  
-                  {showChangePassword ? (
-                    <View style={styles.changeForm}>
-                      <View style={styles.passwordInputContainer}>
-                        <TextInput
-                          style={[
-                            globalStyles.input,
-                            { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }
-                          ]}
-                          placeholder="Current password"
-                          placeholderTextColor={theme.colors.placeholder}
-                          value={oldPassword}
-                          onChangeText={setOldPassword}
-                          secureTextEntry={!showOldPassword}
-                          autoCapitalize="none"
-                          editable={!passwordLoading}
-                        />
-                        <TouchableOpacity
-                          style={[styles.eyeIcon, { color: theme.colors.textSecondary }]}
-                          onPress={() => setShowOldPassword(!showOldPassword)}
-                        >
-                          <Ionicons
-                            name={showOldPassword ? "eye-off-outline" : "eye-outline"}
-                            size={20}
-                            color={theme.colors.textSecondary}
-                          />
-                        </TouchableOpacity>
-                      </View>
-                      
-                      <View style={styles.passwordInputContainer}>
-                        <TextInput
-                          style={[
-                            globalStyles.input,
-                            { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }
-                          ]}
-                          placeholder="New password"
-                          placeholderTextColor={theme.colors.placeholder}
-                          value={newPassword}
-                          onChangeText={setNewPassword}
-                          secureTextEntry={!showNewPassword}
-                          autoCapitalize="none"
-                          editable={!passwordLoading}
-                        />
-                        <TouchableOpacity
-                          style={styles.eyeIcon}
-                          onPress={() => setShowNewPassword(!showNewPassword)}
-                        >
-                          <Ionicons
-                            name={showNewPassword ? "eye-off-outline" : "eye-outline"}
-                            size={20}
-                            color={theme.colors.textSecondary}
-                          />
-                        </TouchableOpacity>
-                      </View>
-                      
-                      <View style={styles.passwordInputContainer}>
-                        <TextInput
-                          style={[
-                            globalStyles.input,
-                            { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }
-                          ]}
-                          placeholder="Confirm new password"
-                          placeholderTextColor={theme.colors.placeholder}
-                          value={confirmPassword}
-                          onChangeText={setConfirmPassword}
-                          secureTextEntry={!showConfirmPassword}
-                          autoCapitalize="none"
-                          editable={!passwordLoading}
-                        />
-                        <TouchableOpacity
-                          style={styles.eyeIcon}
-                          onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                        >
-                          <Ionicons
-                            name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
-                            size={20}
-                            color={theme.colors.textSecondary}
-                          />
-                        </TouchableOpacity>
-                      </View>
-                      
-                      <View style={styles.formButtons}>
-                        <TouchableOpacity 
-                          style={[globalStyles.buttonPrimary, styles.saveButton]}
-                          onPress={handleChangePassword}
-                          disabled={passwordLoading}
-                        >
-                          {passwordLoading ? (
-                            <ActivityIndicator color={theme.colors.buttonText} size="small" />
-                          ) : (
-                            <Text style={[globalStyles.buttonText]}>Save</Text>
-                          )}
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                          style={[
-                            styles.cancelButton, 
-                            { backgroundColor: theme.colors.background }
-                          ]}
-                          onPress={() => {
-                            setShowChangePassword(false);
-                            setOldPassword('');
-                            setNewPassword('');
-                            setConfirmPassword('');
-                          }}
-                          disabled={passwordLoading}
-                        >
-                          <Text style={[styles.cancelText, { color: theme.colors.text }]}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity 
-                      style={[
-                        globalStyles.buttonPrimary,
-                        styles.changeButton
-                      ]}
-                      onPress={() => setShowChangePassword(true)}
-                    >
-                      <Ionicons name="create-outline" size={16} color={theme.colors.buttonText} />
-                      <Text style={[globalStyles.buttonText]}>Change Password</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {/* Theme Settings (New) */}
-                <View style={styles.settingSection}>
-                  <View style={styles.settingHeader}>
-                    <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Theme Settings</Text>
-                    <Text style={[styles.settingValue, { color: theme.colors.primary }]}>
-                      {theme.name.charAt(0).toUpperCase() + theme.name.slice(1)}
+              <View style={[styles.sectionIcon, { backgroundColor: theme.colors.primary }]}>
+                <Ionicons name="person" size={22} color={theme.colors.buttonText} />
+              </View>
+            </View>
+            
+            <View style={[styles.settingsPanel, { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              shadowColor: theme.colors.shadow,
+            }]}>
+              {/* Change Username */}
+              <View style={[styles.settingsSection, { borderBottomColor: theme.colors.border }]}>
+                <View style={styles.settingHeader}>
+                  <View style={styles.settingLabelContainer}>
+                    <Ionicons name="at" size={18} color={theme.colors.primary} />
+                    <Text style={[styles.settingLabel, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                      USERNAME
                     </Text>
                   </View>
                   
+                  <Text style={[styles.settingValue, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                    {username}
+                  </Text>
+                </View>
+                
+                {showChangeUsername ? (
+                  <View style={styles.changeForm}>
+                    <TextInput
+                      style={[
+                        styles.settingInput,
+                        { 
+                          backgroundColor: theme.colors.inputBackground, 
+                          color: theme.colors.text,
+                          borderColor: theme.colors.border,
+                          fontFamily: 'ShareTechMono'
+                        }
+                      ]}
+                      placeholder="New username"
+                      placeholderTextColor={theme.colors.placeholder}
+                      value={newUsername}
+                      onChangeText={setNewUsername}
+                      autoCapitalize="none"
+                      editable={!usernameLoading}
+                    />
+                    
+                    <View style={styles.formActions}>
+                      <TouchableOpacity 
+                        style={[
+                          styles.actionButton,
+                          { backgroundColor: theme.colors.primary }
+                        ]}
+                        onPress={handleChangeUsername}
+                        disabled={usernameLoading}
+                      >
+                        {usernameLoading ? (
+                          <ActivityIndicator color={theme.colors.buttonText} size="small" />
+                        ) : (
+                          <Text style={[styles.actionButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+                            SAVE
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[
+                          styles.cancelButton, 
+                          { borderColor: theme.colors.border }
+                        ]}
+                        onPress={() => {
+                          setShowChangeUsername(false);
+                          setNewUsername('');
+                        }}
+                        disabled={usernameLoading}
+                      >
+                        <Text style={[styles.cancelButtonText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                          CANCEL
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
                   <TouchableOpacity 
                     style={[
-                      globalStyles.buttonPrimary,
-                      styles.changeButton
+                      styles.changeButton,
+                      { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + '60' }
                     ]}
-                    onPress={goToThemeSettings}
+                    onPress={() => setShowChangeUsername(true)}
                   >
-                    <Ionicons name="color-palette" size={16} color={theme.colors.buttonText} />
-                    <Text style={[globalStyles.buttonText]}>Customize App Theme</Text>
+                    <Ionicons name="create" size={16} color={theme.colors.primary} />
+                    <Text style={[styles.changeButtonText, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
+                      CHANGE USERNAME
+                    </Text>
                   </TouchableOpacity>
+                )}
+              </View>
+              
+              {/* Change Email */}
+              <View style={[styles.settingsSection, { borderBottomColor: theme.colors.border }]}>
+                <View style={styles.settingHeader}>
+                  <View style={styles.settingLabelContainer}>
+                    <Ionicons name="mail" size={18} color={theme.colors.primary} />
+                    <Text style={[styles.settingLabel, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                      EMAIL
+                    </Text>
+                  </View>
+                  
+                  <Text style={[styles.settingValue, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                    {email}
+                  </Text>
                 </View>
+                
+                {showChangeEmail ? (
+                  <View style={styles.changeForm}>
+                    <TextInput
+                      style={[
+                        styles.settingInput,
+                        { 
+                          backgroundColor: theme.colors.inputBackground, 
+                          color: theme.colors.text,
+                          borderColor: theme.colors.border,
+                          fontFamily: 'ShareTechMono'
+                        }
+                      ]}
+                      placeholder="New email address"
+                      placeholderTextColor={theme.colors.placeholder}
+                      value={newEmail}
+                      onChangeText={setNewEmail}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      editable={!emailLoading}
+                    />
+                    
+                    <View style={styles.formActions}>
+                      <TouchableOpacity 
+                        style={[
+                          styles.actionButton,
+                          { backgroundColor: theme.colors.primary }
+                        ]}
+                        onPress={handleChangeEmail}
+                        disabled={emailLoading}
+                      >
+                        {emailLoading ? (
+                          <ActivityIndicator color={theme.colors.buttonText} size="small" />
+                        ) : (
+                          <Text style={[styles.actionButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+                            SAVE
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[
+                          styles.cancelButton, 
+                          { borderColor: theme.colors.border }
+                        ]}
+                        onPress={() => {
+                          setShowChangeEmail(false);
+                          setNewEmail('');
+                        }}
+                        disabled={emailLoading}
+                      >
+                        <Text style={[styles.cancelButtonText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                          CANCEL
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity 
+                    style={[
+                      styles.changeButton,
+                      { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + '60' }
+                    ]}
+                    onPress={() => setShowChangeEmail(true)}
+                  >
+                    <Ionicons name="create" size={16} color={theme.colors.primary} />
+                    <Text style={[styles.changeButtonText, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
+                      CHANGE EMAIL
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              {/* Theme Settings */}
+              <View style={styles.settingsSection}>
+                <View style={styles.settingHeader}>
+                  <View style={styles.settingLabelContainer}>
+                    <Ionicons name="color-palette" size={18} color={theme.colors.primary} />
+                    <Text style={[styles.settingLabel, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                      THEME
+                    </Text>
+                  </View>
+                  
+                  <Text style={[styles.themeValue, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
+                    {theme.name.toUpperCase()}
+                  </Text>
+                </View>
+                
+                <TouchableOpacity 
+                  style={[
+                    styles.changeButton,
+                    { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + '60' }
+                  ]}
+                  onPress={goToThemeSettings}
+                >
+                  <Ionicons name="color-wand" size={16} color={theme.colors.primary} />
+                  <Text style={[styles.changeButtonText, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
+                    CUSTOMIZE THEME
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
             
             <TouchableOpacity 
               style={[
-                globalStyles.buttonDanger,
-                styles.supportButton
+                styles.supportButton,
+                { backgroundColor: theme.colors.secondary }
               ]} 
               onPress={goToSupport}
             >
-              <Ionicons name="help-circle-outline" size={20} color={theme.colors.buttonText} />
-              <Text style={[globalStyles.buttonText]}>Contact Support</Text>
+              <Ionicons name="help-circle" size={20} color={theme.colors.buttonText} />
+              <Text style={[styles.supportButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+                CONTACT SUPPORT
+              </Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={[
-                globalStyles.buttonDanger,
-                styles.logoutButton
+                styles.logoutButton,
+                { backgroundColor: theme.colors.error }
               ]} 
               onPress={handleLogout}
             >
-              <Ionicons name="log-out-outline" size={20} color={theme.colors.buttonText} />
-              <Text style={[globalStyles.buttonText]}>Logout</Text>
+              <Ionicons name="log-out" size={20} color={theme.colors.buttonText} />
+              <Text style={[styles.logoutButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+                LOGOUT
+              </Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
         
-        {activeTab === 'achievements' && (
-          <View style={styles.tabContent}>
-            <View style={[globalStyles.card, styles.customCard]}>
-              <LinearGradient
-                colors={theme.colors.primaryGradient}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.cardHeader}
-              >
-                <Ionicons name="trophy-outline" size={20} color={theme.colors.text} />
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Your Achievements</Text>
-              </LinearGradient>
+        {activeTab === 'security' && (
+          <Animated.View 
+            style={[
+              styles.tabContent,
+              { opacity: fadeAnim, transform: [{ translateY }] }
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.primary + '20' }]}>
+                <LinearGradient
+                  colors={['transparent', theme.colors.primary + '40', 'transparent']}
+                  start={{x: 0, y: 0.5}}
+                  end={{x: 1, y: 0.5}}
+                  style={styles.sectionTitleGradient}
+                />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                  SECURITY SETTINGS
+                </Text>
+              </View>
               
-              <View style={styles.cardBody}>
-                {achievements.length > 0 ? (
-                  <>
-                    <Text style={[styles.achievementsText, { color: theme.colors.text }]}>
-                      You have unlocked {achievements.length} achievements!
+              <View style={[styles.sectionIcon, { backgroundColor: theme.colors.primary }]}>
+                <Ionicons name="shield" size={22} color={theme.colors.buttonText} />
+              </View>
+            </View>
+            
+            <View style={[styles.settingsPanel, { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              shadowColor: theme.colors.shadow,
+            }]}>
+              {/* Change Password */}
+              <View style={styles.settingsSection}>
+                <View style={styles.settingHeader}>
+                  <View style={styles.settingLabelContainer}>
+                    <Ionicons name="lock-closed" size={18} color={theme.colors.primary} />
+                    <Text style={[styles.settingLabel, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                      PASSWORD
                     </Text>
-                    <TouchableOpacity 
-                      style={[
-                        styles.viewMoreButton, 
-                        { backgroundColor: theme.colors.highlight }
-                      ]} 
-                      onPress={goToAchievements}
-                    >
-                      <Text style={[styles.viewMoreText, { color: theme.colors.primary }]}>View All Achievements</Text>
-                      <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
-                    Complete quizzes and challenges to earn achievements!
+                  </View>
+                  
+                  <Text style={[styles.settingValue, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                    ••••••••••
                   </Text>
+                </View>
+                
+                {showChangePassword ? (
+                  <View style={styles.changeForm}>
+                    <View style={styles.passwordInputContainer}>
+                      <TextInput
+                        style={[
+                          styles.settingInput,
+                          { 
+                            backgroundColor: theme.colors.inputBackground, 
+                            color: theme.colors.text,
+                            borderColor: theme.colors.border,
+                            fontFamily: 'ShareTechMono'
+                          }
+                        ]}
+                        placeholder="Current password"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={oldPassword}
+                        onChangeText={setOldPassword}
+                        secureTextEntry={!showOldPassword}
+                        autoCapitalize="none"
+                        editable={!passwordLoading}
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeIcon}
+                        onPress={() => setShowOldPassword(!showOldPassword)}
+                      >
+                        <Ionicons
+                          name={showOldPassword ? "eye-off" : "eye"}
+                          size={20}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.passwordInputContainer}>
+                      <TextInput
+                        style={[
+                          styles.settingInput,
+                          { 
+                            backgroundColor: theme.colors.inputBackground, 
+                            color: theme.colors.text,
+                            borderColor: theme.colors.border,
+                            fontFamily: 'ShareTechMono'
+                          }
+                        ]}
+                        placeholder="New password"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        secureTextEntry={!showNewPassword}
+                        autoCapitalize="none"
+                        editable={!passwordLoading}
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeIcon}
+                        onPress={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        <Ionicons
+                          name={showNewPassword ? "eye-off" : "eye"}
+                          size={20}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.passwordInputContainer}>
+                      <TextInput
+                        style={[
+                          styles.settingInput,
+                          { 
+                            backgroundColor: theme.colors.inputBackground, 
+                            color: theme.colors.text,
+                            borderColor: theme.colors.border,
+                            fontFamily: 'ShareTechMono'
+                          }
+                        ]}
+                        placeholder="Confirm new password"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showConfirmPassword}
+                        autoCapitalize="none"
+                        editable={!passwordLoading}
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeIcon}
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        <Ionicons
+                          name={showConfirmPassword ? "eye-off" : "eye"}
+                          size={20}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.formActions}>
+                      <TouchableOpacity 
+                        style={[
+                          styles.actionButton,
+                          { backgroundColor: theme.colors.primary }
+                        ]}
+                        onPress={handleChangePassword}
+                        disabled={passwordLoading}
+                      >
+                        {passwordLoading ? (
+                          <ActivityIndicator color={theme.colors.buttonText} size="small" />
+                        ) : (
+                          <Text style={[styles.actionButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+                            UPDATE
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[
+                          styles.cancelButton, 
+                          { borderColor: theme.colors.border }
+                        ]}
+                        onPress={() => {
+                          setShowChangePassword(false);
+                          setOldPassword('');
+                          setNewPassword('');
+                          setConfirmPassword('');
+                        }}
+                        disabled={passwordLoading}
+                      >
+                        <Text style={[styles.cancelButtonText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                          CANCEL
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity 
+                    style={[
+                      styles.changeButton,
+                      { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + '60' }
+                    ]}
+                    onPress={() => setShowChangePassword(true)}
+                  >
+                    <Ionicons name="create" size={16} color={theme.colors.primary} />
+                    <Text style={[styles.changeButtonText, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
+                      CHANGE PASSWORD
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
-          </View>
+            
+            <View style={[styles.securityInfoPanel, { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              shadowColor: theme.colors.shadow,
+            }]}>
+              <View style={styles.securityInfoHeader}>
+                <Ionicons name="information-circle" size={20} color={theme.colors.primary} />
+                <Text style={[styles.securityInfoTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
+                  SECURITY RECOMMENDATIONS
+                </Text>
+              </View>
+              
+              <View style={styles.securityInfoContent}>
+                <View style={[styles.securityTip, { borderBottomColor: theme.colors.border }]}>
+                  <Ionicons name="checkmark-circle" size={18} color={theme.colors.success} />
+                  <Text style={[styles.securityTipText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                    Use a unique password for increased security
+                  </Text>
+                </View>
+                
+                <View style={[styles.securityTip, { borderBottomColor: theme.colors.border }]}>
+                  <Ionicons name="checkmark-circle" size={18} color={theme.colors.success} />
+                  <Text style={[styles.securityTipText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                    Include uppercase, lowercase, numbers and special characters
+                  </Text>
+                </View>
+                
+                <View style={styles.securityTip}>
+                  <Ionicons name="checkmark-circle" size={18} color={theme.colors.success} />
+                  <Text style={[styles.securityTipText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                    Change your password regularly for maximum security
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
         )}
+        
+        {/* Bottom spacing */}
+        <View style={{ height: 80 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -1064,7 +1347,7 @@ const StatusModal = ({ visible, message, type, onClose, theme }) => {
             size={24} 
             color={type === 'success' ? theme.colors.success : theme.colors.error} 
           />
-          <Text style={[styles.modalText, { color: theme.colors.text }]}>{message}</Text>
+          <Text style={[styles.modalText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>{message}</Text>
           <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
             <Ionicons name="close" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
@@ -1075,54 +1358,77 @@ const StatusModal = ({ visible, message, type, onClose, theme }) => {
 };
 
 const styles = StyleSheet.create({
+  // Header styles
+  animatedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  headerGradient: {
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  
+  // Main layout
   scrollView: {
     flex: 1,
   },
   scrollViewContent: {
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
   },
   
-  // Header styles
-  header: {
-    marginBottom: 20,
+  // Profile header
+  profileHeader: {
+    borderRadius: 16,
     overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  headerGradient: {
-    padding: 20,
-    paddingTop: 25,
-    paddingBottom: 25,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+  profileHeaderGradient: {
+    padding: 16,
+  },
+  avatarSection: {
     flexDirection: 'row',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
+    marginBottom: 16,
   },
   avatarContainer: {
-    marginRight: 16,
-  },
-  avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    borderWidth: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Background color while loading
+    borderWidth: 2,
+    overflow: 'hidden',
+    marginRight: 16,
   },
-  userInfo: {
+  avatar: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)', // placeholder color while loading
+  },
+  profileInfo: {
     flex: 1,
     justifyContent: 'center',
   },
-  username: {
-    fontSize: 22,
+  usernameText: {
+    fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: 1,
     marginBottom: 6,
   },
   levelContainer: {
@@ -1133,7 +1439,7 @@ const styles = StyleSheet.create({
   levelBadge: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
@@ -1146,14 +1452,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   xpBar: {
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
     marginBottom: 4,
     overflow: 'hidden',
   },
   xpProgress: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 3,
   },
   xpText: {
     fontSize: 12,
@@ -1175,12 +1481,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  securityIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 8,
+  },
+  securityStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  securityText: {
+    fontSize: 10,
+    letterSpacing: 1,
+  },
+  idText: {
+    fontSize: 10,
+    letterSpacing: 1,
+  },
   
-  // Tabs styles
+  // Tabs
   tabsContainer: {
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 16,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -1196,83 +1527,136 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 12,
     fontWeight: '500',
+    letterSpacing: 0.5,
   },
   activeTabText: {
     fontWeight: 'bold',
   },
-  
-  // Content styles
   tabContent: {
-    paddingHorizontal: 16,
-  },
-  customCard: {
-    padding: 0, // Override padding to use custom header
     marginBottom: 16,
-    overflow: 'hidden',
   },
-  cardHeader: {
+  
+  // Section Headers
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 10,
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 15,
   },
-  cardTitle: {
+  sectionTitleBg: {
+    flex: 1,
+    borderRadius: 6,
+    padding: 8,
+    marginRight: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sectionTitleGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 1,
+    textAlign: 'center',
   },
-  cardBody: {
-    padding: 16,
+  sectionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   
-  // Profile details
-  profileDetail: {
+  // Stats Panel
+  statsPanel: {
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  statsContent: {
+    padding: 16,
+  },
+  statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-  detailLabel: {
-    fontSize: 14,
+  statBlock: {
+    flex: 1,
+    alignItems: 'center',
   },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '500',
+  statLabel: {
+    fontSize: 12,
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   
-  // Achievements & Items
-  achievementsText: {
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  itemsText: {
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    padding: 10,
-  },
-  viewMoreButton: {
+  // Actions Grid
+  actionsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  actionCard: {
+    width: (width - 40) / 2,
+    height: 100,
+    borderRadius: 12,
+    marginBottom: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  actionCardHeader: {
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
   },
-  viewMoreText: {
+  actionCardBody: {
+    flex: 1,
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionCardTitle: {
     fontSize: 14,
-    fontWeight: '500',
-    marginRight: 4,
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   
-  // Account settings
-  settingSection: {
-    marginBottom: 20,
+  // Settings Panel
+  settingsPanel: {
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  settingsSection: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    paddingBottom: 20,
   },
   settingHeader: {
     flexDirection: 'row',
@@ -1280,63 +1664,158 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  settingTitle: {
-    fontSize: 16,
+  settingLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingLabel: {
+    fontSize: 14,
     fontWeight: '600',
+    marginLeft: 8,
+    letterSpacing: 0.5,
   },
   settingValue: {
     fontSize: 14,
   },
-  changeButton: {
-    marginTop: 8,
+  themeValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   
-  // Forms
+  // Change Forms
   changeForm: {
+    marginTop: 12,
+  },
+  settingInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  formActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  cancelButton: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+  },
+  changeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     marginTop: 8,
   },
+  changeButtonText: {
+    marginLeft: 8,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  
+  // Password input
   passwordInputContainer: {
     position: 'relative',
-    marginBottom: 12,
   },
   eyeIcon: {
     position: 'absolute',
     right: 12,
-    top: '25%',
+    top: '30%',
     zIndex: 1,
   },
-  formButtons: {
+  
+  // Security Info Panel
+  securityInfoPanel: {
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  securityInfoHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 5,
-  },
-  saveButton: {
-    flex: 1,
-    marginRight: 8,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    justifyContent: 'center',
     alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
-  cancelText: {
+  securityInfoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    letterSpacing: 0.5,
+  },
+  securityInfoContent: {
+    padding: 16,
+  },
+  securityTip: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  securityTipText: {
     fontSize: 14,
-    fontWeight: '500',
+    marginLeft: 10,
+    flex: 1,
   },
   
   // Buttons
   logoutButton: {
-    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginVertical: 8,
   },
-  supportButton: {
-    marginBottom: 16,
-  },
-  supportText: {
+  logoutButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 8,
+    marginLeft: 10,
+    letterSpacing: 0.5,
+  },
+  supportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginBottom: 8,
+  },
+  supportButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
+    letterSpacing: 0.5,
   },
   
   // Modal
@@ -1349,26 +1828,19 @@ const styles = StyleSheet.create({
   modalContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '85%',
     borderRadius: 12,
     padding: 16,
-    width: '80%',
     borderLeftWidth: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   modalText: {
     flex: 1,
-    fontSize: 14,
     marginLeft: 10,
+    fontSize: 14,
   },
   modalCloseButton: {
     marginLeft: 10,

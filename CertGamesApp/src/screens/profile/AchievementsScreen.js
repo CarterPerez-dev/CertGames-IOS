@@ -1,5 +1,5 @@
 // src/screens/profile/AchievementsScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Modal,
   Dimensions,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,13 +23,18 @@ import AchievementItem from '../../components/AchievementItem';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 
-const { width } = Dimensions.get('window');
-const isTablet = width >= 768;
+const { width, height } = Dimensions.get('window');
 
 const AchievementsScreen = ({ navigation }) => {
   // Theme integration
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
+  
+  // Animation refs
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+  const [cardAnims] = useState([...Array(50)].map(() => new Animated.Value(0)));
   
   // Get achievements data using hook
   const {
@@ -48,8 +54,40 @@ const AchievementsScreen = ({ navigation }) => {
   // Local state
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('list'); // Default to list view now
   const [sortOrder, setSortOrder] = useState('default'); // 'default', 'alphabetical', 'locked'
+  
+  // Animations on mount
+  useEffect(() => {
+    // Main animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true
+      })
+    ]).start();
+    
+    // Staggered card animations
+    cardAnims.forEach((anim, i) => {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 500,
+        delay: 100 + (i * 70),
+        useNativeDriver: true
+      }).start();
+    });
+  }, []);
   
   // Stats about achievements
   const { total, unlocked, completionPercentage } = getAchievementStats();
@@ -73,7 +111,7 @@ const AchievementsScreen = ({ navigation }) => {
     return filteredAchievements;
   };
   
-  // Toggle sort order
+  // Toggle sort order with haptic feedback
   const toggleSortOrder = () => {
     const orders = ['default', 'alphabetical', 'locked'];
     const currentIndex = orders.indexOf(sortOrder);
@@ -85,7 +123,7 @@ const AchievementsScreen = ({ navigation }) => {
     }
   };
   
-  // Toggle view mode
+  // Toggle view mode with haptic feedback
   const toggleViewMode = () => {
     setViewMode(viewMode === 'grid' ? 'list' : 'grid');
     
@@ -139,18 +177,16 @@ const AchievementsScreen = ({ navigation }) => {
               { backgroundColor: theme.colors.surface },
               activeCategory === item.id && { 
                 backgroundColor: theme.colors.primary,
-                borderColor: theme.colors.primaryGradient[1],
-                borderWidth: 1,
               }
             ]}
             onPress={() => handleCategoryChange(item.id)}
           >
             <Text style={[
               styles.tabButtonText,
-              { color: theme.colors.textMuted },
-              activeCategory === item.id && { color: theme.colors.textInverse }
+              { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' },
+              activeCategory === item.id && { color: theme.colors.buttonText }
             ]}>
-              {item.label}
+              {item.label.toUpperCase()}
             </Text>
           </TouchableOpacity>
         )}
@@ -165,8 +201,8 @@ const AchievementsScreen = ({ navigation }) => {
     return (
       <View style={[styles.emptyContainer, { backgroundColor: theme.colors.surface }]}>
         <Ionicons name="trophy-outline" size={60} color={theme.colors.textMuted} />
-        <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
-          {error || 'No achievements found in this category'}
+        <Text style={[styles.emptyText, { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' }]}>
+          {error || 'NO ACHIEVEMENTS FOUND IN THIS CATEGORY'}
         </Text>
         
         {error && (
@@ -174,22 +210,41 @@ const AchievementsScreen = ({ navigation }) => {
             style={[styles.retryButton, { backgroundColor: theme.colors.primary }]} 
             onPress={handleRefresh}
           >
-            <Text style={[styles.retryText, { color: theme.colors.textInverse }]}>Retry</Text>
+            <Text style={[styles.retryText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+              RETRY
+            </Text>
           </TouchableOpacity>
         )}
       </View>
     );
   };
   
-  // Render achievement list item
-  const renderAchievementItem = ({ item }) => (
-    <AchievementItem
-      achievement={item}
-      isUnlocked={isAchievementUnlocked(item.achievementId)}
-      onPress={handleAchievementPress}
-      compact={viewMode === 'list'}
-    />
-  );
+  // Render achievement list item with animations
+  const renderAchievementItem = ({ item, index }) => {
+    const isUnlocked = isAchievementUnlocked(item.achievementId);
+    const animIndex = Math.min(index, cardAnims.length - 1);
+    
+    return (
+      <Animated.View
+        style={{
+          opacity: cardAnims[animIndex],
+          transform: [{
+            translateY: cardAnims[animIndex].interpolate({
+              inputRange: [0, 1],
+              outputRange: [30, 0]
+            })
+          }]
+        }}
+      >
+        <AchievementItem
+          achievement={item}
+          isUnlocked={isUnlocked}
+          onPress={handleAchievementPress}
+          compact={true} // Always use compact mode for a vertical list
+        />
+      </Animated.View>
+    );
+  };
   
   // Render achievement details modal
   const renderModal = () => {
@@ -222,20 +277,23 @@ const AchievementsScreen = ({ navigation }) => {
             </TouchableOpacity>
             
             <LinearGradient
-              colors={theme.colors.primaryGradient}
+              colors={isUnlocked ? theme.colors.primaryGradient : [theme.colors.textMuted + '80', theme.colors.textMuted]}
               start={{x: 0, y: 0}}
               end={{x: 1, y: 0}}
               style={styles.modalHeader}
             >
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-                {selectedAchievement.title}
+              <Text style={[styles.modalTitle, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+                {selectedAchievement.title.toUpperCase()}
               </Text>
             </LinearGradient>
             
             <View style={styles.modalContent}>
               <View style={[
                 styles.modalIconContainer, 
-                { backgroundColor: isUnlocked ? theme.colors.primary + '20' : theme.colors.background }
+                { 
+                  backgroundColor: isUnlocked ? theme.colors.primary + '20' : theme.colors.background,
+                  borderColor: isUnlocked ? theme.colors.primary + '40' : theme.colors.border,
+                }
               ]}>
                 <Ionicons 
                   name={isUnlocked ? "trophy" : "lock-closed"} 
@@ -244,7 +302,7 @@ const AchievementsScreen = ({ navigation }) => {
                 />
               </View>
               
-              <Text style={[styles.modalDescription, { color: theme.colors.text }]}>
+              <Text style={[styles.modalDescription, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
                 {selectedAchievement.description}
               </Text>
               
@@ -258,11 +316,12 @@ const AchievementsScreen = ({ navigation }) => {
               ]}>
                 <Text style={[
                   styles.modalStatusText,
-                  isUnlocked 
-                    ? { color: theme.colors.success } 
-                    : { color: theme.colors.textMuted }
+                  { 
+                    color: isUnlocked ? theme.colors.success : theme.colors.textMuted,
+                    fontFamily: 'ShareTechMono'
+                  }
                 ]}>
-                  {isUnlocked ? "Achievement Unlocked" : "Achievement Locked"}
+                  {isUnlocked ? "ACHIEVEMENT UNLOCKED" : "ACHIEVEMENT LOCKED"}
                 </Text>
               </View>
             </View>
@@ -272,101 +331,20 @@ const AchievementsScreen = ({ navigation }) => {
     );
   };
   
-  // Render the list header (stats, filters, categories)
-  const renderListHeader = () => (
-    <>
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <LinearGradient
-          colors={theme.colors.cardGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.statCard, { borderColor: theme.colors.border }]}
-        >
-          <Ionicons name="trophy" size={28} color={theme.colors.primary} />
-          <Text style={[styles.statValue, { color: theme.colors.text }]}>{unlocked} / {total}</Text>
-          <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Achievements</Text>
-        </LinearGradient>
-        
-        <LinearGradient
-          colors={theme.colors.cardGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.statCard, { borderColor: theme.colors.border }]}
-        >
-          <Ionicons name="ribbon" size={28} color={getProgressColor(completionPercentage)} />
-          <Text style={[styles.statValue, { color: theme.colors.text }]}>{completionPercentage}%</Text>
-          <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Completed</Text>
-          
-          {/* Progress bar */}
-          <View style={[styles.progressBar, { backgroundColor: theme.colors.progressTrack }]}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { 
-                  width: `${completionPercentage}%`,
-                  backgroundColor: getProgressColor(completionPercentage) 
-                }
-              ]} 
-            />
-          </View>
-        </LinearGradient>
-      </View>
-      
-      {/* Action bar */}
-      <View style={[styles.actionBar, { backgroundColor: theme.colors.surfaceHighlight }]}>
-        <View style={styles.filtersContainer}>
-          <TouchableOpacity
-            style={[styles.filterButton, { backgroundColor: theme.colors.surface }]}
-            onPress={toggleSortOrder}
-          >
-            <Ionicons name={getSortIcon()} size={18} color={theme.colors.icon} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.filterButton, { backgroundColor: theme.colors.surface }]}
-            onPress={toggleViewMode}
-          >
-            <Ionicons 
-              name={viewMode === 'grid' ? 'list' : 'grid'} 
-              size={18} 
-              color={theme.colors.icon} 
-            />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={[styles.resultsContainer, { borderColor: theme.colors.border }]}>
-          <Text style={[styles.resultsText, { color: theme.colors.textSecondary }]}>
-            {filteredAchievements.length} achievements
-          </Text>
-        </View>
-      </View>
-      
-      {/* Category Tabs */}
-      <View style={[styles.tabsContainer, { backgroundColor: theme.colors.background }]}>
-        <CategoryTabs />
-      </View>
-    </>
-  );
-  
+  // Main screen content
   return (
     <SafeAreaView style={[globalStyles.screen, styles.container]}>
       <StatusBar barStyle="light-content" />
       
-      {/* Main Content - Now everything is scrollable */}
+      {/* Main Content */}
       <FlatList
         data={getSortedAchievements()}
         renderItem={renderAchievementItem}
         keyExtractor={(item) => item.achievementId}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: 100 }
-        ]}
-        numColumns={viewMode === 'grid' && !isTablet ? 1 : (viewMode === 'grid' ? 2 : 1)}
-        key={viewMode} // Force re-render when changing view mode
+        contentContainerStyle={styles.listContent}
+        numColumns={1} // Always use a single column for vertical list
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmpty}
-        ListHeaderComponent={renderListHeader}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -374,6 +352,102 @@ const AchievementsScreen = ({ navigation }) => {
             colors={[theme.colors.primary]}
             tintColor={theme.colors.primary}
           />
+        }
+        ListHeaderComponent={
+          <Animated.View 
+            style={{
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }]
+            }}
+          >
+            {/* Achievement Stats Cards */}
+            <View style={styles.statsContainer}>
+              <LinearGradient
+                colors={[theme.colors.primary + '40', theme.colors.primary + '20']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.statCard, { borderColor: theme.colors.border }]}
+              >
+                <Ionicons name="trophy" size={28} color={theme.colors.primary} />
+                <Text style={[styles.statValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                  {unlocked} / {total}
+                </Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                  ACHIEVEMENTS
+                </Text>
+              </LinearGradient>
+              
+              <LinearGradient
+                colors={[theme.colors.primary + '40', theme.colors.primary + '20']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.statCard, { borderColor: theme.colors.border }]}
+              >
+                <Ionicons name="ribbon" size={28} color={getProgressColor(completionPercentage)} />
+                <Text style={[styles.statValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                  {completionPercentage}%
+                </Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                  COMPLETED
+                </Text>
+                
+                {/* Progress bar */}
+                <View style={[styles.progressBar, { backgroundColor: theme.colors.progressTrack }]}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { 
+                        width: `${completionPercentage}%`,
+                        backgroundColor: getProgressColor(completionPercentage) 
+                      }
+                    ]} 
+                  />
+                </View>
+              </LinearGradient>
+            </View>
+            
+            {/* Section Header */}
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.primary + '20' }]}>
+                <LinearGradient
+                  colors={['transparent', theme.colors.primary + '40', 'transparent']}
+                  start={{x: 0, y: 0.5}}
+                  end={{x: 1, y: 0.5}}
+                  style={styles.sectionTitleGradient}
+                />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                  ACHIEVEMENT DATABASE
+                </Text>
+              </View>
+              
+              <View style={[styles.sectionIcon, { backgroundColor: theme.colors.primary }]}>
+                <Ionicons name="trophy" size={22} color={theme.colors.buttonText} />
+              </View>
+            </View>
+            
+            {/* Action bar */}
+            <View style={[styles.actionBar, { backgroundColor: theme.colors.surfaceHighlight }]}>
+              <View style={styles.filtersContainer}>
+                <TouchableOpacity
+                  style={[styles.filterButton, { backgroundColor: theme.colors.surface }]}
+                  onPress={toggleSortOrder}
+                >
+                  <Ionicons name={getSortIcon()} size={18} color={theme.colors.icon} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={[styles.resultsContainer, { borderColor: theme.colors.border }]}>
+                <Text style={[styles.resultsText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                  {filteredAchievements.length} ITEMS
+                </Text>
+              </View>
+            </View>
+            
+            {/* Category Tabs */}
+            <View style={[styles.tabsContainer, { backgroundColor: theme.colors.surfaceHighlight }]}>
+              <CategoryTabs />
+            </View>
+          </Animated.View>
         }
       />
       
@@ -384,6 +458,9 @@ const AchievementsScreen = ({ navigation }) => {
           { backgroundColor: theme.colors.overlay }
         ]}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+            LOADING ACHIEVEMENTS...
+          </Text>
         </View>
       )}
       
@@ -397,11 +474,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  
+  // Content
+  listContent: {
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+  },
+  
+  // Stats Cards
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 12,
-    paddingTop: 16, // Regular padding, no need for extra space for back button
+    marginVertical: 16,
   },
   statCard: {
     width: '48%',
@@ -409,25 +494,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     borderWidth: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     marginTop: 8,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 12,
+    letterSpacing: 0.5,
     marginTop: 4,
   },
   progressBar: {
@@ -441,15 +521,52 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 2,
   },
+  
+  // Section Header
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  sectionTitleBg: {
+    flex: 1,
+    borderRadius: 6,
+    padding: 8,
+    marginRight: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sectionTitleGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  sectionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Action Bar
   actionBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginHorizontal: 12,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   filtersContainer: {
     flexDirection: 'row',
@@ -471,12 +588,18 @@ const styles = StyleSheet.create({
   resultsText: {
     fontSize: 12,
     fontWeight: '500',
+    letterSpacing: 0.5,
   },
+  
+  // Category Tabs
   tabsContainer: {
-    paddingVertical: 6,
+    paddingVertical: 10,
+    marginBottom: 16,
+    borderRadius: 12,
   },
   tabsScrollContainer: {
     paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   tabButton: {
     paddingHorizontal: 16,
@@ -485,11 +608,12 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   tabButtonText: {
+    fontSize: 12,
     fontWeight: '500',
+    letterSpacing: 0.5,
   },
-  listContent: {
-    paddingHorizontal: 12,
-  },
+  
+  // Empty State
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -500,8 +624,9 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: 16,
     marginBottom: 20,
+    letterSpacing: 0.5,
   },
   retryButton: {
     paddingVertical: 10,
@@ -510,12 +635,22 @@ const styles = StyleSheet.create({
   },
   retryText: {
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
+  
+  // Loading
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+  
+  // Modal
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -525,22 +660,11 @@ const styles = StyleSheet.create({
     width: '85%',
     borderRadius: 16,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-  modalHeader: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   closeButton: {
     position: 'absolute',
@@ -553,10 +677,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  modalHeader: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
+    letterSpacing: 1,
   },
   modalContent: {
     alignItems: 'center',
@@ -569,6 +699,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    borderWidth: 1,
   },
   modalDescription: {
     fontSize: 14,
@@ -584,6 +715,7 @@ const styles = StyleSheet.create({
   },
   modalStatusText: {
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
 });
 

@@ -1,4 +1,4 @@
-// src/screens/HomeScreen.js - VERSION 2
+// src/screens/HomeScreen.js - FINAL VERSION
 import React, { useEffect, useState, useRef } from 'react';
 import { 
   View, 
@@ -10,8 +10,7 @@ import {
   Dimensions,
   StatusBar,
   Platform,
-  Animated,
-  ImageBackground
+  Animated
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,8 +28,7 @@ const HomeScreen = ({ navigation }) => {
   const isLoading = status === 'loading';
   const [refreshing, setRefreshing] = useState(false);
   
-  // Animation references
-  const scrollY = useRef(new Animated.Value(0)).current;
+  // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const coinsFlashAnim = useRef(new Animated.Value(0)).current;
@@ -170,31 +168,33 @@ const HomeScreen = ({ navigation }) => {
   // Calculate XP percentage for progress bar
   const xpPercentage = Math.min((xp % 1000) / 10, 100);
 
-  // Parallax header effect
-  const headerTranslateY = scrollY.interpolate({
-    inputRange: [0, 200],
-    outputRange: [0, -30],
-    extrapolate: 'clamp'
-  });
-
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header with animated parallax effect */}
-      <Animated.View 
-        style={[
-          styles.headerContainer,
-          {
-            transform: [{ translateY: headerTranslateY }]
-          }
-        ]}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
+        scrollEventThrottle={16}
       >
-        <ImageBackground
-          source={require('../../assets/background2.webp')}
-          style={styles.headerBackground}
-          imageStyle={[styles.headerBackgroundImage, { tintColor: theme.colors.primary + '40' }]}
-        >
+        {/* Header (now part of the scrolling content) */}
+        <View style={styles.headerContainer}>
+          {/* Background image commented out
+          <ImageBackground
+            source={require('../../assets/cyber-grid.png')}
+            style={styles.headerBackground}
+            imageStyle={[styles.headerBackgroundImage, { tintColor: theme.colors.primary + '40' }]}
+          >
+          */}
           <LinearGradient
-            colors={[theme.colors.background + '00', theme.colors.background]}
+            colors={[theme.colors.primary + '30', theme.colors.background]}
             start={{x: 0, y: 0}}
             end={{x: 0, y: 1}}
             style={styles.headerGradient}
@@ -208,27 +208,9 @@ const HomeScreen = ({ navigation }) => {
               </Text>
             </View>
           </LinearGradient>
-        </ImageBackground>
-      </Animated.View>
-      
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
-            colors={[theme.colors.primary]}
-          />
-        }
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }  // Changed to false
-        )}
-        scrollEventThrottle={16}
-      >
+          {/* </ImageBackground> */}
+        </View>
+        
         {/* User Stats Panel */}
         {username && (
           <Animated.View 
@@ -252,7 +234,7 @@ const HomeScreen = ({ navigation }) => {
                 style={styles.statsPanelHeaderGradient}
               >
                 <Text style={[styles.welcomeText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
-                  AGENT: {username.toUpperCase()}
+                  USER: {username.toUpperCase()}
                 </Text>
                 <View style={styles.userStatusIndicator}>
                   <View style={styles.statusDot} />
@@ -267,7 +249,7 @@ const HomeScreen = ({ navigation }) => {
               <View style={styles.statsRow}>
                 <View style={[styles.statsBox, { borderColor: theme.colors.border }]}>
                   <Text style={[styles.statsLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                    AGENT LEVEL
+                    USER LEVEL
                   </Text>
                   <View style={styles.statsValueRow}>
                     <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary }]}>
@@ -303,7 +285,7 @@ const HomeScreen = ({ navigation }) => {
                     {coins.toLocaleString()}
                   </Text>
                   <Text style={[styles.coinsLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                    CREDITS
+                    COINS
                   </Text>
                 </Animated.View>
               </View>
@@ -564,14 +546,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerContainer: {
-    height: 150,
     width: '100%',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
+    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
   },
+  // Background image style commented out
+  /*
   headerBackground: {
     width: '100%',
     height: '100%',
@@ -579,9 +558,8 @@ const styles = StyleSheet.create({
   headerBackgroundImage: {
     opacity: 0.5,
   },
+  */
   headerGradient: {
-    flex: 1,
-    justifyContent: 'flex-end',
     paddingHorizontal: 20,
     paddingBottom: 15,
   },
@@ -606,11 +584,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingTop: 150, // Match header height
   },
   scrollContent: {
     paddingHorizontal: 15,
-    paddingTop: 15,
     paddingBottom: 20,
   },
   

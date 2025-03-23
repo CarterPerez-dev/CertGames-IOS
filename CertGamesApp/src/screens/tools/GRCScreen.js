@@ -74,6 +74,7 @@ const GRCScreen = () => {
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [fetchAttempts, setFetchAttempts] = useState(0); // Track fetch attempts for retries
 
   // Ref for scroll view
   const scrollViewRef = useRef(null);
@@ -153,13 +154,47 @@ const GRCScreen = () => {
     }
   };
 
-  // The main "fetch question" logic
-  const fetchQuestion = async () => {
+  // Validate question data to ensure all required fields exist
+  const validateQuestionData = (data) => {
+    if (!data) return false;
+    
+    // Check required fields
+    const hasQuestion = typeof data.question === 'string' && data.question.trim().length > 0;
+    const hasOptions = Array.isArray(data.options) && data.options.length === 4;
+    const hasCorrectAnswerIndex = typeof data.correct_answer_index !== 'undefined' && 
+                                 (data.correct_answer_index === 0 || 
+                                  data.correct_answer_index === 1 || 
+                                  data.correct_answer_index === 2 || 
+                                  data.correct_answer_index === 3);
+    const hasExplanations = data.explanations && typeof data.explanations === 'object';
+    
+    // Check if we have at least the explanation for the correct answer
+    const hasCorrectExplanation = hasExplanations && 
+                                  typeof data.explanations[data.correct_answer_index.toString()] === 'string';
+    
+    // Require all core fields
+    if (!hasQuestion || !hasOptions || !hasCorrectAnswerIndex || !hasExplanations || !hasCorrectExplanation) {
+      console.warn("Question data validation failed:", {
+        hasQuestion,
+        hasOptions,
+        hasCorrectAnswerIndex,
+        hasExplanations,
+        hasCorrectExplanation
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
+  // The main "fetch question" logic - now with better error handling and retries
+  const fetchQuestion = async (retryAttempt = 0) => {
     setLoading(true);
     setQuestionData(null);
     setSelectedOption(null);
     setShowExplanation(false);
     setErrorMessage('');
+    setFetchAttempts(retryAttempt);
 
     // Haptic feedback
     if (Platform.OS === 'ios') {
@@ -167,18 +202,39 @@ const GRCScreen = () => {
     }
 
     try {
+      // Improved service call with fallback questions
       const data = await streamGRCQuestion(category, difficulty);
-
-      // Safe logging - only partial
-      if (data && data.question) {
-        console.log('GRC Question received:', data.question.substring(0, 50) + '...');
+      
+      // Additional validation to ensure the data is complete
+      if (validateQuestionData(data)) {
+        console.log('GRC Question received and validated successfully');
+        setQuestionData(data);
+      } else {
+        // If validation fails and we haven't exceeded retry attempts
+        if (retryAttempt < 2) {
+          console.log(`Validation failed, retrying (attempt ${retryAttempt + 1}/2)...`);
+          setLoading(false);
+          fetchQuestion(retryAttempt + 1);
+          return;
+        } else {
+          // After retries, use the data anyway (the service should provide fallbacks)
+          console.log('Using data despite validation issues after retries');
+          setQuestionData(data);
+        }
       }
-
-      setQuestionData(data);
     } catch (error) {
       console.error('Error fetching question:', error);
       setErrorMessage('Failed to load question. Please try again.');
-      Alert.alert('Error', 'Error fetching question. Please try again.', [{ text: 'OK' }]);
+      
+      // Don't show alert for retry attempts
+      if (retryAttempt === 0) {
+        Alert.alert('Error', 'Error fetching question. Retrying...', [{ text: 'OK' }]);
+        
+        // Auto-retry once
+        setLoading(false);
+        fetchQuestion(1);
+        return;
+      }
     } finally {
       setLoading(false);
     }
@@ -216,7 +272,7 @@ const GRCScreen = () => {
     try {
       const correctIndex = questionData.correct_answer_index;
       const correctExplanation = questionData.explanations[correctIndex.toString()];
-      const examTip = questionData.exam_tip;
+      const examTip = questionData.exam_tip || "Remember key concepts from this question!";
 
       // Build multi-line text to copy
       const textToCopy = [
@@ -292,6 +348,34 @@ const GRCScreen = () => {
       )}
     </TouchableOpacity>
   );
+
+  // Get explanation text with default if missing
+  const getExplanationText = (index) => {
+    if (!questionData || !questionData.explanations) return "";
+    
+    const indexStr = index.toString();
+    const correctIndex = questionData.correct_answer_index.toString();
+    
+    // If we have the specific explanation, use it
+    if (questionData.explanations[indexStr]) {
+      return questionData.explanations[indexStr];
+    }
+    
+    // Otherwise generate a basic explanation
+    if (index === questionData.correct_answer_index) {
+      return `This is the correct answer. ${questionData.options[index]} is the right choice for this question.`;
+    } else {
+      return `This is incorrect. The correct answer is ${questionData.options[questionData.correct_answer_index]}.`;
+    }
+  };
+
+  // Get exam tip with default if missing
+  const getExamTip = () => {
+    if (!questionData) return "";
+    
+    return questionData.exam_tip || 
+           "Remember the key concepts and apply critical thinking when answering similar questions on the exam!";
+  };
 
   return (
     <SafeAreaView style={[globalStyles.screen, styles.container]}>
@@ -802,7 +886,7 @@ const GRCScreen = () => {
                         color: theme.colors.textSecondary,
                         fontFamily: 'ShareTechMono'
                       }]}>
-                        {questionData.explanations && questionData.explanations[selectedOption.toString()]}
+                        {getExplanationText(selectedOption)}
                       </Text>
                     </View>
 
@@ -824,7 +908,7 @@ const GRCScreen = () => {
                         borderLeftColor: theme.colors.warning,
                         fontFamily: 'ShareTechMono'
                       }]}>
-                        {questionData.exam_tip}
+                        {getExamTip()}
                       </Text>
                     </View>
                   </View>

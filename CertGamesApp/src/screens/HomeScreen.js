@@ -120,28 +120,28 @@ const HomeScreen = ({ navigation }) => {
   
   // All certification options
   const certOptions = [
-    { id: 'aplus',     name: 'A+ Core 1 (1101)',    icon: 'hardware-chip-outline',  screenName: 'APlusTests' },
-    { id: 'aplus2',    name: 'A+ Core 2 (1102)',    icon: 'desktop-outline',  screenName: 'APlus2Tests' },
-    { id: 'nplus',     name: 'Network+ (N10-009)',  icon: 'git-network-outline',     screenName: 'NetworkPlusTests' },
-    { id: 'secplus',   name: 'Security+ (SY0-701)', icon: 'shield-checkmark-outline', screenName: 'SecurityPlusTests' },
-    { id: 'cysa',      name: 'CySA+ (CS0-003)',     icon: 'analytics-outline', screenName: 'CySAPlusTests' },
-    { id: 'penplus',   name: 'PenTest+ (PT0-003)',  icon: 'bug-outline',       screenName: 'PenPlusTests' },
-    { id: 'linuxplus', name: 'Linux+ (XK0-005)',    icon: 'terminal-outline',  screenName: 'LinuxPlusTests' },
-    { id: 'caspplus',  name: 'CASP+ (CAS-005)',     icon: 'shield-outline',    screenName: 'CaspPlusTests' },
-    { id: 'cloudplus', name: 'Cloud+ (CV0-004)',    icon: 'cloud-outline',     screenName: 'CloudPlusTests' },
-    { id: 'dataplus',  name: 'Data+ (DA0-001)',     icon: 'bar-chart-outline', screenName: 'DataPlusTests' },
-    { id: 'serverplus',name: 'Server+ (SK0-005)',   icon: 'server-outline',    screenName: 'ServerPlusTests' },
-    { id: 'cissp',     name: 'CISSP',               icon: 'lock-closed-outline', screenName: 'CisspTests' },
-    { id: 'awscloud',  name: 'AWS Cloud Practitioner', icon: 'cloud-outline',  screenName: 'AWSCloudTests' },
+    { id: 'aplus',     name: 'A+ Core 1',    icon: 'hardware-chip-outline',  screenName: 'APlusTests' },
+    { id: 'aplus2',    name: 'A+ Core 2',    icon: 'desktop-outline',  screenName: 'APlus2Tests' },
+    { id: 'nplus',     name: 'Network+',  icon: 'wifi-outline',     screenName: 'NetworkPlusTests' },
+    { id: 'secplus',   name: 'Security+', icon: 'shield-checkmark-outline', screenName: 'SecurityPlusTests' },
+    { id: 'cysa',      name: 'CySA+',     icon: 'analytics-outline', screenName: 'CySAPlusTests' },
+    { id: 'penplus',   name: 'PenTest+',  icon: 'bug-outline',       screenName: 'PenPlusTests' },
+    { id: 'linuxplus', name: 'Linux+',    icon: 'terminal-outline',  screenName: 'LinuxPlusTests' },
+    { id: 'caspplus',  name: 'CASP+',     icon: 'shield-half-outline',    screenName: 'CaspPlusTests' },
+    { id: 'cloudplus', name: 'Cloud+',    icon: 'cloud-outline',     screenName: 'CloudPlusTests' },
+    { id: 'dataplus',  name: 'Data+',     icon: 'bar-chart-outline', screenName: 'DataPlusTests' },
+    { id: 'serverplus',name: 'Server+',   icon: 'server-outline',    screenName: 'ServerPlusTests' },
+    { id: 'cissp',     name: 'CISSP',     icon: 'lock-closed-outline', screenName: 'CisspTests' },
+    { id: 'awscloud',  name: 'AWS Cloud', icon: 'thunderstorm-outline',  screenName: 'AWSCloudTests' },
   ];
   
   // Tools config
   const toolsOptions = [
-    { name: "Analogy Hub", icon: 'bulb-outline', screen: 'AnalogyHub' },
+    { name: "Analogy Hub", icon: 'game-controller-outline', screen: 'AnalogyHub' },
     { name: "Resources", icon: 'library-outline', screen: 'Resources' },
     { name: "Scenarios", icon: 'document-text-outline', screen: 'ScenarioSphere' },
-    { name: "GRC", icon: 'shield-outline', screen: 'GRC' },
-    { name: "XploitCraft", icon: 'code-slash-outline', screen: 'XploitCraft' },
+    { name: "GRC", icon: 'eye-outline', screen: 'GRC' },
+    { name: "XploitCraft", icon: 'finger-print-outline', screen: 'XploitCraft' },
     { name: "Support", icon: 'help-circle-outline', screen: 'Support' }
   ];
   
@@ -483,7 +483,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
           
           <View style={[styles.sectionIcon, { backgroundColor: theme.colors.secondary }]}>
-            <Ionicons name="hammer" size={22} color={theme.colors.buttonText} />
+            <Ionicons name="construct-outline" size={22} color={theme.colors.buttonText} />
           </View>
         </View>
         

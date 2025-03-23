@@ -352,7 +352,7 @@ const ScenarioSphereScreen = () => {
               </Text>
               <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
               <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                IMMERSE YOURSELF IN REALISTIC CYBERSECURITY SCENARIOS
+                CYBERSECURITY SCENARIOS
               </Text>
             </View>
           </LinearGradient>
@@ -415,7 +415,7 @@ const ScenarioSphereScreen = () => {
               <View style={styles.paramsHeaderLeft}>
                 <Ionicons name="shield" size={20} color={theme.colors.primary} />
                 <Text style={[styles.paramsHeaderTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
-                  SCENARIO PARAMETERS
+                  PARAMETERS
                 </Text>
               </View>
               <View style={[styles.scoreCounter, { backgroundColor: `${theme.colors.primary}20` }]}>
@@ -1287,7 +1287,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     letterSpacing: 1,
-    marginBottom: 25,
+    marginBottom: 30,
   },
   // Back button
   backButton: {

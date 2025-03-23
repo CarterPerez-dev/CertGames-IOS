@@ -24,6 +24,7 @@ import { streamGRCQuestion } from '../../api/grcService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
+import { useNavigation } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -47,6 +48,9 @@ const CATEGORY_OPTIONS = [
 const DIFFICULTY_OPTIONS = ['Easy', 'Medium', 'Hard'];
 
 const GRCScreen = () => {
+  // Navigation
+  const navigation = useNavigation();
+  
   // Theme integration
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
@@ -70,6 +74,9 @@ const GRCScreen = () => {
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+
+  // Ref for scroll view
+  const scrollViewRef = useRef(null);
 
   // Animation on mount
   useEffect(() => {
@@ -133,6 +140,18 @@ const GRCScreen = () => {
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
+
+  // Scroll to top function
+  const scrollToTop = () => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: true });
+    }
+    
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
 
   // The main "fetch question" logic
   const fetchQuestion = async () => {
@@ -278,6 +297,14 @@ const GRCScreen = () => {
     <SafeAreaView style={[globalStyles.screen, styles.container]}>
       <StatusBar style="light" />
 
+      {/* Fixed back button in top left */}
+      <TouchableOpacity 
+        style={[styles.backButton, { backgroundColor: theme.colors.surface + 'CC', borderColor: theme.colors.border }]}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
+      </TouchableOpacity>
+
       {/* Main Header */}
       <Animated.View 
         style={{
@@ -308,6 +335,12 @@ const GRCScreen = () => {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        ref={scrollViewRef}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
       >
         {/* Section Header */}
         <View style={styles.sectionHeader}>
@@ -518,10 +551,10 @@ const GRCScreen = () => {
                 PREPARING YOUR QUESTION...
               </Text>
               <Text style={[styles.loadingSubtext, { 
-                color: theme.colors.textSecondary,
+                color: theme.colors.textMuted,
                 fontFamily: 'ShareTechMono'
               }]}>
-                THIS WILL ONLY TAKE A MOMENT.
+                THIS WILL ONLY TAKE A MOMENT, PLEASE WAIT.
               </Text>
             </View>
           </Animated.View>
@@ -708,7 +741,7 @@ const GRCScreen = () => {
                             color: theme.colors.text,
                             fontFamily: 'Orbitron-Bold'
                           }]}>
-                            CORRECT ANSWER
+                            CORRECT
                           </Text>
                         </>
                       ) : (
@@ -718,7 +751,7 @@ const GRCScreen = () => {
                             color: theme.colors.text,
                             fontFamily: 'Orbitron-Bold'
                           }]}>
-                            INCORRECT ANSWER
+                            INCORRECT
                           </Text>
                         </>
                       )}
@@ -821,6 +854,35 @@ const GRCScreen = () => {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
+      {/* Scroll to top button */}
+      <Animated.View
+        style={[
+          styles.scrollTopButton,
+          { 
+            backgroundColor: theme.colors.primary,
+            opacity: scrollY.interpolate({
+              inputRange: [50, 200],
+              outputRange: [0, 1],
+              extrapolate: 'clamp'
+            }),
+            transform: [{
+              translateY: scrollY.interpolate({
+                inputRange: [50, 200],
+                outputRange: [80, 0],
+                extrapolate: 'clamp'
+              })
+            }]
+          }
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.scrollTopButtonTouchable}
+          onPress={scrollToTop}
+        >
+          <Ionicons name="chevron-up" size={24} color={theme.colors.buttonText} />
+        </TouchableOpacity>
+      </Animated.View>
+
       {/* Category Modal */}
       <Modal
         visible={showCategoryModal}
@@ -828,36 +890,47 @@ const GRCScreen = () => {
         animationType="fade"
         onRequestClose={() => setShowCategoryModal(false)}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.75)' }]}>
-          <View style={[
-            styles.modalContent, 
-            { 
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.primary,
-              borderWidth: 1
-            }
-          ]}>
-            <View style={[styles.modalHeader, { backgroundColor: theme.colors.primary }]}>
-              <Text style={[styles.modalTitle, { 
-                color: theme.colors.buttonText,
-                fontFamily: 'Orbitron-Bold'
-              }]}>
-                SELECT A CATEGORY
-              </Text>
-              <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
-                <Ionicons name="close" size={24} color={theme.colors.buttonText} />
-              </TouchableOpacity>
-            </View>
+        <TouchableOpacity 
+          style={styles.fullScreenModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowCategoryModal(false)}
+        >
+          <View style={styles.modalCenteredContainer}>
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={[
+                styles.modalContent, 
+                { 
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.primary,
+                  borderWidth: 1
+                }
+              ]}>
+                <View style={[styles.modalHeader, { backgroundColor: theme.colors.primary }]}>
+                  <Text style={[styles.modalTitle, { 
+                    color: theme.colors.buttonText,
+                    fontFamily: 'Orbitron-Bold'
+                  }]}>
+                    SELECT A CATEGORY
+                  </Text>
+                  <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
+                    <Ionicons name="close" size={24} color={theme.colors.buttonText} />
+                  </TouchableOpacity>
+                </View>
 
-            <FlatList
-              data={CATEGORY_OPTIONS}
-              keyExtractor={(item) => item.value}
-              renderItem={renderCategoryItem}
-              style={styles.categoryList}
-              showsVerticalScrollIndicator={false}
-            />
+                <FlatList
+                  data={CATEGORY_OPTIONS}
+                  keyExtractor={(item) => item.value}
+                  renderItem={renderCategoryItem}
+                  style={styles.categoryList}
+                  showsVerticalScrollIndicator={false}
+                />
+              </View>
+            </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
@@ -901,6 +974,46 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 15,
     paddingBottom: 20,
+  },
+  
+  // Back button
+  backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    left: 15,
+    zIndex: 100,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  
+  // Scroll to top button
+  scrollTopButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  scrollTopButtonTouchable: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   
   // Section Headers
@@ -1075,6 +1188,7 @@ const styles = StyleSheet.create({
   categoryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   questionCategory: {
     fontSize: 14,
@@ -1083,6 +1197,7 @@ const styles = StyleSheet.create({
   difficultyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   questionDifficulty: {
     fontSize: 14,
@@ -1219,14 +1334,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 1,
   },
-  // Category modal
-  modalOverlay: {
-    flex: 1,
+  // Category modal - updated for clicking outside
+  fullScreenModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'center',
-    padding: 20,
+    alignItems: 'center',
+  },
+  modalCenteredContainer: {
+    width: '90%',
+    maxWidth: 500,
+    maxHeight: '80%',
   },
   modalContent: {
-    width: '90%',
+    width: '100%',
     maxHeight: '70%',
     borderRadius: 15,
     overflow: 'hidden',

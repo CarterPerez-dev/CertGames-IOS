@@ -260,7 +260,7 @@ const XploitCraftScreen = () => {
                 </Text>
                 <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
                 <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                  GENERATE PAYLOADS FOR SECURITY TESTING
+                  GENERATE PAYLOADS FOR LEARNING
                 </Text>
               </View>
             </LinearGradient>
@@ -423,7 +423,7 @@ const XploitCraftScreen = () => {
                       color: theme.colors.buttonText,
                       fontFamily: 'Orbitron-Bold'
                     }]}>
-                      PAYLOAD OUTPUT
+                      PAYLOAD
                     </Text>
                   </View>
                   
@@ -480,7 +480,7 @@ const XploitCraftScreen = () => {
                           }
                         ]}
                       >
-                        CODE EXAMPLES
+                        CODE
                       </Text>
                     </TouchableOpacity>
                     

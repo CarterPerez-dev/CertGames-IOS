@@ -520,7 +520,7 @@ const AnalogyHubScreen = () => {
                 <View style={styles.outputTitleContainer}>
                   <Ionicons name="bulb" size={20} color={theme.colors.buttonText} />
                   <Text style={[styles.outputTitle, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
-                    ANALOGY OUTPUT
+                    ANALOGY
                   </Text>
                 </View>
                 
@@ -652,7 +652,7 @@ const AnalogyHubScreen = () => {
                     color: theme.colors.text,
                     fontFamily: 'Orbitron'
                   }]}>
-                    TRIPLE TYPE
+                    TRIPLE COMPARISON
                   </Text>
                   <Text style={[styles.tipText, { 
                     color: theme.colors.textSecondary,
@@ -677,7 +677,7 @@ const AnalogyHubScreen = () => {
                     color: theme.colors.textSecondary,
                     fontFamily: 'ShareTechMono'
                   }]}>
-                    CHOOSE A CATEGORY THAT RELATES TO YOUR AUDIENCE'S INTERESTS FOR MORE EFFECTIVE ANALOGIES
+                    CHOOSE A CATEGORY THAT RELATES TO YOUR INTERESTS FOR MORE EFFECTIVE MEMORIZATION
                   </Text>
                 </View>
               </View>

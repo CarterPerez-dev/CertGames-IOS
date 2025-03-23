@@ -242,6 +242,14 @@ const NewsletterScreen = ({ navigation }) => {
         </LinearGradient>
       </Animated.View>
 
+      {/* Fixed back button in top left */}
+      <TouchableOpacity 
+        style={[styles.topBackButton, { backgroundColor: theme.colors.surface + 'CC', borderColor: theme.colors.border }]}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
+      </TouchableOpacity>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -310,7 +318,7 @@ const NewsletterScreen = ({ navigation }) => {
                 >
                   <Ionicons name="shield" size={20} color={theme.colors.buttonText} />
                   <Text style={[styles.cardTitle, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
-                    SECURITY INTELLIGENCE NETWORK
+                    INTELLIGENCE
                   </Text>
                 </LinearGradient>
                 
@@ -740,6 +748,23 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     letterSpacing: 2,
+  },
+  // Top Back Button
+  topBackButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    left: 15,
+    zIndex: 100,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   // Header Section
   headerContainer: {

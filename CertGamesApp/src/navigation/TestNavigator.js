@@ -71,7 +71,7 @@ const TestNavigator = () => {
         options={({ route }) => ({
           title: route.params?.title || 'Test',
           headerBackTitleVisible: false,
-          headerLeft: null,
+          headerLeft: () => null,
           gestureEnabled: false,
         })}
       />

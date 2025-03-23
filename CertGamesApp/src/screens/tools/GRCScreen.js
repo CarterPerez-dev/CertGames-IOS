@@ -1352,7 +1352,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    maxHeight: '70%',
+    maxHeight: '95%',
     borderRadius: 15,
     overflow: 'hidden',
     alignSelf: 'center',
@@ -1364,7 +1364,7 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 1,
   },

@@ -620,7 +620,7 @@ const AnalogyHubScreen = () => {
                     color: theme.colors.textSecondary,
                     fontFamily: 'ShareTechMono'
                   }]}>
-                    ENTER A COMPLEX CONCEPT YOU WANT EXPLAINED IN SIMPLER TERMS
+                    ENTER A COMPLEX CONCEPT YOU WANT EXPLAINED AS AN ANALOGY
                   </Text>
                 </View>
                 
@@ -1079,7 +1079,7 @@ const styles = StyleSheet.create({
   modalContent: {
     borderRadius: 16,
     borderWidth: 1,
-    maxHeight: '80%',
+    maxHeight: '95%',
     width: '100%',
     overflow: 'hidden',
   },
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 1,
   },

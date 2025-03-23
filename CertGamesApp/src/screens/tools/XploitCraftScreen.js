@@ -402,7 +402,7 @@ const XploitCraftScreen = () => {
                 </View>
                 
                 <View style={[styles.sectionIcon, { backgroundColor: theme.colors.toolCard }]}>
-                  <Ionicons name="document-text" size={22} color={theme.colors.buttonText} />
+                  <Ionicons name="skull-outline" size={22} color={theme.colors.buttonText} />
                 </View>
               </View>
             

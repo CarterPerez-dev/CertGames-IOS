@@ -468,7 +468,7 @@ const ScenarioSphereScreen = () => {
                       color: theme.colors.inputText,
                       fontFamily: 'ShareTechMono'
                     }]}
-                    placeholder="Search or enter attack type..."
+                    placeholder="Enter attack type"
                     placeholderTextColor={theme.colors.placeholder}
                     value={attackType}
                     onChangeText={handleAttackTypeChange}
@@ -1844,7 +1844,7 @@ const styles = StyleSheet.create({
   modalContent: {
     borderRadius: 16,
     borderWidth: 1,
-    maxHeight: '80%',
+    maxHeight: '95%',
     width: '100%',
     overflow: 'hidden',
   },

@@ -13,7 +13,10 @@ import {
   Modal,
   SafeAreaView,
   Platform,
-  Dimensions
+  Dimensions,
+  StatusBar,
+  Animated,
+  ScrollView
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,7 +25,6 @@ import { fetchShopItems as reduxFetchShopItems } from '../../store/slices/shopSl
 import { fetchUserData } from '../../store/slices/userSlice';
 import * as shopService from '../../api/shopService';
 import * as Haptics from 'expo-haptics';
-import { BlurView } from 'expo-blur';
 
 // Import theme context
 import { useTheme } from '../../context/ThemeContext';
@@ -32,16 +34,26 @@ import { createGlobalStyles } from '../../styles/globalStyles';
 import AvatarItem from './components/AvatarItem';
 import BoostItem from './components/BoostItem';
 
-const { width } = Dimensions.get('window');
+
+const { width, height } = Dimensions.get('window');
 
 const ShopScreen = () => {
   const dispatch = useDispatch();
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
   
-  const { userId, coins, level, purchasedItems, currentAvatar } = useSelector((state) => state.user);
+  const { userId, coins, level, purchasedItems, currentAvatar, nameColor } = useSelector((state) => state.user);
   const { items: reduxShopItems, status } = useSelector((state) => state.shop);
   
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [cardAnims] = useState([...Array(20)].map(() => new Animated.Value(0)));
+  const [headerTextOpacity] = useState(new Animated.Value(1));
+  
+  // State
   const [shopItems, setShopItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,9 +64,60 @@ const ShopScreen = () => {
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [equipLoading, setEquipLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
+      // No longer need separate purchase options since users can always buy with coins
+  const [statusMessage, setStatusMessage] = useState(null);
+  const [showStatusMessage, setShowStatusMessage] = useState(false);
+  const [statusType, setStatusType] = useState(''); // 'success', 'error', etc.
   
   // Track whether initial loading has been done
   const initialLoadDone = useRef(false);
+  
+  // Animations on mount
+  useEffect(() => {
+    // Main animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true
+      })
+    ]).start();
+    
+    // Staggered card animations
+    cardAnims.forEach((anim, i) => {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 500,
+        delay: 100 + (i * 70),
+        useNativeDriver: true
+      }).start();
+    });
+  }, []);
+  
+  // Effect to clear status message after a delay
+  useEffect(() => {
+    if (statusMessage && showStatusMessage) {
+      const timer = setTimeout(() => {
+        setShowStatusMessage(false);
+        setTimeout(() => {
+          setStatusMessage(null);
+          setStatusType('');
+        }, 300);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage, showStatusMessage]);
   
   // Initial load - using useEffect to load data on component mount
   useEffect(() => {
@@ -69,7 +132,7 @@ const ShopScreen = () => {
     if (shopItems && shopItems.length > 0) {
       filterItems(shopItems, activeCategory);
     }
-  }, [shopItems]);
+  }, [shopItems, activeCategory]);
   
   // Watch for Redux shop items changes
   useEffect(() => {
@@ -89,46 +152,41 @@ const ShopScreen = () => {
     } catch (error) {
       console.error('Error loading shop data:', error);
       setLoading(false);
+      showStatusToast('Failed to load shop items', 'error');
     }
   };
   
-  // Filter and sort items by category, level requirement, and type
+  // Filter and sort items by category
   const filterItems = (items, category) => {
     let filtered = [];
     
     if (category === 'all') {
-      // First get all avatar items
-      const avatarItems = items.filter(item => item.type === 'avatar')
-        .sort((a, b) => {
-          // Sort by level requirement (or price if levels are the same)
-          if (a.unlockLevel === b.unlockLevel) {
-            return a.cost - b.cost;
-          }
+      // Show all items, sorted by type and then level requirement
+      filtered = [...items].sort((a, b) => {
+        // First sort by type
+        if (a.type !== b.type) {
+          const typeOrder = { 'avatar': 1, 'xpBoost': 2, 'nameColor': 3 };
+          return typeOrder[a.type] - typeOrder[b.type];
+        }
+        
+        // Then sort by level requirement
+        if (a.unlockLevel !== b.unlockLevel) {
           return a.unlockLevel - b.unlockLevel;
-        });
-      
-      // Then get all XP boost items
-      const boostItems = items.filter(item => item.type === 'xpBoost')
-        .sort((a, b) => a.cost - b.cost);
-      
-      // Combine them (avatars first, then boosts)
-      filtered = [...avatarItems, ...boostItems];
-    } else if (category === 'avatar') {
-      // Sort avatars by level requirement (or price if levels are the same)
-      filtered = items.filter(item => item.type === category)
-        .sort((a, b) => {
-          if (a.unlockLevel === b.unlockLevel) {
-            return a.cost - b.cost;
-          }
-          return a.unlockLevel - b.unlockLevel;
-        });
-    } else if (category === 'xpBoost') {
-      // Sort XP boosts by price
-      filtered = items.filter(item => item.type === category)
-        .sort((a, b) => a.cost - b.cost);
+        }
+        
+        // Finally sort by cost
+        return a.cost - b.cost;
+      });
     } else {
-      // Any other category
-      filtered = items.filter(item => item.type === category);
+      // Filter by category and sort by level and cost
+      filtered = items
+        .filter(item => item.type === category)
+        .sort((a, b) => {
+          if (a.unlockLevel !== b.unlockLevel) {
+            return a.unlockLevel - b.unlockLevel;
+          }
+          return a.cost - b.cost;
+        });
     }
     
     setFilteredItems(filtered);
@@ -153,9 +211,17 @@ const ShopScreen = () => {
       ]);
     } catch (error) {
       console.error('Error refreshing shop data:', error);
+      showStatusToast('Failed to refresh shop data', 'error');
     } finally {
       setRefreshing(false);
     }
+  };
+  
+  // Display status toast
+  const showStatusToast = (message, type = 'info') => {
+    setStatusMessage(message);
+    setStatusType(type);
+    setShowStatusMessage(true);
   };
   
   // Show item details modal
@@ -173,16 +239,45 @@ const ShopScreen = () => {
     setImageError(true);
   };
   
+  // Item unlock status checks
+  const isItemPurchased = (itemId) => {
+    return purchasedItems && purchasedItems.includes(itemId);
+  };
+  
+  const isItemEquipped = (itemId, itemType) => {
+    if (itemType === 'avatar') {
+      return currentAvatar === itemId;
+    }
+    return false;
+  };
+  
+  const canAffordItem = (item) => {
+    return coins >= item.cost;
+  };
+  
+  const hasRequiredLevel = (item) => {
+    return level >= item.unlockLevel;
+  };
+  
+  // Can purchase item either by meeting level requirement OR by having enough coins
+  const canPurchaseWithLevel = (item) => {
+    return hasRequiredLevel(item) && canAffordItem(item) && !isItemPurchased(item._id);
+  };
+  
+  // Can purchase with just coins regardless of level
+  const canPurchaseWithCoins = (item) => {
+    return canAffordItem(item) && !isItemPurchased(item._id);
+  };
+  
+  // No longer need to toggle purchase options
+  
   // Handle item purchase
   const handlePurchase = async () => {
     if (!selectedItem) return;
     
-    // Check if user has enough coins
-    if (coins < selectedItem.cost) {
-      Alert.alert(
-        'Insufficient Coins',
-        `You need ${selectedItem.cost - coins} more coins to purchase this item.`
-      );
+    // Check if user has enough coins - this is always required
+    if (!canAffordItem(selectedItem)) {
+      showStatusToast(`You need ${selectedItem.cost - coins} more coins`, 'error');
       return;
     }
     
@@ -203,35 +298,39 @@ const ShopScreen = () => {
               if (Platform.OS === 'ios') {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }
-              await shopService.purchaseItem(userId, selectedItem._id);
-              Alert.alert('Success', `You have purchased ${selectedItem.title}!`);
               
-              // Refresh user data to update coins and purchased items
+              const response = await shopService.purchaseItem(userId, selectedItem._id);
+              
+              // Update user data in Redux to reflect new coin balance and purchased items
               await dispatch(fetchUserData(userId));
               
-              // Ask if user wants to equip the item immediately
-              if (selectedItem.type === 'avatar') {
-                Alert.alert(
-                  'Equip Item',
-                  `Do you want to equip ${selectedItem.title} now?`,
-                  [
-                    {
-                      text: 'No',
-                      style: 'cancel'
-                    },
-                    {
-                      text: 'Yes',
-                      onPress: () => handleEquip()
-                    }
-                  ]
-                );
+              showStatusToast(`Successfully purchased ${selectedItem.title}!`, 'success');
+              
+              // Ask if user wants to equip the item immediately if it's an avatar or name color
+              if (selectedItem.type === 'avatar' || selectedItem.type === 'nameColor') {
+                setTimeout(() => {
+                  Alert.alert(
+                    'Equip Item',
+                    `Do you want to equip ${selectedItem.title} now?`,
+                    [
+                      {
+                        text: 'No',
+                        style: 'cancel'
+                      },
+                      {
+                        text: 'Yes',
+                        onPress: () => handleEquip()
+                      }
+                    ]
+                  );
+                }, 500);
               }
               
               // Close the modal
               setModalVisible(false);
             } catch (error) {
-              Alert.alert('Error', 'Failed to purchase item. Please try again.');
               console.error('Purchase error:', error);
+              showStatusToast('Failed to purchase item. Please try again.', 'error');
             } finally {
               setPurchaseLoading(false);
             }
@@ -250,37 +349,33 @@ const ShopScreen = () => {
       if (Platform.OS === 'ios') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      await shopService.equipItem(userId, selectedItem._id);
-      Alert.alert('Success', `You have equipped ${selectedItem.title}!`);
       
-      // Refresh user data to update equipped items
+      await shopService.equipItem(userId, selectedItem._id);
+      
+      // Update user data in Redux
       await dispatch(fetchUserData(userId));
+      
+      showStatusToast(`Successfully equipped ${selectedItem.title}!`, 'success');
       
       // Close the modal
       setModalVisible(false);
     } catch (error) {
-      Alert.alert('Error', 'Failed to equip item. Please try again.');
       console.error('Equip error:', error);
+      showStatusToast('Failed to equip item. Please try again.', 'error');
     } finally {
       setEquipLoading(false);
     }
   };
   
-  // Check if item is already purchased
-  const isItemPurchased = (itemId) => {
-    return purchasedItems && purchasedItems.includes(itemId);
-  };
-  
-  // Check if item is already equipped
-  const isItemEquipped = (itemId) => {
-    return currentAvatar === itemId;
-  };
-  
   // Render shop item based on type
-  const renderShopItem = ({ item }) => {
+  const renderShopItem = ({ item, index }) => {
     const isPurchased = isItemPurchased(item._id);
-    const isEquipped = isItemEquipped(item._id);
-    const canPurchase = coins >= item.cost && !isPurchased;
+    const isEquipped = isItemEquipped(item._id, item.type);
+    const canAfford = canAffordItem(item);
+    const isUnlocked = hasRequiredLevel(item);
+    
+    // Calculate animation index
+    const animIndex = Math.min(index, cardAnims.length - 1);
     
     let ItemComponent;
     switch (item.type) {
@@ -290,71 +385,149 @@ const ShopScreen = () => {
       case 'xpBoost':
         ItemComponent = BoostItem;
         break;
+
       default:
         ItemComponent = AvatarItem;
     }
     
     return (
-      <TouchableOpacity
-        style={[
-          styles.itemCard,
-          { backgroundColor: theme.colors.surface },
-          isPurchased && { borderColor: theme.colors.success, borderWidth: 1 },
-          isEquipped && { borderColor: theme.colors.primary, borderWidth: 2 }
-        ]}
-        onPress={() => showItemDetails(item)}
-        disabled={loading}
-        activeOpacity={0.7}
+      <Animated.View
+        style={{
+          opacity: cardAnims[animIndex],
+          transform: [{
+            translateY: cardAnims[animIndex].interpolate({
+              inputRange: [0, 1],
+              outputRange: [30, 0]
+            })
+          }]
+        }}
       >
-        <ItemComponent 
-          item={item} 
-          isPurchased={isPurchased} 
-          isEquipped={isEquipped} 
-          theme={theme}
-        />
-        
-        <View style={styles.itemInfo}>
-          <Text style={[styles.itemTitle, { color: theme.colors.text }]} numberOfLines={1}>
-            {item.title}
-          </Text>
+        <TouchableOpacity
+          style={[
+            styles.itemCard,
+            { 
+              backgroundColor: theme.colors.surface,
+              borderWidth: 1,
+              borderColor: isPurchased ? 
+                (isEquipped ? theme.colors.primary : theme.colors.success) + '60' : 
+                theme.colors.border,
+              shadowColor: theme.colors.shadow,
+            },
+            isEquipped && { 
+              borderColor: theme.colors.primary,
+              borderWidth: 2
+            }
+          ]}
+          onPress={() => showItemDetails(item)}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          <ItemComponent 
+            item={item} 
+            isPurchased={isPurchased} 
+            isEquipped={isEquipped} 
+          />
           
-          <View style={styles.itemFooter}>
-            {!isPurchased ? (
-              <>
-                {item.unlockLevel > level ? (
-                  <View style={styles.lockedContainer}>
-                    <Ionicons name="lock-closed" size={16} color={theme.colors.textMuted} />
-                    <Text style={[styles.lockedText, { color: theme.colors.textMuted }]}>
-                      Unlock at Level {item.unlockLevel}
+          <View style={[styles.itemInfo, { borderTopColor: theme.colors.border }]}>
+            <Text style={[styles.itemTitle, { 
+              color: theme.colors.text,
+              fontFamily: 'ShareTechMono'
+            }]} numberOfLines={1}>
+              {item.title}
+            </Text>
+            
+            <View style={styles.itemFooter}>
+              {!isPurchased ? (
+                <View style={styles.purchaseInfo}>
+                  {/* Level requirement */}
+                  <View style={[styles.requirementBadge, { 
+                    backgroundColor: isUnlocked ? 
+                      `${theme.colors.success}20` : 
+                      `${theme.colors.textMuted}20`,
+                    borderColor: isUnlocked ?
+                      theme.colors.success + '40' :
+                      theme.colors.border
+                  }]}>
+                    <Ionicons 
+                      name="shield" 
+                      size={12} 
+                      color={isUnlocked ? 
+                        theme.colors.success : 
+                        theme.colors.textMuted
+                      } 
+                    />
+                    <Text style={[styles.requirementText, { 
+                      color: isUnlocked ? 
+                        theme.colors.success : 
+                        theme.colors.textMuted,
+                      fontFamily: 'ShareTechMono'
+                    }]}>
+                      LVL {item.unlockLevel}
                     </Text>
                   </View>
-                ) : (
-                  <View style={styles.priceContainer}>
-                    <Ionicons name="cash-outline" size={16} color={theme.colors.goldBadge} />
-                    <Text style={[
-                      styles.priceText,
-                      { color: theme.colors.goldBadge },
-                      !canPurchase && { color: theme.colors.error }
-                    ]}>
+                  
+                  {/* Price tag */}
+                  <View style={[styles.priceBadge, {
+                    backgroundColor: canAfford ? 
+                      `${theme.colors.goldBadge}20` : 
+                      `${theme.colors.error}20`,
+                    borderColor: canAfford ?
+                      theme.colors.goldBadge + '40' :
+                      theme.colors.error + '40'
+                  }]}>
+                    <Ionicons 
+                      name="cash" 
+                      size={12} 
+                      color={canAfford ? 
+                        theme.colors.goldBadge : 
+                        theme.colors.error
+                      } 
+                    />
+                    <Text style={[styles.priceText, { 
+                      color: canAfford ? 
+                        theme.colors.goldBadge : 
+                        theme.colors.error,
+                      fontFamily: 'ShareTechMono'
+                    }]}>
                       {item.cost}
                     </Text>
                   </View>
-                )}
-              </>
-            ) : isEquipped ? (
-              <View style={styles.equippedContainer}>
-                <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
-                <Text style={[styles.equippedText, { color: theme.colors.success }]}>Equipped</Text>
-              </View>
-            ) : (
-              <View style={styles.purchasedContainer}>
-                <Ionicons name="checkmark" size={16} color={theme.colors.success} />
-                <Text style={[styles.purchasedText, { color: theme.colors.success }]}>Purchased</Text>
-              </View>
-            )}
+                </View>
+              ) : (
+                <View style={styles.statusBadge}>
+                  {isEquipped ? (
+                    <View style={[styles.equipBadge, { 
+                      backgroundColor: `${theme.colors.primary}20`,
+                      borderColor: theme.colors.primary + '40'
+                    }]}>
+                      <Ionicons name="checkmark-circle" size={12} color={theme.colors.primary} />
+                      <Text style={[styles.equipText, { 
+                        color: theme.colors.primary,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        EQUIPPED
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.ownedBadge, { 
+                      backgroundColor: `${theme.colors.success}20`,
+                      borderColor: theme.colors.success + '40'
+                    }]}>
+                      <Ionicons name="checkmark" size={12} color={theme.colors.success} />
+                      <Text style={[styles.ownedText, { 
+                        color: theme.colors.success,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        OWNED
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
   
@@ -363,10 +536,16 @@ const ShopScreen = () => {
     if (loading) return null;
     
     return (
-      <View style={[styles.emptyContainer, { backgroundColor: 'rgba(0,0,0,0.05)' }]}>
+      <View style={[styles.emptyContainer, { 
+        backgroundColor: theme.colors.surface,
+        borderColor: theme.colors.border,
+      }]}>
         <Ionicons name="cart-outline" size={60} color={theme.colors.textMuted} />
-        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-          No items found in this category
+        <Text style={[styles.emptyText, { 
+          color: theme.colors.textSecondary,
+          fontFamily: 'ShareTechMono'
+        }]}>
+          NO ITEMS FOUND IN THIS CATEGORY
         </Text>
       </View>
     );
@@ -377,23 +556,9 @@ const ShopScreen = () => {
     if (!selectedItem) return null;
     
     const isPurchased = isItemPurchased(selectedItem._id);
-    const isEquipped = isItemEquipped(selectedItem._id);
-    const canPurchase = coins >= selectedItem.cost && !isPurchased;
-    const isLocked = selectedItem.unlockLevel > level;
-    
-    let itemImage = null;
-
-    // Determine if it has a proper image URL
-    if (selectedItem.imageUrl && selectedItem.type === 'avatar') {
-      itemImage = (
-        <Image
-          source={{ uri: selectedItem.imageUrl }}
-          style={styles.modalItemImage}
-          onError={handleImageError}
-          resizeMode="cover"
-        />
-      );
-    }
+    const isEquipped = isItemEquipped(selectedItem._id, selectedItem.type);
+    const canAfford = canAffordItem(selectedItem);
+    const hasLevel = hasRequiredLevel(selectedItem);
     
     return (
       <Modal
@@ -402,8 +567,20 @@ const ShopScreen = () => {
         animationType="fade"
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.7)' }]}>
-          <View style={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}>
+        <TouchableOpacity 
+          style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]} 
+          activeOpacity={1}
+          onPress={() => setModalVisible(false)}
+        >
+          <TouchableOpacity 
+            style={[styles.modalContainer, { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              shadowColor: theme.colors.shadow,
+            }]}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setModalVisible(false)}
@@ -411,559 +588,944 @@ const ShopScreen = () => {
               <Ionicons name="close" size={24} color={theme.colors.text} />
             </TouchableOpacity>
             
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-              {selectedItem.title}
-            </Text>
+            <LinearGradient
+              colors={theme.colors.primaryGradient}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 0}}
+              style={styles.modalHeader}
+            >
+              <Ionicons 
+                name={selectedItem.type === 'avatar' ? 'person-circle' : 
+                      selectedItem.type === 'xpBoost' ? 'flash' : 'color-palette'} 
+                size={24} 
+                color={theme.colors.buttonText} 
+              />
+              <Text style={[styles.modalTitle, { 
+                color: theme.colors.buttonText,
+                fontFamily: 'Orbitron-Bold'
+              }]}>
+                {selectedItem.title.toUpperCase()}
+              </Text>
+            </LinearGradient>
             
             <View style={styles.modalContent}>
-              {selectedItem.type === 'avatar' && (
-                <View style={[styles.modalAvatarContainer, { backgroundColor: theme.colors.background }]}>
-                  {!imageError && itemImage ? (
-                    <View style={styles.modalImageWrapper}>
-                      {itemImage}
-                    </View>
+              {/* Item Preview */}
+              <View style={[styles.previewContainer, {
+                backgroundColor: theme.colors.surfaceHighlight,
+                borderColor: theme.colors.border,
+              }]}>
+                {selectedItem.type === 'avatar' && (
+                  !imageError && selectedItem.imageUrl ? (
+                    <Image
+                      source={{ uri: selectedItem.imageUrl }}
+                      style={styles.previewImage}
+                      onError={handleImageError}
+                    />
                   ) : (
-                    <View style={[styles.modalAvatarPlaceholder, { backgroundColor: theme.colors.primary }]}>
-                      <Text style={styles.modalAvatarPlaceholderText}>
+                    <View style={[styles.previewFallback, { backgroundColor: theme.colors.primary }]}>
+                      <Text style={[styles.fallbackText, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
                         {selectedItem.title.charAt(0)}
                       </Text>
                     </View>
-                  )}
-                </View>
-              )}
+                  )
+                )}
+                
+                {selectedItem.type === 'xpBoost' && (
+                  <View style={styles.boostPreview}>
+                    <LinearGradient
+                      colors={theme.colors.primaryGradient}
+                      start={{x: 0, y: 0}}
+                      end={{x: 1, y: 1}}
+                      style={styles.boostIcon}
+                    >
+                      <Ionicons name="flash" size={40} color={theme.colors.buttonText} />
+                    </LinearGradient>
+                    <Text style={[styles.boostValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                      {selectedItem.effectValue}x XP
+                    </Text>
+                  </View>
+                )}
+                
+
+              </View>
               
-              {selectedItem.type === 'xpBoost' && (
-                <View style={styles.boostContainer}>
-                  <LinearGradient
-                    colors={theme.colors.primaryGradient}
-                    style={styles.boostIcon}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <Ionicons name="flash" size={40} color={theme.colors.textInverse} />
-                  </LinearGradient>
-                  <Text style={[styles.boostValue, { color: theme.colors.text }]}>
-                    {selectedItem.effectValue}x XP Boost
-                  </Text>
-                </View>
-              )}
-              
-              <Text style={[styles.modalDescription, { color: theme.colors.textSecondary }]}>
+              {/* Item Description */}
+              <Text style={[styles.itemDescription, { 
+                color: theme.colors.textSecondary,
+                fontFamily: 'ShareTechMono'
+              }]}>
                 {selectedItem.description || 'No description available.'}
               </Text>
               
-              {isLocked ? (
-                <LinearGradient 
-                  colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)']} 
-                  style={styles.modalLockedContainer}
-                >
-                  <Ionicons name="lock-closed" size={20} color={theme.colors.textMuted} />
-                  <Text style={[styles.modalLockedText, { color: theme.colors.textSecondary }]}>
-                    Unlocks at Level {selectedItem.unlockLevel}
-                  </Text>
-                </LinearGradient>
-              ) : isPurchased ? (
-                <View style={styles.modalActionContainer}>
-                  {isEquipped ? (
-                    <LinearGradient
-                      colors={['rgba(46, 187, 119, 0.2)', 'rgba(46, 187, 119, 0.05)']}
-                      style={styles.modalEquippedContainer}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
-                      <Text style={[styles.modalEquippedText, { color: theme.colors.success }]}>
-                        Currently Equipped
-                      </Text>
-                    </LinearGradient>
-                  ) : (
+              {/* Item Details */}
+              <View style={styles.itemDetailsGrid}>
+                {/* Cost */}
+                <View style={[styles.detailItem, { 
+                  backgroundColor: theme.colors.surfaceHighlight,
+                  borderColor: theme.colors.border
+                }]}>
+                  <Ionicons name="cash" size={20} color={theme.colors.goldBadge} />
+                  <View style={styles.detailContent}>
+                    <Text style={[styles.detailLabel, { 
+                      color: theme.colors.textSecondary,
+                      fontFamily: 'ShareTechMono'
+                    }]}>
+                      COST
+                    </Text>
+                    <Text style={[styles.detailValue, { 
+                      color: canAfford ? theme.colors.goldBadge : theme.colors.error,
+                      fontFamily: 'Orbitron'
+                    }]}>
+                      {selectedItem.cost} COINS
+                    </Text>
+                  </View>
+                </View>
+                
+                {/* Level Requirement */}
+                <View style={[styles.detailItem, { 
+                  backgroundColor: theme.colors.surfaceHighlight,
+                  borderColor: theme.colors.border
+                }]}>
+                  <Ionicons 
+                    name="shield" 
+                    size={20} 
+                    color={hasLevel ? theme.colors.success : theme.colors.error} 
+                  />
+                  <View style={styles.detailContent}>
+                    <Text style={[styles.detailLabel, { 
+                      color: theme.colors.textSecondary,
+                      fontFamily: 'ShareTechMono'
+                    }]}>
+                      REQUIRED LEVEL
+                    </Text>
+                    <Text style={[styles.detailValue, { 
+                      color: hasLevel ? theme.colors.success : theme.colors.error,
+                      fontFamily: 'Orbitron'
+                    }]}>
+                      LEVEL {selectedItem.unlockLevel}
+                      {hasLevel ? ' (UNLOCKED)' : ' (LOCKED)'}
+                    </Text>
+                  </View>
+                </View>
+                
+                {/* Status */}
+                <View style={[styles.detailItem, { 
+                  backgroundColor: theme.colors.surfaceHighlight,
+                  borderColor: theme.colors.border
+                }]}>
+                  <Ionicons 
+                    name={isPurchased ? 
+                      (isEquipped ? "checkmark-circle" : "checkmark") : 
+                      "cart"
+                    } 
+                    size={20} 
+                    color={isPurchased ? 
+                      (isEquipped ? theme.colors.primary : theme.colors.success) : 
+                      theme.colors.text
+                    } 
+                  />
+                  <View style={styles.detailContent}>
+                    <Text style={[styles.detailLabel, { 
+                      color: theme.colors.textSecondary,
+                      fontFamily: 'ShareTechMono'
+                    }]}>
+                      STATUS
+                    </Text>
+                    <Text style={[styles.detailValue, { 
+                      color: isPurchased ? 
+                        (isEquipped ? theme.colors.primary : theme.colors.success) : 
+                        theme.colors.text,
+                      fontFamily: 'Orbitron'
+                    }]}>
+                      {isPurchased ? 
+                        (isEquipped ? 'EQUIPPED' : 'OWNED') : 
+                        'NOT PURCHASED'
+                      }
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              
+              {/* Action Buttons */}
+              <View style={styles.modalActions}>
+                {!isPurchased ? (
+                  <>
+                    {/* There's no need for a toggle anymore since users can always purchase with coins */}
+                    
+                    {/* Purchase Button */}
                     <TouchableOpacity
-                      style={[styles.equipButton, { backgroundColor: theme.colors.success }]}
-                      onPress={handleEquip}
-                      disabled={equipLoading}
+                      style={[
+                        styles.actionButton,
+                        { 
+                          backgroundColor: canAfford ? 
+                            theme.colors.primary : 
+                            theme.colors.surfaceHighlight,
+                          borderColor: canAfford ? 
+                            theme.colors.primary : 
+                            theme.colors.border
+                        }
+                      ]}
+                      onPress={handlePurchase}
+                      disabled={!canAfford || purchaseLoading}
                     >
-                      {equipLoading ? (
-                        <ActivityIndicator color={theme.colors.textInverse} size="small" />
+                      {purchaseLoading ? (
+                        <ActivityIndicator color={theme.colors.buttonText} size="small" />
                       ) : (
                         <>
-                          <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
-                          <Text style={[styles.equipButtonText, { color: theme.colors.textInverse }]}>
-                            Equip Now
+                          <Ionicons 
+                            name="cart" 
+                            size={18} 
+                            color={canAfford ? 
+                              theme.colors.buttonText : 
+                              theme.colors.textMuted
+                            } 
+                          />
+                          <Text style={[styles.actionButtonText, { 
+                            color: canAfford ? 
+                              theme.colors.buttonText : 
+                              theme.colors.textMuted,
+                            fontFamily: 'Orbitron'
+                          }]}>
+                            {canAfford ? 
+                              `PURCHASE FOR ${selectedItem.cost} COINS` : 
+                              `NEED ${selectedItem.cost - coins} MORE COINS`
+                            }
                           </Text>
                         </>
                       )}
                     </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.modalActionContainer}>
-                  <View style={styles.modalPriceContainer}>
-                    <Ionicons name="cash-outline" size={18} color={theme.colors.goldBadge} />
-                    <Text style={[
-                      styles.modalPriceText,
-                      { color: theme.colors.text },
-                      !canPurchase && { color: theme.colors.error }
-                    ]}>
-                      {selectedItem.cost}
-                    </Text>
-                  </View>
-                  
+                  </>
+                ) : !isEquipped ? (
+                  // Equip Button for owned items
                   <TouchableOpacity
                     style={[
-                      styles.purchaseButton,
-                      { backgroundColor: theme.colors.primary },
-                      !canPurchase && { backgroundColor: theme.colors.buttonSecondary, opacity: 0.7 }
+                      styles.actionButton,
+                      { 
+                        backgroundColor: theme.colors.success,
+                        borderColor: theme.colors.success
+                      }
                     ]}
-                    onPress={handlePurchase}
-                    disabled={!canPurchase || purchaseLoading}
+                    onPress={handleEquip}
+                    disabled={equipLoading}
                   >
-                    {purchaseLoading ? (
-                      <ActivityIndicator color={theme.colors.textInverse} size="small" />
+                    {equipLoading ? (
+                      <ActivityIndicator color={theme.colors.buttonText} size="small" />
                     ) : (
                       <>
-                        <Ionicons name="cart" size={20} color={theme.colors.textInverse} />
-                        <Text style={[styles.purchaseButtonText, { color: theme.colors.textInverse }]}>
-                          {canPurchase ? 'Purchase' : 'Not Enough Coins'}
+                        <Ionicons name="checkmark" size={18} color={theme.colors.buttonText} />
+                        <Text style={[styles.actionButtonText, { 
+                          color: theme.colors.buttonText,
+                          fontFamily: 'Orbitron'
+                        }]}>
+                          EQUIP {selectedItem.type.toUpperCase()}
                         </Text>
                       </>
                     )}
                   </TouchableOpacity>
-                </View>
-              )}
+                ) : (
+                  // Already Equipped Message
+                  <View style={[styles.equippedMessage, { 
+                    backgroundColor: `${theme.colors.primary}20`,
+                    borderColor: theme.colors.primary
+                  }]}>
+                    <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+                    <Text style={[styles.equippedText, { 
+                      color: theme.colors.primary,
+                      fontFamily: 'Orbitron'
+                    }]}>
+                      CURRENTLY EQUIPPED
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     );
   };
   
+  // Handle scroll for animations
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: false }
+  );
+  
   return (
     <SafeAreaView style={[globalStyles.screen]}>
-      <View style={styles.header}>
-        <Text style={[globalStyles.title, styles.titleText]}>Shop</Text>
-        <View style={[styles.walletContainer, { backgroundColor: theme.colors.surfaceHighlight }]}>
-          <Ionicons name="wallet-outline" size={20} color={theme.colors.goldBadge} />
-          <Text style={[styles.coinBalance, { color: theme.colors.text }]}>{coins}</Text>
-        </View>
-      </View>
+      <StatusBar barStyle="light-content" />
       
-      <View style={[styles.categoriesContainer, { backgroundColor: theme.colors.surfaceHighlight }]}>
-        <ScrollableTabs
-          tabs={[
-            { id: 'all', label: 'All Items' },
-            { id: 'avatar', label: 'Avatars' },
-            { id: 'xpBoost', label: 'XP Boosts' }
+      {/* Main Content */}
+      <View style={styles.container}>
+        {/* Header */}
+        <Animated.View 
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }]
+            }
           ]}
-          activeTab={activeCategory}
-          onTabChange={handleCategoryChange}
-          theme={theme}
+        >
+          <LinearGradient
+            colors={[theme.colors.primary + '30', 'transparent']}
+            start={{x: 0.5, y: 0}}
+            end={{x: 0.5, y: 1}}
+            style={styles.headerGradient}
+          >
+            <View style={styles.headerContent}>
+              <Text style={[styles.headerTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+                ITEM <Text style={{ color: theme.colors.primary }}>SHOP</Text>
+              </Text>
+              <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
+              <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                CUSTOMIZE YOUR EXPERIENCE
+              </Text>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+        
+        {/* User Stats & Wallet */}
+        <Animated.View 
+          style={[
+            styles.userStatsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY }]
+            }
+          ]}
+        >
+          <View style={[styles.walletCard, { 
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border + '60',
+            shadowColor: theme.colors.shadow
+          }]}>
+            <View style={styles.walletGrid}>
+              <View style={[styles.walletItem, { borderRightColor: theme.colors.border + '40' }]}>
+                <Ionicons name="cash" size={24} color={theme.colors.goldBadge} />
+                <View style={styles.walletItemContent}>
+                  <Text style={[styles.walletAmount, { 
+                    color: theme.colors.text,
+                    fontFamily: 'Orbitron-Bold'
+                  }]}>
+                    {coins.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.walletLabel, { 
+                    color: theme.colors.textSecondary,
+                    fontFamily: 'ShareTechMono'
+                  }]}>
+                    COINS
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.walletItem}>
+                <Ionicons name="shield" size={24} color={theme.colors.primary} />
+                <View style={styles.walletItemContent}>
+                  <Text style={[styles.walletAmount, { 
+                    color: theme.colors.text,
+                    fontFamily: 'Orbitron-Bold'
+                  }]}>
+                    {level}
+                  </Text>
+                  <Text style={[styles.walletLabel, { 
+                    color: theme.colors.textSecondary,
+                    fontFamily: 'ShareTechMono'
+                  }]}>
+                    LEVEL
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+        
+        {/* Category Filters */}
+        <Animated.View 
+          style={[
+            styles.filterContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY }]
+            }
+          ]}
+        >
+          <ScrollView 
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScrollContainer}
+          >
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+                activeCategory === 'all' && { 
+                  backgroundColor: theme.colors.primary,
+                  borderColor: theme.colors.primary
+                }
+              ]}
+              onPress={() => handleCategoryChange('all')}
+            >
+              <Ionicons 
+                name="grid" 
+                size={16} 
+                color={activeCategory === 'all' ? 
+                  theme.colors.buttonText : 
+                  theme.colors.textMuted
+                } 
+              />
+              <Text style={[styles.filterText, { 
+                color: activeCategory === 'all' ? 
+                  theme.colors.buttonText : 
+                  theme.colors.textMuted,
+                fontFamily: 'ShareTechMono'
+              }]}>
+                ALL
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+                activeCategory === 'avatar' && { 
+                  backgroundColor: theme.colors.primary,
+                  borderColor: theme.colors.primary
+                }
+              ]}
+              onPress={() => handleCategoryChange('avatar')}
+            >
+              <Ionicons 
+                name="person-circle" 
+                size={16} 
+                color={activeCategory === 'avatar' ? 
+                  theme.colors.buttonText : 
+                  theme.colors.textMuted
+                } 
+              />
+              <Text style={[styles.filterText, { 
+                color: activeCategory === 'avatar' ? 
+                  theme.colors.buttonText : 
+                  theme.colors.textMuted,
+                fontFamily: 'ShareTechMono'
+              }]}>
+                AVATARS
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+                activeCategory === 'xpBoost' && { 
+                  backgroundColor: theme.colors.primary,
+                  borderColor: theme.colors.primary
+                }
+              ]}
+              onPress={() => handleCategoryChange('xpBoost')}
+            >
+              <Ionicons 
+                name="flash" 
+                size={16} 
+                color={activeCategory === 'xpBoost' ? 
+                  theme.colors.buttonText : 
+                  theme.colors.textMuted
+                } 
+              />
+              <Text style={[styles.filterText, { 
+                color: activeCategory === 'xpBoost' ? 
+                  theme.colors.buttonText : 
+                  theme.colors.textMuted,
+                fontFamily: 'ShareTechMono'
+              }]}>
+                XP BOOSTS
+              </Text>
+            </TouchableOpacity>
+            
+
+          </ScrollView>
+        </Animated.View>
+        
+        {/* Items Grid */}
+        <FlatList
+          data={filteredItems}
+          renderItem={renderShopItem}
+          keyExtractor={(item) => item._id}
+          numColumns={2}
+          contentContainerStyle={styles.listContent}
+          columnWrapperStyle={styles.columnWrapper}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
+          }
+          ListEmptyComponent={renderEmpty}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         />
+        
+        {/* Status Toast */}
+        {showStatusMessage && statusMessage && (
+          <View style={[styles.statusToast, { 
+            backgroundColor: statusType === 'success' ? 
+              `${theme.colors.success}E0` : 
+              statusType === 'error' ? 
+                `${theme.colors.error}E0` : 
+                `${theme.colors.primary}E0`
+          }]}>
+            <Ionicons 
+              name={statusType === 'success' ? 
+                "checkmark-circle" : 
+                statusType === 'error' ? 
+                  "alert-circle" : 
+                  "information-circle"
+              } 
+              size={20} 
+              color="#FFFFFF" 
+            />
+            <Text style={[styles.statusText, { color: "#FFFFFF", fontFamily: 'ShareTechMono' }]}>
+              {statusMessage}
+            </Text>
+          </View>
+        )}
+        
+        {/* Item Details Modal */}
+        {renderItemModal()}
+        
+        {/* Loading Overlay */}
+        {loading && !refreshing && (
+          <View style={[styles.loadingOverlay, { backgroundColor: theme.colors.overlay }]}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.loadingText, { 
+              color: theme.colors.text,
+              fontFamily: 'ShareTechMono'
+            }]}>
+              LOADING SHOP ITEMS...
+            </Text>
+          </View>
+        )}
       </View>
-      
-      <FlatList
-        data={filteredItems}
-        renderItem={renderShopItem}
-        keyExtractor={(item) => item._id}
-        numColumns={2}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-          />
-        }
-        ListEmptyComponent={renderEmpty}
-        columnWrapperStyle={styles.columnWrapper}
-      />
-      
-      {renderItemModal()}
-      
-      {loading && !refreshing && (
-        <View style={[styles.loadingOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-      )}
     </SafeAreaView>
   );
 };
 
-// ScrollableTabs component
-const ScrollableTabs = ({ tabs, activeTab, onTabChange, theme }) => {
-  return (
-    <FlatList
-      data={tabs}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.tabsContainer}
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            { backgroundColor: theme.colors.surface },
-            activeTab === item.id && [
-              styles.activeTabButton, 
-              { backgroundColor: theme.colors.primary }
-            ]
-          ]}
-          onPress={() => onTabChange(item.id)}
-        >
-          <Text style={[
-            styles.tabButtonText,
-            { color: theme.colors.textMuted },
-            activeTab === item.id && [
-              styles.activeTabButtonText,
-              { color: theme.colors.textInverse }
-            ]
-          ]}>
-            {item.label}
-          </Text>
-        </TouchableOpacity>
-      )}
-    />
-  );
-};
-
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   // Header
   header: {
+    width: '100%',
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
+  },
+  headerGradient: {
+    paddingVertical: 15,
+  },
+  headerContent: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  headerDivider: {
+    width: 60,
+    height: 3,
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  
+  // User Stats & Wallet
+  userStatsContainer: {
+    paddingHorizontal: 15,
+    marginBottom: 15,
+  },
+  walletCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  walletGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 10 : 20,
   },
-  titleText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
-  walletContainer: {
+  walletItem: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    padding: 15,
+    borderRightWidth: 1,
   },
-  coinBalance: {
+  walletItemContent: {
+    marginLeft: 12,
+  },
+  walletAmount: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginLeft: 8,
-    fontSize: 16,
+  },
+  walletLabel: {
+    fontSize: 12,
+    marginTop: 2,
+    letterSpacing: 0.5,
   },
   
-  // Categories tabs
-  categoriesContainer: {
-    paddingVertical: 12,
-    marginBottom: 10,
+  // Category Filters
+  filterContainer: {
+    marginBottom: 15,
   },
-  tabsContainer: {
-    paddingHorizontal: 16,
+  filterScrollContainer: {
+    paddingHorizontal: 15,
+    paddingBottom: 5,
   },
-  tabButton: {
-    paddingHorizontal: 16,
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
+    paddingHorizontal: 15,
     borderRadius: 20,
     marginRight: 10,
+    borderWidth: 1,
   },
-  activeTabButton: {
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  tabButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  activeTabButtonText: {
-    fontWeight: 'bold',
+  filterText: {
+    fontSize: 12,
+    marginLeft: 5,
+    letterSpacing: 0.5,
   },
   
-  // Item grid
+  // Item Grid
   listContent: {
-    padding: 16,
-    paddingBottom: 100, // Extra padding at bottom for tab bar
+    paddingHorizontal: 15,
+    paddingBottom: 80,
   },
   columnWrapper: {
     justifyContent: 'space-between',
   },
   itemCard: {
-    width: (width - 48) / 2, // Two columns with proper spacing
-    marginBottom: 16,
-    borderRadius: 16,
+    width: (width - 35) / 2, // Two columns with spacing
+    marginBottom: 15,
+    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
+    shadowRadius: 4,
     elevation: 3,
   },
   itemInfo: {
-    padding: 12,
+    padding: 10,
+    borderTopWidth: 1,
   },
   itemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 6,
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 5,
   },
   itemFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  priceContainer: {
+  purchaseInfo: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  requirementBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  requirementText: {
+    fontSize: 10,
+    marginLeft: 3,
+  },
+  priceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   priceText: {
-    fontWeight: 'bold',
-    marginLeft: 4,
+    fontSize: 10,
+    marginLeft: 3,
   },
-  lockedContainer: {
+  statusBadge: {
+    flexDirection: 'row',
+  },
+  equipBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  lockedText: {
-    fontSize: 12,
-    marginLeft: 4,
+  equipText: {
+    fontSize: 10,
+    marginLeft: 3,
   },
-  purchasedContainer: {
+  ownedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  purchasedText: {
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  equippedContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  equippedText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 4,
+  ownedText: {
+    fontSize: 10,
+    marginLeft: 3,
   },
   
-  // Empty state
+  // Empty State
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
-    borderRadius: 16,
+    padding: 30,
+    borderRadius: 12,
     marginTop: 20,
+    borderWidth: 1,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: 15,
+    letterSpacing: 0.5,
   },
   
-  // Loading overlay
+  // Status Toast
+  statusToast: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  statusText: {
+    marginLeft: 10,
+    fontSize: 14,
+    flex: 1,
+  },
+  
+  // Loading Overlay
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
   
-  // Modal
+  // Item Modal
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
-    width: '85%',
-    borderRadius: 20,
-    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 15,
+    padding: 15,
+    gap: 10,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
   closeButton: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    zIndex: 1,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    top: 15,
+    right: 15,
+    zIndex: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 24,
-    marginTop: 8,
   },
   modalContent: {
-    width: '100%',
+    padding: 20,
+  },
+  previewContainer: {
+    borderRadius: 12,
+    padding: 20,
     alignItems: 'center',
+    marginBottom: 15,
+    borderWidth: 1,
   },
-  modalAvatarContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    marginBottom: 24,
-    overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
+  previewImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    resizeMode: 'cover',
   },
-  modalImageWrapper: {
-    width: '100%',
-    height: '100%',
+  previewFallback: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 70,
   },
-  modalItemImage: {
-    width: '90%',
-    height: '90%',
-    borderRadius: 70,
-    resizeMode: 'contain',
-  },
-  modalAvatarPlaceholder: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalAvatarPlaceholderText: {
-    fontSize: 60,
+  fallbackText: {
+    fontSize: 40,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
-  boostContainer: {
+  boostPreview: {
     alignItems: 'center',
-    marginBottom: 24,
   },
   boostIcon: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    justifyContent: 'center',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
+    marginBottom: 10,
   },
   boostValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  modalDescription: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 24,
-  },
-  modalLockedContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    width: '100%',
-  },
-  modalLockedText: {
-    marginLeft: 10,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  modalActionContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  modalPriceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  modalPriceText: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginLeft: 10,
   },
-  purchaseButton: {
+  colorPreview: {
+    alignItems: 'center',
+  },
+  colorSwatch: {
+    width: 140,
+    height: 60,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colorText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  itemDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  itemDetailsGrid: {
+    marginBottom: 20,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+  },
+  detailContent: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 12,
+    marginBottom: 2,
+    letterSpacing: 0.5,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modalActions: {
+    gap: 10,
+  },
+  purchaseToggle: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    marginBottom: 5,
+  },
+  toggleOption: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    width: '100%',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    paddingVertical: 12,
+    gap: 8,
   },
-  purchaseButtonText: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 10,
+  toggleText: {
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
-  modalEquippedContainer: {
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    width: '100%',
+    borderRadius: 8,
+    paddingVertical: 15,
+    borderWidth: 1,
+    gap: 10,
   },
-  modalEquippedText: {
+  actionButtonText: {
+    fontSize: 14,
     fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 10,
+    letterSpacing: 0.5,
   },
-  equipButton: {
+  equippedMessage: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    width: '100%',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    borderRadius: 8,
+    paddingVertical: 15,
+    borderWidth: 1,
+    gap: 10,
   },
-  equipButtonText: {
+  equippedText: {
+    fontSize: 14,
     fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 10,
+    letterSpacing: 0.5,
   },
 });
 

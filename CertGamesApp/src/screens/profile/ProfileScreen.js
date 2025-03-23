@@ -1,4 +1,5 @@
 // src/screens/profile/ProfileScreen.js
+// src/screens/profile/ProfileScreen.js
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -15,7 +16,8 @@ import {
   Platform,
   Animated,
   StatusBar,
-  Dimensions
+  Dimensions,
+  RefreshControl // Added missing RefreshControl import
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { logout } from '../../store/slices/userSlice';
@@ -60,6 +62,9 @@ const ProfileScreen = ({ navigation }) => {
     refreshData,
     isLoading
   } = useUserData();
+  
+  // Make sure we have activeTab state
+  const [activeTab, setActiveTab] = useState('overview');
   
   // Animated values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -739,7 +744,7 @@ const ProfileScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
         
-        {/* Tab Content */}
+        {/* Tab Content - add more as needed for account and security tabs */}
         {activeTab === 'overview' && (
           <Animated.View 
             style={[
@@ -983,7 +988,7 @@ const ProfileScreen = ({ navigation }) => {
               onPress={handleLogout}
             >
               <Ionicons name="log-out" size={20} color={theme.colors.buttonText} />
-              <Text style={[styles.logoutButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+<Text style={[styles.logoutButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
                 LOGOUT
               </Text>
             </TouchableOpacity>
@@ -1524,6 +1529,9 @@ const StatusModal = ({ visible, message, type, onClose, theme }) => {
   );
 };
 
+
+                      
+              
 const styles = StyleSheet.create({
   // Header styles
   animatedHeader: {

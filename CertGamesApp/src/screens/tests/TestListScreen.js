@@ -8,7 +8,8 @@ import {
   ActivityIndicator, 
   Alert, 
   RefreshControl,
-  Modal
+  Modal,
+  StyleSheet
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ import testService from '../../api/testService';
 import { fetchUserData } from '../../store/slices/userSlice';
 import useUserData from '../../hooks/useUserData';
 import { DIFFICULTY_CATEGORIES, TEST_LENGTHS, EXAM_MODE_INFO } from '../../constants/testConstants';
+
 
 /**
  * TestListScreen displays a list of tests for a particular certification category

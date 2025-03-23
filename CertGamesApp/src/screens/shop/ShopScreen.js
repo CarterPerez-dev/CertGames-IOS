@@ -83,6 +83,8 @@ const ShopScreen = () => {
   const [statusMessage, setStatusMessage] = useState(null);
   const [showStatusMessage, setShowStatusMessage] = useState(false);
   const [statusType, setStatusType] = useState(''); // 'success', 'error', etc.
+  // Add missing error state
+  const [error, setError] = useState(null);
   
   // Track whether initial loading has been done
   const initialLoadDone = useRef(false);
@@ -121,7 +123,7 @@ const ShopScreen = () => {
   
   // Effect to animate coin changes
   useEffect(() => {
-    // Only animate if coins decreased (indicating a purchase)
+    // Trigger coin flash animation when coins change
     if (coins !== prevCoinsRef.current) {
       Animated.sequence([
         Animated.timing(coinsFlashAnim, {
@@ -1236,9 +1238,399 @@ const ShopScreen = () => {
   );
 };
 
-// Keep all your existing styles here
 const styles = StyleSheet.create({
-  // All your existing style definitions here...
+  container: {
+    flex: 1,
+    padding: 16,
+  },
+  header: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 15,
+  },
+  headerGradient: {
+    padding: 16,
+  },
+  headerContent: {
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  headerSubtitleBox: {
+    padding: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)', 
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  
+  // User Stats
+  userStatsContainer: {
+    marginBottom: 15,
+  },
+  walletCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  walletGrid: {
+    flexDirection: 'row',
+  },
+  walletItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderRightWidth: 1,
+  },
+  walletItemContent: {
+    marginLeft: 10,
+  },
+  walletAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  walletLabel: {
+    fontSize: 12,
+  },
+  
+  // Category Filters
+  filterContainer: {
+    marginBottom: 15,
+  },
+  filterScrollContainer: {
+    paddingHorizontal: 5,
+    paddingVertical: 5,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    marginRight: 10,
+    borderWidth: 1,
+  },
+  filterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  
+  // Shop Items Grid
+  listContent: {
+    paddingVertical: 8,
+    paddingBottom: 100, // Extra padding at bottom for better scrolling
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  itemCard: {
+    width: (width - 48) / 2, // Accounting for container padding + space between
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  itemInfo: {
+    padding: 10,
+    borderTopWidth: 1,
+  },
+  itemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  itemFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  purchaseInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  requirementBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    marginRight: 5,
+    borderWidth: 1,
+  },
+  requirementText: {
+    fontSize: 10,
+    marginLeft: 2,
+  },
+  priceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+  },
+  priceText: {
+    fontSize: 10,
+    marginLeft: 2,
+  },
+  statusBadge: {
+    flex: 1,
+  },
+  equipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+  },
+  equipText: {
+    fontSize: 10,
+    marginLeft: 2,
+  },
+  ownedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+  },
+  ownedText: {
+    fontSize: 10,
+    marginLeft: 2,
+  },
+  
+  // Empty State
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 20,
+  },
+  emptyText: {
+    marginTop: 20,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '85%',
+    maxHeight: '80%',
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  modalContent: {
+    padding: 20,
+  },
+  
+  // Modal Item Preview
+  previewContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  previewImage: {
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
+  },
+  previewFallback: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fallbackText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+  },
+  boostPreview: {
+    alignItems: 'center',
+  },
+  boostIcon: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  boostValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  colorPreview: {
+    width: '80%',
+    aspectRatio: 3,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  colorSwatch: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colorText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  
+  // Item Description
+  itemDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  
+  // Item Details Grid
+  itemDetailsGrid: {
+    marginBottom: 20,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+  },
+  detailContent: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  
+  // Modal Actions
+  modalActions: {
+    alignItems: 'center',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    minWidth: 200,
+    borderWidth: 1,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  equippedMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    borderWidth: 1,
+  },
+  equippedText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  
+  // Status Toast
+  statusToast: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    borderRadius: 25,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  statusText: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+  },
+  
+  // Loading Overlay
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+  }
 });
 
 export default ShopScreen;

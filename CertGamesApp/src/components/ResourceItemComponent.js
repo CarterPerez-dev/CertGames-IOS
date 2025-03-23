@@ -1,8 +1,10 @@
 // src/components/ResourceItemComponent.js
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 const ResourceItemComponent = ({ resource, listMode = false }) => {
   // Access theme
@@ -27,6 +29,10 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
   };
   
   const openURL = async () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
     try {
       const canOpen = await Linking.canOpenURL(resource.url);
       if (canOpen) {
@@ -45,18 +51,36 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
   if (listMode) {
     return (
       <TouchableOpacity 
-        style={[styles.listItem, { borderBottomColor: theme.colors.divider }]} 
+        style={[
+          styles.listItem, 
+          { 
+            backgroundColor: theme.colors.surface,
+            borderBottomColor: theme.colors.divider,
+            borderColor: theme.colors.border,
+            borderWidth: 1,
+            shadowColor: theme.colors.shadow,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3,
+            elevation: 2,
+          }
+        ]} 
         onPress={openURL}
+        activeOpacity={0.7}
       >
-        <Ionicons name={sourceIcon.name} size={18} color={sourceIcon.color} style={styles.listIcon} />
+        <View style={[styles.listIconContainer, { backgroundColor: sourceIcon.color + '20' }]}>
+          <Ionicons name={sourceIcon.name} size={18} color={sourceIcon.color} />
+        </View>
         <Text 
-          style={[styles.listText, { color: theme.colors.text }]} 
+          style={[styles.listText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]} 
           numberOfLines={1} 
           ellipsizeMode="tail"
         >
           {resource.name}
         </Text>
-        <Ionicons name="chevron-forward" size={16} color={theme.colors.icon} />
+        <View style={[styles.listArrow, { backgroundColor: theme.colors.surfaceHighlight }]}>
+          <Ionicons name="chevron-forward" size={16} color={theme.colors.icon} />
+        </View>
       </TouchableOpacity>
     );
   }
@@ -64,29 +88,45 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
   // Card mode is more visual
   return (
     <TouchableOpacity 
-      style={[styles.card, { 
-        backgroundColor: theme.colors.surface,
-        borderColor: theme.colors.border
-      }]} 
+      style={[
+        styles.card, 
+        { 
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border,
+          shadowColor: theme.colors.shadow,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 5,
+          elevation: 3,
+        }
+      ]} 
       onPress={openURL}
+      activeOpacity={0.7}
     >
-      <View style={styles.cardContent}>
-        <View style={[styles.iconContainer, { backgroundColor: `${sourceIcon.color}20` }]}>
-          <Ionicons name={sourceIcon.name} size={22} color={sourceIcon.color} />
+      <LinearGradient
+        colors={[sourceIcon.color + '20', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.cardGradient}
+      >
+        <View style={styles.cardContent}>
+          <View style={[styles.iconContainer, { backgroundColor: sourceIcon.color + '20' }]}>
+            <Ionicons name={sourceIcon.name} size={22} color={sourceIcon.color} />
+          </View>
+          <View style={styles.textContainer}>
+            <Text 
+              style={[styles.title, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]} 
+              numberOfLines={2} 
+              ellipsizeMode="tail"
+            >
+              {resource.name}
+            </Text>
+          </View>
+          <View style={[styles.arrowContainer, { backgroundColor: theme.colors.surfaceHighlight }]}>
+            <Ionicons name="open-outline" size={18} color={theme.colors.icon} />
+          </View>
         </View>
-        <View style={styles.textContainer}>
-          <Text 
-            style={[styles.title, { color: theme.colors.text }]} 
-            numberOfLines={2} 
-            ellipsizeMode="tail"
-          >
-            {resource.name}
-          </Text>
-        </View>
-        <View style={[styles.arrowContainer, { backgroundColor: theme.colors.surfaceHighlight }]}>
-          <Ionicons name="open-outline" size={18} color={theme.colors.icon} />
-        </View>
-      </View>
+      </LinearGradient>
     </TouchableOpacity>
   );
 };
@@ -94,14 +134,14 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
 const styles = StyleSheet.create({
   // Card mode styles
   card: {
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
     borderWidth: 1,
+    overflow: 'hidden',
+  },
+  cardGradient: {
+    width: '100%',
+    height: '100%',
   },
   cardContent: {
     flexDirection: 'row',
@@ -109,9 +149,9 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -122,11 +162,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: '500',
+    letterSpacing: 0.5,
   },
   arrowContainer: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
@@ -138,14 +179,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 15,
-    borderBottomWidth: 1,
+    borderRadius: 10,
+    marginBottom: 8,
   },
-  listIcon: {
+  listIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   listText: {
     flex: 1,
     fontSize: 14,
+    letterSpacing: 0.3,
+  },
+  listArrow: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

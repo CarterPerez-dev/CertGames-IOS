@@ -1,5 +1,5 @@
 // src/components/ResourceRandomModal.js
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,15 @@ import {
   StyleSheet,
   Animated,
   Linking,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+
+const { width } = Dimensions.get('window');
 
 const ResourceRandomModal = ({ 
   visible, 
@@ -24,14 +29,16 @@ const ResourceRandomModal = ({
   const { theme } = useTheme();
   
   // Animations
-  const fadeAnim = new Animated.Value(0);
-  const slideAnim = new Animated.Value(50);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
   
   useEffect(() => {
     if (visible) {
       // Reset animations when modal becomes visible
       fadeAnim.setValue(0);
       slideAnim.setValue(50);
+      scaleAnim.setValue(0.9);
       
       // Start animations
       Animated.parallel([
@@ -45,6 +52,11 @@ const ResourceRandomModal = ({
           duration: 300,
           useNativeDriver: true,
         }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
       ]).start();
     }
   }, [visible, resource]);
@@ -52,6 +64,11 @@ const ResourceRandomModal = ({
   const handleOpenResource = async () => {
     if (resource && resource.url) {
       try {
+        // Haptic feedback
+        if (Platform.OS === 'ios') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        
         const canOpen = await Linking.canOpenURL(resource.url);
         if (canOpen) {
           await Linking.openURL(resource.url);
@@ -64,6 +81,11 @@ const ResourceRandomModal = ({
   
   // Animation when closing
   const handleClose = () => {
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -75,9 +97,33 @@ const ResourceRandomModal = ({
         duration: 200,
         useNativeDriver: true,
       }),
+      Animated.timing(scaleAnim, {
+        toValue: 0.9,
+        duration: 200,
+        useNativeDriver: true,
+      }),
     ]).start(() => {
       onClose();
     });
+  };
+  
+  // Get icon for resource type
+  const getResourceIcon = () => {
+    if (!resource) return 'link-outline';
+    
+    const { url, name } = resource;
+    
+    if (url.includes('reddit.com')) return 'logo-reddit';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'logo-youtube';
+    if (url.includes('udemy.com')) return 'school-outline';
+    if (url.includes('linkedin.com')) return 'logo-linkedin';
+    if (url.includes('github.com')) return 'logo-github';
+    if (url.includes('comptia.org') || name.includes('CompTIA') || name.includes('A+') || name.includes('Network+') || name.includes('Security+')) 
+      return 'document-text-outline';
+    if (name.toLowerCase().includes('pentest') || name.toLowerCase().includes('nmap') || name.toLowerCase().includes('kali'))
+      return 'construct-outline';
+    
+    return 'bulb-outline'; // Default icon
   };
   
   if (!resource) return null;
@@ -95,9 +141,13 @@ const ResourceRandomModal = ({
             styles.modalContainer,
             {
               opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
+              transform: [
+                { translateY: slideAnim },
+                { scale: scaleAnim }
+              ],
               backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border
+              borderColor: theme.colors.primary,
+              shadowColor: theme.colors.shadow,
             }
           ]}
         >
@@ -108,26 +158,55 @@ const ResourceRandomModal = ({
             <Ionicons name="close" size={22} color={theme.colors.text} />
           </TouchableOpacity>
           
-          <View style={[styles.modalHeader, { backgroundColor: theme.colors.primary }]}>
+          <LinearGradient
+            colors={theme.colors.primaryGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.modalHeader}
+          >
             <View style={[styles.iconContainer, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
-              <Ionicons name="bulb-outline" size={24} color={theme.colors.textInverse} />
+              <Ionicons name={getResourceIcon()} size={24} color={theme.colors.buttonText} />
             </View>
-            <Text style={[styles.modalTitle, { color: theme.colors.textInverse }]}>Resource Spotlight</Text>
-          </View>
+            <Text style={[styles.modalTitle, { 
+              color: theme.colors.buttonText, 
+              fontFamily: 'Orbitron-Bold' 
+            }]}>
+              RESOURCE SPOTLIGHT
+            </Text>
+          </LinearGradient>
           
           <View style={styles.modalBody}>
-            <Text style={[styles.resourceTitle, { color: theme.colors.text }]}>{resource.name}</Text>
-            
-            <Text style={[styles.modalDescription, { color: theme.colors.textSecondary }]}>
-              Expand your cybersecurity knowledge with this resource:
+            <Text style={[styles.resourceTitle, { 
+              color: theme.colors.text,
+              fontFamily: 'ShareTechMono'
+            }]}>
+              {resource.name}
             </Text>
+            
+            <View style={[styles.descriptionBox, { 
+              backgroundColor: theme.colors.surfaceHighlight,
+              borderColor: theme.colors.border,
+              borderWidth: 1,
+            }]}>
+              <Text style={[styles.modalDescription, { 
+                color: theme.colors.textSecondary,
+                fontFamily: 'ShareTechMono'
+              }]}>
+                Expand your cybersecurity knowledge with this curated resource from our database.
+              </Text>
+            </View>
             
             <TouchableOpacity 
               style={[styles.openButton, { backgroundColor: theme.colors.primary }]} 
               onPress={handleOpenResource}
             >
-              <Text style={[styles.openButtonText, { color: theme.colors.textInverse }]}>Open Resource</Text>
-              <Ionicons name="open-outline" size={18} color={theme.colors.textInverse} />
+              <Text style={[styles.openButtonText, { 
+                color: theme.colors.buttonText,
+                fontFamily: 'Orbitron'
+              }]}>
+                OPEN RESOURCE
+              </Text>
+              <Ionicons name="open-outline" size={18} color={theme.colors.buttonText} />
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -138,18 +217,45 @@ const ResourceRandomModal = ({
                   borderColor: theme.colors.border
                 }
               ]}
-              onPress={onGetAnother}
+              onPress={() => {
+                // Haptic feedback
+                if (Platform.OS === 'ios') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+                onGetAnother();
+              }}
               disabled={isLoading}
             >
               {isLoading ? (
                 <View style={styles.loadingContainer}>
-                  <Ionicons name="sync-outline" size={18} color={theme.colors.text} style={styles.spinIcon} />
-                  <Text style={[styles.randomButtonText, { color: theme.colors.text }]}>Loading...</Text>
+                  <Animated.View 
+                    style={{
+                      transform: [{
+                        rotate: fadeAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0deg', '360deg']
+                        })
+                      }]
+                    }}
+                  >
+                    <Ionicons name="sync-outline" size={18} color={theme.colors.text} />
+                  </Animated.View>
+                  <Text style={[styles.randomButtonText, { 
+                    color: theme.colors.text,
+                    fontFamily: 'ShareTechMono'
+                  }]}>
+                    LOADING...
+                  </Text>
                 </View>
               ) : (
                 <>
                   <Ionicons name="shuffle-outline" size={18} color={theme.colors.text} />
-                  <Text style={[styles.randomButtonText, { color: theme.colors.text }]}>Try Another</Text>
+                  <Text style={[styles.randomButtonText, { 
+                    color: theme.colors.text,
+                    fontFamily: 'ShareTechMono'
+                  }]}>
+                    TRY ANOTHER
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -160,8 +266,6 @@ const ResourceRandomModal = ({
   );
 };
 
-const { width } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
@@ -171,9 +275,13 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: width > 400 ? 380 : width - 40,
-    borderRadius: 15,
+    borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: 2,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   closeButton: {
     position: 'absolute',
@@ -192,9 +300,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -202,6 +310,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   modalBody: {
     padding: 20,
@@ -210,10 +319,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
+    textAlign: 'center',
+  },
+  descriptionBox: {
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
   },
   modalDescription: {
-    marginBottom: 20,
     fontSize: 14,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    lineHeight: 20,
   },
   openButton: {
     borderRadius: 10,
@@ -222,11 +339,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   openButtonText: {
     fontWeight: 'bold',
     marginRight: 8,
     fontSize: 16,
+    letterSpacing: 1,
   },
   randomButton: {
     borderRadius: 10,
@@ -240,13 +363,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
     fontSize: 15,
+    letterSpacing: 0.5,
   },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  spinIcon: {
-    transform: [{ rotate: '0deg' }],
   },
 });
 

@@ -12,15 +12,18 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  StatusBar,
+  StatusBar as RNStatusBar,
   Keyboard,
-  Dimensions
+  Dimensions,
+  Animated
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import {
   THREAD_STATUS,
@@ -28,7 +31,6 @@ import {
   CONNECTION_STATUS,
   EMPTY_STATES,
   PLACEHOLDERS,
-  INFO_TEXTS
 } from '../../constants/supportConstants';
 import { 
   fetchSupportThreads, 
@@ -38,8 +40,6 @@ import {
   closeSupportThread 
 } from '../../api/supportService';
 import { BASE_URL } from '../../api/apiConfig';
-
-// Import theme context
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 
@@ -58,6 +58,13 @@ const SupportScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
   
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [cardAnims] = useState([...Array(5)].map(() => new Animated.Value(0)));
+  
   // Get user ID from SecureStore on mount
   const [userId, setUserId] = useState(null);
   
@@ -71,7 +78,6 @@ const SupportScreen = ({ navigation }) => {
   const [userMessage, setUserMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [adminIsTyping, setAdminIsTyping] = useState(false);
-  const [showSupportInfoPopup, setShowSupportInfoPopup] = useState(true);
   const [mobileThreadsVisible, setMobileThreadsVisible] = useState(true);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   
@@ -86,6 +92,38 @@ const SupportScreen = ({ navigation }) => {
   const messageInputRef = useRef(null);
   const processedMessagesRef = useRef(new Set()); // Track processed messages
   const isComponentMounted = useRef(true);
+  
+  // Animation on mount
+  useEffect(() => {
+    // Main animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true
+      })
+    ]).start();
+    
+    // Staggered card animations
+    cardAnims.forEach((anim, i) => {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 500,
+        delay: 200 + (i * 120),
+        useNativeDriver: true
+      }).start();
+    });
+  }, []);
   
   /////////////////////////////////////////////////////////////////////////
   // 1) Load userId from SecureStore
@@ -748,13 +786,16 @@ const SupportScreen = ({ navigation }) => {
           styles.threadItem,
           { 
             backgroundColor: theme.colors.surface,
-            borderLeftColor: statusInfo.color 
+            borderLeftColor: statusInfo.color,
+            borderColor: theme.colors.border,
+            shadowColor: theme.colors.shadow,
           },
           isActive && [
             styles.threadItemActive, 
             { 
               backgroundColor: theme.colors.surfaceHighlight,
-              borderLeftColor: theme.colors.primary 
+              borderLeftColor: theme.colors.primary,
+              borderColor: theme.colors.primary + '40',
             }
           ],
           isClosed && [
@@ -765,7 +806,12 @@ const SupportScreen = ({ navigation }) => {
             }
           ]
         ]}
-        onPress={() => selectThread(item._id)}
+        onPress={() => {
+          if (Platform.OS === 'ios') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+          selectThread(item._id);
+        }}
         activeOpacity={0.7}
       >
         <View style={styles.threadItemHeader}>
@@ -775,7 +821,7 @@ const SupportScreen = ({ navigation }) => {
           <Text
             style={[
               styles.threadSubject, 
-              { color: theme.colors.text },
+              { color: theme.colors.text, fontFamily: 'ShareTechMono' },
               isClosed && { color: theme.colors.textMuted }
             ]}
             numberOfLines={1}
@@ -784,10 +830,10 @@ const SupportScreen = ({ navigation }) => {
           </Text>
         </View>
         <View style={styles.threadFooter}>
-          <Text style={[styles.statusText, { color: statusInfo.color }]}>
+          <Text style={[styles.statusText, { color: statusInfo.color, fontFamily: 'ShareTechMono' }]}>
             {statusInfo.label}
           </Text>
-          <Text style={[styles.timestampText, { color: theme.colors.textMuted }]}>
+          <Text style={[styles.timestampText, { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' }]}>
             {item.lastUpdated ? formatTimestamp(item.lastUpdated) : 'New'}
           </Text>
         </View>
@@ -862,17 +908,17 @@ const SupportScreen = ({ navigation }) => {
               style={[
                 styles.messageSender,
                 isUser 
-                  ? [styles.userMessageSender, { color: theme.colors.secondary }] 
-                  : [styles.adminMessageSender, { color: theme.colors.primary }]
+                  ? [styles.userMessageSender, { color: theme.colors.secondary, fontFamily: 'ShareTechMono' }] 
+                  : [styles.adminMessageSender, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]
               ]}
             >
               {isUser ? 'You' : 'Support Team'}
             </Text>
           )}
-          <Text style={[styles.messageContent, { color: theme.colors.text }]}>
+          <Text style={[styles.messageContent, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
             {item.content}
           </Text>
-          <Text style={[styles.messageTimestamp, { color: theme.colors.textMuted }]}>
+          <Text style={[styles.messageTimestamp, { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' }]}>
             {formatTimestamp(item.timestamp)}
           </Text>
         </View>
@@ -881,47 +927,55 @@ const SupportScreen = ({ navigation }) => {
   };
   
   return (
-    <SafeAreaView style={[
-      styles.container, 
-      { backgroundColor: theme.colors.background }
-    ]}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
+    <SafeAreaView style={[globalStyles.screen]}>
+      <RNStatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
       
-      <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Support / Ask Anything</Text>
-        
-        {showSupportInfoPopup && (
-          <View style={[
-            styles.infoBanner, 
-            { backgroundColor: `${theme.colors.primary}15` }
-          ]}>
-            <View style={styles.infoContent}>
-              <Ionicons name="flash" size={20} color={theme.colors.primary} />
-              <Text style={[styles.infoText, { color: theme.colors.text }]}>
-                {INFO_TEXTS.RESPONSE_TIME}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.infoCloseButton}
-              onPress={() => setShowSupportInfoPopup(false)}
-            >
-              <Ionicons name="close" size={18} color={theme.colors.textMuted} />
-            </TouchableOpacity>
+      {/* Fixed back button in top left */}
+      <TouchableOpacity 
+        style={[styles.backButton, { backgroundColor: theme.colors.surface + 'CC', borderColor: theme.colors.border }]}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
+      </TouchableOpacity>
+      
+      {/* Title Header */}
+      <Animated.View 
+        style={[
+          styles.headerContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }]
+          }
+        ]}
+      >
+        <LinearGradient
+          colors={['rgba(0,0,0,0.3)', 'transparent']}
+          start={{x: 0.5, y: 0}}
+          end={{x: 0.5, y: 1}}
+          style={styles.headerBackground}
+        >
+          <View style={styles.headerContent}>
+            <Text style={[styles.mainTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
+              SUPPORT
+            </Text>
+            <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
+            <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+              ASK US ANYTHING! (UTC TIME)
+            </Text>
           </View>
-        )}
-        
-        <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
-          {INFO_TEXTS.SUPPORT_SUBTITLE}
-        </Text>
-      </View>
+        </LinearGradient>
+      </Animated.View>
       
       {error && (
         <View style={[
           styles.errorContainer, 
-          { backgroundColor: `${theme.colors.error}15` }
+          { 
+            backgroundColor: `${theme.colors.error}15`,
+            borderLeftColor: theme.colors.error
+          }
         ]}>
           <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
-          <Text style={[styles.errorText, { color: theme.colors.text }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>{error}</Text>
           <TouchableOpacity
             style={styles.errorCloseButton}
             onPress={() => setError(null)}
@@ -931,108 +985,117 @@ const SupportScreen = ({ navigation }) => {
         </View>
       )}
       
-      <View style={styles.connectionStatus}>
-        <View
-          style={[
-            styles.connectionIndicator,
-            socketStatus === 'connected'
-              ? [styles.connectionIndicatorConnected, { backgroundColor: theme.colors.success }]
-              : socketStatus === 'disconnected'
-                ? [styles.connectionIndicatorDisconnected, { backgroundColor: theme.colors.warning }]
-                : [styles.connectionIndicatorError, { backgroundColor: theme.colors.error }]
-          ]}
-        />
-        <Text style={[styles.connectionText, { color: theme.colors.textMuted }]}>
-          {socketStatus === 'connected'
-            ? 'Real-time connection active'
-            : socketStatus === 'disconnected'
-              ? 'Connecting to real-time service...'
-              : 'Connection error - messages may be delayed'}
-        </Text>
-      </View>
-      
       <KeyboardAvoidingView
-        style={[
-          styles.contentContainer,
-        ]}
+        style={styles.contentContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
       >
         {mobileThreadsVisible ? (
           // THREADS VIEW
-          <View style={styles.threadsContainer}>
-            <View style={styles.threadListHeader}>
-              <Text style={[styles.threadListTitle, { color: theme.colors.text }]}>
-                Your Conversations
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.refreshButton, 
-                  { backgroundColor: `${theme.colors.primary}20` }
-                ]}
-                onPress={fetchUserThreads}
-              >
-                <Ionicons name="refresh" size={22} color={theme.colors.primary} />
-              </TouchableOpacity>
-            </View>
+          <Animated.View 
+            style={[
+              styles.threadsContainer,
+              {
+                opacity: cardAnims[0],
+                transform: [{
+                  translateY: cardAnims[0].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0]
+                  })
+                }]
+              }
+            ]}
+          >
             
-            <View style={styles.createThreadForm}>
-              <TextInput
-                style={[
-                  styles.subjectInput, 
-                  { 
-                    backgroundColor: theme.colors.surface,
-                    color: theme.colors.text,
-                    borderColor: theme.colors.border
-                  }
-                ]}
-                placeholder="New conversation subject..."
-                placeholderTextColor={theme.colors.textMuted}
-                value={newThreadSubject}
-                onChangeText={setNewThreadSubject}
-                maxLength={100}
-              />
-              <TouchableOpacity
-                style={[
-                  styles.createThreadButton,
-                  { backgroundColor: theme.colors.primary },
-                  !newThreadSubject.trim() && [
-                    styles.createButtonDisabled, 
-                    { backgroundColor: `${theme.colors.primary}70` }
-                  ]
-                ]}
-                onPress={createNewThread}
-                disabled={!newThreadSubject.trim()}
-              >
-                <Ionicons name="add" size={20} color={theme.colors.textInverse} />
-                <Text style={[
-                  styles.createButtonText, 
-                  { color: theme.colors.textInverse }
-                ]}>
-                  Create
-                </Text>
-              </TouchableOpacity>
+            <View style={[styles.createThreadCard, { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              shadowColor: theme.colors.shadow,
+            }]}>
+              <View style={styles.createThreadForm}>
+                <TextInput
+                  style={[
+                    styles.subjectInput, 
+                    { 
+                      backgroundColor: theme.colors.inputBackground, 
+                      color: theme.colors.text,
+                      borderColor: theme.colors.border,
+                      fontFamily: 'ShareTechMono'
+                    }
+                  ]}
+                  placeholder="New conversation subject..."
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={newThreadSubject}
+                  onChangeText={setNewThreadSubject}
+                  maxLength={100}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.createThreadButton,
+                    { backgroundColor: theme.colors.primary },
+                    !newThreadSubject.trim() && [
+                      styles.createButtonDisabled, 
+                      { backgroundColor: `${theme.colors.primary}70` }
+                    ]
+                  ]}
+                  onPress={() => {
+                    if (Platform.OS === 'ios') {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                    createNewThread();
+                  }}
+                  disabled={!newThreadSubject.trim()}
+                >
+                  <Ionicons name="add" size={20} color={theme.colors.textInverse} />
+                  <Text style={[
+                    styles.createButtonText, 
+                    { color: theme.colors.textInverse, fontFamily: 'Orbitron' }
+                  ]}>
+                    CREATE
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.actionsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.refreshButton, 
+                    { backgroundColor: `${theme.colors.primary}20` }
+                  ]}
+                  onPress={() => {
+                    if (Platform.OS === 'ios') {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                    fetchUserThreads();
+                  }}
+                >
+                  <Ionicons name="refresh" size={20} color={theme.colors.primary} />
+                  <Text style={[styles.refreshButtonText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                    REFRESH
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
             
             {loadingThreads ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text style={[styles.loadingText, { color: theme.colors.text }]}>
-                  Loading conversations...
+                <Text style={[styles.loadingText, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
+                  LOADING CONVERSATIONS...
                 </Text>
               </View>
             ) : threads.length === 0 ? (
-              <View style={styles.emptyStateContainer}>
+              <View style={[styles.emptyStateContainer, { backgroundColor: theme.colors.surface }]}>
                 <Ionicons
-                  name="happy-outline"
+                  name="chatbubbles-outline"
                   size={60}
                   color={theme.colors.primary}
                   style={{ opacity: 0.5 }}
                 />
-                <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>
+                <Text style={[styles.emptyStateTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
                   {EMPTY_STATES.NO_THREADS.title}
                 </Text>
-                <Text style={[styles.emptyStateSubtitle, { color: theme.colors.textMuted }]}>
+                <Text style={[styles.emptyStateSubtitle, { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' }]}>
                   {EMPTY_STATES.NO_THREADS.subtitle}
                 </Text>
               </View>
@@ -1045,10 +1108,23 @@ const SupportScreen = ({ navigation }) => {
                 showsVerticalScrollIndicator={false}
               />
             )}
-          </View>
+          </Animated.View>
         ) : (
           // MESSAGES VIEW
-          <View style={styles.messagesContainer}>
+          <Animated.View 
+            style={[
+              styles.messagesContainer,
+              {
+                opacity: cardAnims[1],
+                transform: [{
+                  translateY: cardAnims[1].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0]
+                  })
+                }]
+              }
+            ]}
+          >
             {!selectedThreadId ? (
               <View style={styles.emptyStateContainer}>
                 <Ionicons
@@ -1057,10 +1133,10 @@ const SupportScreen = ({ navigation }) => {
                   color={theme.colors.primary}
                   style={{ opacity: 0.5 }}
                 />
-                <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>
+                <Text style={[styles.emptyStateTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
                   {EMPTY_STATES.NO_THREAD_SELECTED.title}
                 </Text>
-                <Text style={[styles.emptyStateSubtitle, { color: theme.colors.textMuted }]}>
+                <Text style={[styles.emptyStateSubtitle, { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' }]}>
                   {EMPTY_STATES.NO_THREAD_SELECTED.subtitle}
                 </Text>
               </View>
@@ -1068,13 +1144,22 @@ const SupportScreen = ({ navigation }) => {
               <>
                 <View style={[
                   styles.messagesHeader, 
-                  { borderBottomColor: theme.colors.border }
+                  { 
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                    shadowColor: theme.colors.shadow
+                  }
                 ]}>
                   <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={handleBackToThreads}
+                    style={styles.backToThreadsButton}
+                    onPress={() => {
+                      if (Platform.OS === 'ios') {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                      handleBackToThreads();
+                    }}
                   >
-                    <Ionicons name="arrow-back" size={24} color={theme.colors.primary} />
+                    <Ionicons name="arrow-back" size={22} color={theme.colors.primary} />
                   </TouchableOpacity>
                   
                   <View style={styles.threadInfoContainer}>
@@ -1095,7 +1180,7 @@ const SupportScreen = ({ navigation }) => {
                         <Text 
                           style={[
                             styles.selectedThreadTitle, 
-                            { color: theme.colors.text }
+                            { color: theme.colors.text, fontFamily: 'Orbitron' }
                           ]} 
                           numberOfLines={1}
                         >
@@ -1112,7 +1197,12 @@ const SupportScreen = ({ navigation }) => {
                           styles.closeThreadButton,
                           { backgroundColor: `${theme.colors.error}90` }
                         ]}
-                        onPress={closeThread}
+                        onPress={() => {
+                          if (Platform.OS === 'ios') {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          }
+                          closeThread();
+                        }}
                       >
                         <Ionicons name="lock-closed" size={20} color={theme.colors.textInverse} />
                       </TouchableOpacity>
@@ -1130,8 +1220,8 @@ const SupportScreen = ({ navigation }) => {
                   {loadingMessages ? (
                     <View style={styles.loadingContainer}>
                       <ActivityIndicator size="large" color={theme.colors.primary} />
-                      <Text style={[styles.loadingText, { color: theme.colors.text }]}>
-                        Loading messages...
+                      <Text style={[styles.loadingText, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
+                        LOADING MESSAGES...
                       </Text>
                     </View>
                   ) : messages.length === 0 ? (
@@ -1142,15 +1232,15 @@ const SupportScreen = ({ navigation }) => {
                         color={theme.colors.primary}
                         style={{ opacity: 0.5 }}
                       />
-                      <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>
+                      <Text style={[styles.emptyStateTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
                         {EMPTY_STATES.NO_MESSAGES.title}
                       </Text>
-                      <Text style={[styles.emptyStateSubtitle, { color: theme.colors.textMuted }]}>
+                      <Text style={[styles.emptyStateSubtitle, { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' }]}>
                         {EMPTY_STATES.NO_MESSAGES.subtitle}
                       </Text>
                     </View>
                   ) : (
-                                          <FlatList
+                    <FlatList
                       ref={chatEndRef}
                       data={messages}
                       renderItem={renderMessageItem}
@@ -1197,7 +1287,7 @@ const SupportScreen = ({ navigation }) => {
                             { backgroundColor: theme.colors.primary, opacity: 0.3 }
                           ]} />
                         </View>
-                        <Text style={[styles.typingText, { color: theme.colors.textMuted }]}>
+                        <Text style={[styles.typingText, { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' }]}>
                           Support Team is typing...
                         </Text>
                       </View>
@@ -1219,8 +1309,8 @@ const SupportScreen = ({ navigation }) => {
                       { backgroundColor: `${theme.colors.textMuted}20` }
                     ]}>
                       <Ionicons name="lock-closed" size={20} color={theme.colors.textMuted} />
-                      <Text style={[styles.threadClosedText, { color: theme.colors.textMuted }]}>
-                        This conversation is closed. You can create a new one if needed.
+                      <Text style={[styles.threadClosedText, { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' }]}>
+                        This conversation is closed. Create a new one if needed.
                       </Text>
                     </View>
                   ) : (
@@ -1230,13 +1320,14 @@ const SupportScreen = ({ navigation }) => {
                         style={[
                           styles.messageInput, 
                           { 
-                            backgroundColor: theme.colors.surface,
+                            backgroundColor: theme.colors.inputBackground,
                             color: theme.colors.text,
-                            borderColor: theme.colors.border
+                            borderColor: theme.colors.border,
+                            fontFamily: 'ShareTechMono'
                           }
                         ]}
                         placeholder="Type your message here..."
-                        placeholderTextColor={theme.colors.textMuted}
+                        placeholderTextColor={theme.colors.placeholder}
                         value={userMessage}
                         onChangeText={handleTyping}
                         multiline
@@ -1252,7 +1343,12 @@ const SupportScreen = ({ navigation }) => {
                             { backgroundColor: `${theme.colors.primary}50` }
                           ]
                         ]}
-                        onPress={sendMessage}
+                        onPress={() => {
+                          if (Platform.OS === 'ios' && userMessage.trim()) {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          }
+                          sendMessage();
+                        }}
                         disabled={!userMessage.trim() || isThreadClosed}
                       >
                         <Ionicons
@@ -1270,7 +1366,7 @@ const SupportScreen = ({ navigation }) => {
                 </View>
               </>
             )}
-          </View>
+          </Animated.View>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -1278,51 +1374,104 @@ const SupportScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  // Header section
+  headerContainer: {
+    height: 150,
+    marginTop: Platform.OS === 'ios' ? 10 : 20,
+  },
+  headerBackground: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  header: {
-    padding: 15,
-    paddingTop: Platform.OS === 'ios' ? 5 : 15, // Reduced from 15 to 5 on iOS
-    paddingBottom: 10, // Reduced slightly
-    borderBottomWidth: 1,
+  headerContent: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 30,
   },
-  title: {
-    fontSize: 22, // Slightly reduced from 24
+  mainTitle: {
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 5, // Reduced from 10
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginBottom: 12,
+  },
+  headerDivider: {
+    width: 60,
+    height: 3,
+    borderRadius: 2,
+    marginBottom: 12,
   },
   subtitle: {
-    fontSize: 14,
-    marginTop: 5,
+    fontSize: 16,
+    textAlign: 'center',
+    letterSpacing: 1,
+    marginBottom: 33,
   },
-  infoBanner: {
+  // Back button at top
+  backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    left: 15,
+    zIndex: 100,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  // Section headers
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 8,
-    padding: 10, // Reduced from 12
-    marginVertical: 8, // Reduced from 10
+    marginTop: 10,
+    marginBottom: 15,
+    paddingHorizontal: 15,
   },
-  infoContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sectionTitleBg: {
     flex: 1,
+    borderRadius: 6,
+    padding: 8,
+    marginRight: 10,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  infoText: {
-    marginLeft: 10,
-    fontSize: 13, // Reduced from 14
+  sectionTitleGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
-  infoCloseButton: {
-    padding: 5,
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    textAlign: 'center',
   },
+  sectionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Error container
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,
-    padding: 10, // Reduced from 12
+    padding: 10,
     margin: 15,
-    marginTop: 0,
+    marginTop: 10,
+    marginBottom: 5,
+    borderLeftWidth: 4,
   },
   errorText: {
     marginLeft: 10,
@@ -1332,47 +1481,29 @@ const styles = StyleSheet.create({
   errorCloseButton: {
     padding: 5,
   },
-  connectionStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-  },
-  connectionIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
-  },
-  connectionText: {
-    fontSize: 13,
-  },
+  // Content container
   contentContainer: {
     flex: 1,
   },
-  
-  // Threads Panel
+  // Threads section
   threadsContainer: {
     flex: 1,
+    marginBottom: 10,
+  },
+  createThreadCard: {
+    marginHorizontal: 15,
+    borderRadius: 12,
     padding: 15,
-  },
-  threadListHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  threadListTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  refreshButton: {
-    padding: 8,
-    borderRadius: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   createThreadForm: {
     flexDirection: 'row',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   subjectInput: {
     flex: 1,
@@ -1393,8 +1524,28 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 16,
     marginLeft: 5,
+    fontWeight: 'bold',
+  },
+  createButtonDisabled: {
+    opacity: 0.7,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  refreshButtonText: {
+    fontSize: 14,
+    marginLeft: 6,
   },
   threadsList: {
+    paddingHorizontal: 15,
     paddingBottom: 20,
   },
   threadItem: {
@@ -1402,6 +1553,34 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 10,
     borderLeftWidth: 3,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  threadItemActive: {
+    borderLeftWidth: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  threadItemClosed: {
+    opacity: 0.7,
+  },
+  threadItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statusIndicator: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
   },
   threadSubject: {
     fontSize: 16,
@@ -1421,7 +1600,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   
-  // Messages Panel
+  // Messages section
   messagesContainer: {
     flex: 1,
   },
@@ -1429,10 +1608,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
-    borderBottomWidth: 1,
+    borderRadius: 12,
+    marginHorizontal: 15,
+    marginBottom: 10,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  backButton: {
+  backToThreadsButton: {
     marginRight: 10,
+    padding: 5,
   },
   threadInfoContainer: {
     flexDirection: 'row',
@@ -1492,6 +1679,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  userAvatarCircle: {
+    backgroundColor: '#4A90E2',
+  },
+  adminAvatarCircle: {
+    backgroundColor: '#FF8C00',
+  },
+  systemAvatarCircle: {
+    backgroundColor: '#7B68EE',
+  },
   messageBubble: {
     borderRadius: 18,
     padding: 12,
@@ -1504,10 +1700,19 @@ const styles = StyleSheet.create({
   adminMessageBubble: {
     borderBottomLeftRadius: 4,
   },
+  systemMessageBubble: {
+    borderRadius: 12,
+  },
   messageSender: {
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 5,
+  },
+  userMessageSender: {
+    color: '#4A90E2',
+  },
+  adminMessageSender: {
+    color: '#FF8C00',
   },
   messageContent: {
     fontSize: 15,
@@ -1543,9 +1748,15 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     marginHorizontal: 2,
   },
-  typingDot1: {},
-  typingDot2: {},
-  typingDot3: {},
+  typingDot1: {
+    opacity: 0.8,
+  },
+  typingDot2: {
+    opacity: 0.6,
+  },
+  typingDot3: {
+    opacity: 0.4,
+  },
   typingText: {
     fontSize: 14,
   },
@@ -1554,14 +1765,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 15,
     paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 5 : 15,
+    paddingBottom: Platform.OS === 'ios' ? 25 : 15,
     borderTopWidth: 1,
   },
   messageInput: {
     flex: 1,
     borderRadius: 20,
     padding: Platform.OS === 'ios' ? 10 : 12,
-    maxHeight: 100, // Reduced to save space
+    maxHeight: 100,
     fontSize: 16,
     marginRight: 10,
     borderWidth: 1,
@@ -1572,6 +1783,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
   threadClosedNotice: {
     flexDirection: 'row',
@@ -1596,6 +1810,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
+    fontWeight: 'bold',
   },
   emptyStateContainer: {
     flex: 1,
@@ -1612,22 +1827,6 @@ const styles = StyleSheet.create({
   emptyStateSubtitle: {
     fontSize: 16,
     textAlign: 'center',
-  },
-  
-  // Other styles from original file remain the same as they don't involve colors
-  // Just layout-related styles
-  statusIndicator: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  threadItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
   },
 });
 

@@ -24,10 +24,10 @@ export const DIFFICULTY_CATEGORIES = [
   { label: "Moderate", color: "#ffc765", textColor: "#4a2700" },
   { label: "Intermediate", color: "#ff5959", textColor: "#ffffff" },
   { label: "Formidable", color: "#dc3545", textColor: "#ffffff" },
-  { label: "Challenging", color: "#b108f6", textColor: "#ffffff" },
-  { label: "Very Challenging", color: "#4b0082", textColor: "#ffffff" },
-  { label: "Ruthless", color: "#370031", textColor: "#ffffff" },
-  { label: "Ultra Level", color: "#000000", textColor: "#00ffff" }
+  { label: "Merciless", color: "#b108f6", textColor: "#ffffff" },
+  { label: "Ruthless", color: "#4b0082", textColor: "#ffffff" },
+  { label: "Relentless", color: "#370031", textColor: "#ffffff" },
+  { label: "Nuclear", color: "#000000", textColor: "#00ffff" }
 ];
 
 export const EXAM_MODE_INFO = 

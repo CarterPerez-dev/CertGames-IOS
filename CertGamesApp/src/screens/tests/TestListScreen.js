@@ -9,13 +9,17 @@ import {
   Alert, 
   RefreshControl,
   Modal,
-  StyleSheet
+  StyleSheet,
+  Animated,
+  Dimensions,
+  Platform
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 import testService from '../../api/testService';
@@ -23,6 +27,7 @@ import { fetchUserData } from '../../store/slices/userSlice';
 import useUserData from '../../hooks/useUserData';
 import { DIFFICULTY_CATEGORIES, TEST_LENGTHS, EXAM_MODE_INFO } from '../../constants/testConstants';
 
+const { width } = Dimensions.get('window');
 
 /**
  * TestListScreen displays a list of tests for a particular certification category
@@ -42,6 +47,11 @@ const TestListScreen = ({ route, navigation }) => {
   // Access theme
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
+
+  // Animation refs
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const translateY = React.useRef(new Animated.Value(20)).current;
+  const [cardAnims] = useState([...Array(10)].map(() => new Animated.Value(0)));
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,6 +75,33 @@ const TestListScreen = ({ route, navigation }) => {
 
   // Difficulty categories with colors and levels
   const difficultyCategories = DIFFICULTY_CATEGORIES;
+
+  // Start animations on mount
+  useEffect(() => {
+    // Animate main content
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Animate cards staggered
+    cardAnims.forEach((anim, i) => {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 500,
+        delay: 100 + (i * 70),
+        useNativeDriver: true
+      }).start();
+    });
+  }, [fadeAnim, translateY, cardAnims]);
 
   // Fetch tests and attempts
   const fetchTestsAndAttempts = useCallback(async () => {
@@ -195,6 +232,9 @@ const TestListScreen = ({ route, navigation }) => {
 
   // Handle exam mode toggle
   const toggleExamMode = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     setExamMode(prev => !prev);
   };
 
@@ -234,6 +274,10 @@ const TestListScreen = ({ route, navigation }) => {
 
   // Start or resume a test
   const startTest = (testNumber, doRestart = false, existingAttempt = null) => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
     // For new tests (or restart), show length selector
     if (doRestart || !existingAttempt) {
       setTestForLength(testNumber);
@@ -291,6 +335,10 @@ const TestListScreen = ({ route, navigation }) => {
 
   // Handle test length selection
   const handleTestLengthSelect = (length) => {
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync();
+    }
+    
     setSelectedLengths(prev => ({
       ...prev,
       [testForLength]: length
@@ -305,7 +353,7 @@ const TestListScreen = ({ route, navigation }) => {
   };
 
   // Render each test item in the list
-  const renderTestItem = ({ item }) => {
+  const renderTestItem = ({ item, index }) => {
     // Handle if item is a test object or just a number
     const testNumber = typeof item === 'object' ? item.testId : item;
     const testName = typeof item === 'object' ? item.testName : `Test ${testNumber}`;
@@ -318,170 +366,271 @@ const TestListScreen = ({ route, navigation }) => {
     const noAttempt = !attemptDoc;
     const inProgress = attemptDoc && !isFinished;
     
+    // Keep animation index in bounds
+    const animIndex = Math.min(index, cardAnims.length - 1);
+    
     return (
-      <View style={[
-        styles.testCard,
-        {
-          backgroundColor: theme.colors.surface,
-          borderColor: isFinished 
-            ? theme.colors.success 
-            : inProgress 
-              ? theme.colors.primary 
-              : theme.colors.border
-        }
-      ]}>
-        <LinearGradient
-          colors={isFinished 
-            ? [theme.colors.success + '20', theme.colors.surface] 
-            : inProgress 
-              ? [theme.colors.primary + '20', theme.colors.surface]
-              : [theme.colors.surface, theme.colors.surface]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.testCardHeader}
-        >
-          <Text style={[styles.testNumberText, { color: theme.colors.text }]}>{testName}</Text>
-          <View style={[
-            styles.difficultyBadge,
-            { backgroundColor: difficulty.color }
-          ]}>
-            <Text style={[styles.difficultyText, { color: difficulty.textColor }]}>
-              {difficulty.label}
+      <Animated.View
+        style={{
+          opacity: cardAnims[animIndex],
+          transform: [{
+            translateY: cardAnims[animIndex].interpolate({
+              inputRange: [0, 1],
+              outputRange: [30, 0]
+            })
+          }]
+        }}
+      >
+        <View style={[
+          styles.testCard,
+          {
+            backgroundColor: theme.colors.surface,
+            borderWidth: 1,
+            borderColor: isFinished 
+              ? theme.colors.success 
+              : inProgress 
+                ? theme.colors.primary 
+                : theme.colors.border,
+            shadowColor: theme.colors.shadow,
+          }
+        ]}>
+          <LinearGradient
+            colors={isFinished 
+              ? [theme.colors.success + '20', theme.colors.surface] 
+              : inProgress 
+                ? [theme.colors.primary + '20', theme.colors.surface]
+                : [theme.colors.surfaceHighlight, theme.colors.surface]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.testCardHeader}
+          >
+            <Text style={[styles.testNumberText, { 
+              color: theme.colors.text, 
+              fontFamily: 'Orbitron-Bold',
+              letterSpacing: 1 
+            }]}>
+              {testName.toUpperCase()}
             </Text>
+            <View style={[
+              styles.difficultyBadge,
+              { 
+                backgroundColor: difficulty.color,
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.2)'
+              }
+            ]}>
+              <Text style={[styles.difficultyText, { 
+                color: difficulty.textColor,
+                fontFamily: 'ShareTechMono',
+                letterSpacing: 0.5
+              }]}>
+                {difficulty.label}
+              </Text>
+            </View>
+          </LinearGradient>
+          
+          <View style={styles.progressSection}>
+            <Text style={[styles.progressText, { 
+              color: theme.colors.textSecondary,
+              fontFamily: 'ShareTechMono' 
+            }]}>
+              {progress.text}
+            </Text>
+            <View style={[styles.progressBarContainer, { 
+              backgroundColor: theme.colors.progressTrack,
+              borderWidth: 1,
+              borderColor: theme.colors.border + '30'
+            }]}>
+              <View 
+                style={[
+                  styles.progressBar,
+                  { 
+                    width: `${progress.percentage}%`,
+                    backgroundColor: isFinished 
+                      ? theme.colors.success 
+                      : theme.colors.progressIndicator
+                  }
+                ]}
+              />
+            </View>
           </View>
-        </LinearGradient>
-        
-        <View style={styles.progressSection}>
-          <Text style={[styles.progressText, { color: theme.colors.textSecondary }]}>{progress.text}</Text>
-          <View style={[styles.progressBarContainer, { backgroundColor: theme.colors.progressTrack }]}>
-            <View 
-              style={[
-                styles.progressBar,
-                { 
-                  width: `${progress.percentage}%`,
-                  backgroundColor: isFinished 
-                    ? theme.colors.success 
-                    : theme.colors.progressIndicator
-                }
-              ]}
-            />
-          </View>
-        </View>
-        
-        {(noAttempt || isFinished) && (
-          <View style={styles.lengthSelector}>
-            <Text style={[styles.lengthLabel, { color: theme.colors.textSecondary }]}>Questions:</Text>
-            <View style={styles.lengthOptions}>
-              {allowedTestLengths.map(length => (
-                <TouchableOpacity
-                  key={length}
-                  style={[
-                    styles.lengthOption,
-                    { 
-                      backgroundColor: theme.colors.inputBackground,
-                      borderColor: (selectedLengths[testNumber] || 100) === length 
-                        ? theme.colors.primary 
-                        : theme.colors.border
-                    },
-                    (selectedLengths[testNumber] || 100) === length && {
-                      backgroundColor: theme.colors.primary + '20',
-                    }
-                  ]}
-                  onPress={() => setSelectedLengths(prev => ({
-                    ...prev,
-                    [testNumber]: length
-                  }))}
-                >
-                  <Text style={[
-                    styles.lengthOptionText,
-                    { color: theme.colors.text },
-                    (selectedLengths[testNumber] || 100) === length && {
-                      color: theme.colors.primary,
-                      fontWeight: 'bold'
-                    }
-                  ]}>
-                    {length}
+          
+          {(noAttempt || isFinished) && (
+            <View style={styles.lengthSelector}>
+              <Text style={[styles.lengthLabel, { 
+                color: theme.colors.textSecondary,
+                fontFamily: 'ShareTechMono',
+                letterSpacing: 0.5
+              }]}>
+                QUESTIONS:
+              </Text>
+              <View style={styles.lengthOptions}>
+                {allowedTestLengths.map(length => (
+                  <TouchableOpacity
+                    key={length}
+                    style={[
+                      styles.lengthOption,
+                      { 
+                        backgroundColor: theme.colors.inputBackground,
+                        borderColor: (selectedLengths[testNumber] || 100) === length 
+                          ? theme.colors.primary 
+                          : theme.colors.border
+                      },
+                      (selectedLengths[testNumber] || 100) === length && {
+                        backgroundColor: theme.colors.primary + '20',
+                      }
+                    ]}
+                    onPress={() => {
+                      if (Platform.OS === 'ios') {
+                        Haptics.selectionAsync();
+                      }
+                      setSelectedLengths(prev => ({
+                        ...prev,
+                        [testNumber]: length
+                      }))
+                    }}
+                  >
+                    <Text style={[
+                      styles.lengthOptionText,
+                      { 
+                        color: theme.colors.text,
+                        fontFamily: 'ShareTechMono'
+                      },
+                      (selectedLengths[testNumber] || 100) === length && {
+                        color: theme.colors.primary,
+                        fontWeight: 'bold'
+                      }
+                    ]}>
+                      {length}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+          
+          <View style={styles.actionButtons}>
+            {noAttempt && (
+              <TouchableOpacity 
+                style={[styles.startButton, { 
+                  backgroundColor: theme.colors.primary,
+                  shadowColor: theme.colors.shadow
+                }]}
+                onPress={() => startTest(testNumber, false, null)}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons name="play" size={18} color={theme.colors.buttonText} />
+                  <Text style={[styles.buttonText, { 
+                    color: theme.colors.buttonText,
+                    fontFamily: 'Orbitron',
+                    letterSpacing: 0.5
+                  }]}>
+                    START TEST
                   </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            
+            {inProgress && (
+              <View style={styles.buttonRow}>
+                <TouchableOpacity 
+                  style={[styles.resumeButton, { 
+                    backgroundColor: theme.colors.primary,
+                    shadowColor: theme.colors.shadow
+                  }]}
+                  onPress={() => startTest(testNumber, false, attemptDoc)}
+                >
+                  <View style={styles.buttonContent}>
+                    <Ionicons name="play" size={18} color={theme.colors.buttonText} />
+                    <Text style={[styles.buttonText, { 
+                      color: theme.colors.buttonText,
+                      fontFamily: 'Orbitron',
+                      letterSpacing: 0.5
+                    }]}>
+                      {attemptDoc?.examMode ? "RESUME EXAM" : "RESUME"}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
-              ))}
-            </View>
+                
+                <TouchableOpacity 
+                  style={[styles.restartButton, { 
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    borderColor: theme.colors.border
+                  }]}
+                  onPress={() => {
+                    setSelectedTest(testNumber);
+                    setShowRestartModal(true);
+                  }}
+                >
+                  <View style={styles.buttonContent}>
+                    <Ionicons name="refresh" size={18} color={theme.colors.text} />
+                    <Text style={[styles.buttonText, { 
+                      color: theme.colors.text,
+                      fontFamily: 'ShareTechMono'
+                    }]}>
+                      RESTART
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            {isFinished && (
+              <View style={styles.buttonRow}>
+                <TouchableOpacity 
+                  style={[styles.reviewButton, { 
+                    backgroundColor: theme.colors.success,
+                    shadowColor: theme.colors.shadow
+                  }]}
+                  onPress={() => navigation.navigate('Test', {
+                    testId: testNumber,
+                    category,
+                    title: `${title} - Test ${testNumber}`,
+                    review: true
+                  })}
+                >
+                  <View style={styles.buttonContent}>
+                    <Ionicons name="eye" size={18} color={theme.colors.buttonText} />
+                    <Text style={[styles.buttonText, { 
+                      color: theme.colors.buttonText,
+                      fontFamily: 'Orbitron',
+                      letterSpacing: 0.5
+                    }]}>
+                      VIEW RESULTS
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.restartButton, { 
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    borderColor: theme.colors.border
+                  }]}
+                  onPress={() => startTest(testNumber, true, attemptDoc)}
+                >
+                  <View style={styles.buttonContent}>
+                    <Ionicons name="refresh" size={18} color={theme.colors.text} />
+                    <Text style={[styles.buttonText, { 
+                      color: theme.colors.text,
+                      fontFamily: 'ShareTechMono'
+                    }]}>
+                      RESTART
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
-        )}
-        
-        <View style={styles.actionButtons}>
-          {noAttempt && (
-            <TouchableOpacity 
-              style={[styles.startButton, { backgroundColor: theme.colors.primary }]}
-              onPress={() => startTest(testNumber, false, null)}
-            >
-              <Ionicons name="play" size={18} color={theme.colors.buttonText} />
-              <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>Start Test</Text>
-            </TouchableOpacity>
-          )}
           
-          {inProgress && (
-            <View style={styles.buttonRow}>
-              <TouchableOpacity 
-                style={[styles.resumeButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => startTest(testNumber, false, attemptDoc)}
-              >
-                <Ionicons name="play" size={18} color={theme.colors.buttonText} />
-                <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                  {attemptDoc?.examMode ? "Resume Exam" : "Resume"}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.restartButton, { 
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  borderColor: theme.colors.border
-                }]}
-                onPress={() => {
-                  setSelectedTest(testNumber);
-                  setShowRestartModal(true);
-                }}
-              >
-                <Ionicons name="refresh" size={18} color={theme.colors.text} />
-                <Text style={[styles.buttonText, { color: theme.colors.text }]}>Restart</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          
-          {isFinished && (
-            <View style={styles.buttonRow}>
-              <TouchableOpacity 
-                style={[styles.reviewButton, { backgroundColor: theme.colors.success }]}
-                onPress={() => navigation.navigate('Test', {
-                  testId: testNumber,
-                  category,
-                  title: `${title} - Test ${testNumber}`,
-                  review: true
-                })}
-              >
-                <Ionicons name="eye" size={18} color={theme.colors.buttonText} />
-                <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>View Results</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.restartButton, { 
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  borderColor: theme.colors.border
-                }]}
-                onPress={() => startTest(testNumber, true, attemptDoc)}
-              >
-                <Ionicons name="refresh" size={18} color={theme.colors.text} />
-                <Text style={[styles.buttonText, { color: theme.colors.text }]}>Restart</Text>
-              </TouchableOpacity>
+          {isFinished && progress.percentage >= 80 && (
+            <View style={[styles.achievementBadge, { backgroundColor: theme.colors.goldBadge + '20' }]}>
+              <Ionicons name="trophy" size={20} color={theme.colors.goldBadge} />
             </View>
           )}
         </View>
-        
-        {isFinished && progress.percentage >= 80 && (
-          <View style={[styles.achievementBadge, { backgroundColor: theme.colors.goldBadge + '20' }]}>
-            <Ionicons name="trophy" size={20} color={theme.colors.goldBadge} />
-          </View>
-        )}
-      </View>
+      </Animated.View>
     );
   };
 
@@ -496,17 +645,45 @@ const TestListScreen = ({ route, navigation }) => {
   if (!userId) {
     return (
       <View style={[globalStyles.screen, styles.container]}>
-        <View style={styles.authMessage}>
-          <Ionicons name="lock-closed" size={50} color={theme.colors.primary} />
-          <Text style={[globalStyles.title, styles.authTitle]}>Login Required</Text>
-          <Text style={[globalStyles.textSecondary, styles.authSubtitle]}>Please log in to access the practice tests</Text>
-          <TouchableOpacity 
-            style={[globalStyles.buttonPrimary, styles.loginButton]}
-            onPress={() => navigation.navigate('Login')}
+        <Animated.View 
+          style={[
+            styles.authMessage,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY }]
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={[theme.colors.primary + '30', 'transparent']}
+            style={styles.authMessageGradient}
           >
-            <Text style={globalStyles.buttonText}>Go to Login</Text>
-          </TouchableOpacity>
-        </View>
+            <Ionicons name="lock-closed" size={50} color={theme.colors.primary} />
+            <Text style={[globalStyles.title, styles.authTitle, { 
+              fontFamily: 'Orbitron-Bold',
+              color: theme.colors.text
+            }]}>
+              LOGIN REQUIRED
+            </Text>
+            <Text style={[globalStyles.textSecondary, styles.authSubtitle, {
+              fontFamily: 'ShareTechMono'
+            }]}>
+              Please log in to access the practice tests
+            </Text>
+            <TouchableOpacity 
+              style={[globalStyles.buttonPrimary, styles.loginButton, {
+                backgroundColor: theme.colors.primary
+              }]}
+              onPress={() => navigation.navigate('Login')}
+            >
+              <Text style={[globalStyles.buttonText, {
+                fontFamily: 'Orbitron'
+              }]}>
+                GO TO LOGIN
+              </Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        </Animated.View>
       </View>
     );
   }
@@ -515,8 +692,18 @@ const TestListScreen = ({ route, navigation }) => {
   if (loading && !refreshing) {
     return (
       <View style={[globalStyles.loadingContainer]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[globalStyles.text, styles.loadingText]}>Loading tests...</Text>
+        <LinearGradient
+          colors={[theme.colors.primary + '10', theme.colors.background]}
+          style={styles.loadingGradient}
+        >
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[globalStyles.text, styles.loadingText, {
+            fontFamily: 'ShareTechMono',
+            color: theme.colors.text
+          }]}>
+            LOADING TESTS...
+          </Text>
+        </LinearGradient>
       </View>
     );
   }
@@ -525,74 +712,134 @@ const TestListScreen = ({ route, navigation }) => {
   if (error) {
     return (
       <View style={[globalStyles.errorContainer]}>
-        <Ionicons name="alert-circle" size={50} color={theme.colors.error} />
-        <Text style={[globalStyles.title, styles.errorTitle]}>Error Loading Tests</Text>
-        <Text style={[globalStyles.textSecondary, styles.errorMessage]}>{error}</Text>
-        <TouchableOpacity 
-          style={[globalStyles.buttonPrimary, styles.retryButton]}
-          onPress={fetchTestsAndAttempts}
+        <LinearGradient
+          colors={[theme.colors.error + '20', 'transparent']}
+          style={styles.errorGradient}
         >
-          <Text style={globalStyles.buttonText}>Retry</Text>
-        </TouchableOpacity>
+          <Ionicons name="alert-circle" size={50} color={theme.colors.error} />
+          <Text style={[globalStyles.title, styles.errorTitle, { 
+            fontFamily: 'Orbitron-Bold',
+            color: theme.colors.text
+          }]}>
+            ERROR LOADING TESTS
+          </Text>
+          <Text style={[globalStyles.textSecondary, styles.errorMessage, {
+            fontFamily: 'ShareTechMono'
+          }]}>
+            {error}
+          </Text>
+          <TouchableOpacity 
+            style={[globalStyles.buttonPrimary, styles.retryButton, {
+              backgroundColor: theme.colors.primary
+            }]}
+            onPress={fetchTestsAndAttempts}
+          >
+            <Text style={[globalStyles.buttonText, {
+              fontFamily: 'Orbitron'
+            }]}>
+              RETRY
+            </Text>
+          </TouchableOpacity>
+        </LinearGradient>
       </View>
     );
   }
 
   return (
     <View style={[globalStyles.screen, styles.container]}>
-      <LinearGradient
-        colors={theme.colors.headerGradient}
-        start={{x: 0, y: 0}}
-        end={{x: 0, y: 1}}
-        style={styles.header}
+      <Animated.View
+        style={[
+          styles.mainContent,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY }]
+          }
+        ]}
       >
-        <View style={styles.titleSection}>
-          <Text style={[styles.title, { color: theme.colors.text }]}>{title}</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Practice Test Collection</Text>
-        </View>
-        
-        <View style={styles.examModeToggle}>
-          <TouchableOpacity 
-            style={styles.infoButton}
-            onPress={() => setShowInfoModal(true)}
-          >
-            <Ionicons name="information-circle" size={24} color={theme.colors.icon} />
-          </TouchableOpacity>
-          
-          <View style={[styles.toggleContainer, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-            <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>Exam Mode</Text>
-            <TouchableOpacity 
-              style={[
-                styles.toggle, 
-                { backgroundColor: examMode ? theme.colors.primary: theme.colors.accent }
-              ]}
-              onPress={toggleExamMode}
-            >
-              <View style={[
-                styles.toggleHandle, 
-                { backgroundColor: theme.colors.buttonText },
-                examMode && { alignSelf: 'flex-end' }
-              ]} />
-            </TouchableOpacity>
+        <LinearGradient
+          colors={theme.colors.headerGradient}
+          start={{x: 0, y: 0}}
+          end={{x: 0, y: 1}}
+          style={styles.header}
+        >
+          <View style={styles.titleSection}>
+            <Text style={[styles.title, { 
+              color: theme.colors.text,
+              fontFamily: 'Orbitron-Bold',
+              letterSpacing: 1
+            }]}>
+              {title ? title.toUpperCase() : 'PRACTICE TESTS'}
+            </Text>
+            <Text style={[styles.subtitle, { 
+              color: theme.colors.textSecondary,
+              fontFamily: 'ShareTechMono',
+              letterSpacing: 0.5
+            }]}>
+              PRACTICE TEST COLLECTION
+            </Text>
           </View>
-        </View>
-      </LinearGradient>
-      
-      <FlatList
-        data={tests}
-        keyExtractor={item => (typeof item === 'object' ? item.testId.toString() : item.toString())}
-        renderItem={renderTestItem}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={handleRefresh} 
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-            progressBackgroundColor={theme.colors.surface}
-          />
-        }
-      />
+          
+          <View style={styles.examModeToggle}>
+            <TouchableOpacity 
+              style={styles.infoButton}
+              onPress={() => {
+                if (Platform.OS === 'ios') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                setShowInfoModal(true)
+              }}
+            >
+              <Ionicons name="information-circle" size={24} color={theme.colors.icon} />
+            </TouchableOpacity>
+            
+            <View style={[styles.toggleContainer, { 
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+              borderWidth: 1,
+              borderColor: theme.colors.border + '40'
+            }]}>
+              <Text style={[styles.toggleLabel, { 
+                color: theme.colors.text,
+                fontFamily: 'ShareTechMono'
+              }]}>
+                EXAM MODE
+              </Text>
+              <TouchableOpacity 
+                style={[
+                  styles.toggle, 
+                  { 
+                    backgroundColor: examMode ? theme.colors.primary: 'rgba(255, 255, 255, 0.2)',
+                    borderWidth: 1,
+                    borderColor: examMode ? theme.colors.primary + '60' : 'rgba(255, 255, 255, 0.1)'
+                  }
+                ]}
+                onPress={toggleExamMode}
+              >
+                <View style={[
+                  styles.toggleHandle, 
+                  { backgroundColor: theme.colors.buttonText },
+                  examMode && { alignSelf: 'flex-end' }
+                ]} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </LinearGradient>
+        
+        <FlatList
+          data={tests}
+          keyExtractor={item => (typeof item === 'object' ? item.testId.toString() : item.toString())}
+          renderItem={renderTestItem}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={handleRefresh} 
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+              progressBackgroundColor={theme.colors.surface}
+            />
+          }
+        />
+      </Animated.View>
       
       {/* Info Modal */}
       <Modal
@@ -604,17 +851,46 @@ const TestListScreen = ({ route, navigation }) => {
         <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
           <View style={[styles.modalContent, { 
             backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border
+            borderColor: theme.colors.border,
+            borderWidth: 1,
+            shadowColor: theme.colors.shadow
           }]}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Exam Mode</Text>
-            <Text style={[styles.modalText, { color: theme.colors.textSecondary }]}>
+            <LinearGradient
+              colors={[theme.colors.primary, theme.colors.primary + '60']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalHeader}
+            >
+              <Text style={[styles.modalTitle, { 
+                color: theme.colors.buttonText,
+                fontFamily: 'Orbitron-Bold',
+                letterSpacing: 1
+              }]}>
+                EXAM MODE
+              </Text>
+            </LinearGradient>
+            
+            <Text style={[styles.modalText, { 
+              color: theme.colors.textSecondary,
+              fontFamily: 'ShareTechMono'
+            }]}>
               {EXAM_MODE_INFO}
             </Text>
+            
             <TouchableOpacity 
-              style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
+              style={[styles.modalButton, { 
+                backgroundColor: theme.colors.primary,
+                shadowColor: theme.colors.shadow
+              }]}
               onPress={() => setShowInfoModal(false)}
             >
-              <Text style={[styles.modalButtonText, { color: theme.colors.buttonText }]}>Got It</Text>
+              <Text style={[styles.modalButtonText, { 
+                color: theme.colors.buttonText,
+                fontFamily: 'Orbitron',
+                letterSpacing: 0.5
+              }]}>
+                GOT IT
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -630,29 +906,65 @@ const TestListScreen = ({ route, navigation }) => {
         <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
           <View style={[styles.modalContent, { 
             backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border
+            borderColor: theme.colors.border,
+            borderWidth: 1,
+            shadowColor: theme.colors.shadow
           }]}>
-            <Ionicons name="warning" size={30} color={theme.colors.warning} style={styles.modalIcon} />
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Confirm Restart</Text>
-            <Text style={[styles.modalText, { color: theme.colors.textSecondary }]}>
+            <LinearGradient
+              colors={[theme.colors.warning, theme.colors.warning + '60']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalHeader}
+            >
+              <Ionicons name="warning" size={24} color={theme.colors.buttonText} style={styles.modalHeaderIcon} />
+              <Text style={[styles.modalTitle, { 
+                color: theme.colors.buttonText,
+                fontFamily: 'Orbitron-Bold',
+                letterSpacing: 1
+              }]}>
+                CONFIRM RESTART
+              </Text>
+            </LinearGradient>
+            
+            <Text style={[styles.modalText, { 
+              color: theme.colors.textSecondary,
+              fontFamily: 'ShareTechMono'
+            }]}>
               You're currently in progress on Test {selectedTest}. Are you sure you want to restart?
               {'\n\n'}All current progress will be lost, and your test will begin with your selected length.
             </Text>
+            
             <View style={styles.modalButtons}>
               <TouchableOpacity 
-                style={[styles.modalButton, styles.confirmButton, { backgroundColor: theme.colors.primary }]}
+                style={[styles.modalButton, styles.confirmButton, { 
+                  backgroundColor: theme.colors.primary,
+                  shadowColor: theme.colors.shadow
+                }]}
                 onPress={confirmRestart}
               >
-                <Text style={[styles.modalButtonText, { color: theme.colors.buttonText }]}>Yes, Restart</Text>
+                <Text style={[styles.modalButtonText, { 
+                  color: theme.colors.buttonText,
+                  fontFamily: 'Orbitron',
+                  letterSpacing: 0.5
+                }]}>
+                  YES, RESTART
+                </Text>
               </TouchableOpacity>
+              
               <TouchableOpacity 
                 style={[styles.modalButton, styles.cancelButton, { 
                   backgroundColor: 'transparent',
+                  borderWidth: 1,
                   borderColor: theme.colors.border
                 }]}
                 onPress={() => setShowRestartModal(false)}
               >
-                <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary }]}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { 
+                  color: theme.colors.textSecondary,
+                  fontFamily: 'ShareTechMono'
+                }]}>
+                  CANCEL
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -669,12 +981,31 @@ const TestListScreen = ({ route, navigation }) => {
         <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
           <View style={[styles.modalContent, { 
             backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border
+            borderColor: theme.colors.border,
+            borderWidth: 1,
+            shadowColor: theme.colors.shadow
           }]}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Select Test Length</Text>
-            <Text style={[styles.modalText, { color: theme.colors.textSecondary }]}>
+            <LinearGradient
+              colors={[theme.colors.primary, theme.colors.primary + '60']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalHeader}
+            >
+              <Text style={[styles.modalTitle, { 
+                color: theme.colors.buttonText,
+                fontFamily: 'Orbitron-Bold',
+                letterSpacing: 1
+              }]}>
+                SELECT TEST LENGTH
+              </Text>
+            </LinearGradient>
+            
+            <Text style={[styles.modalText, { 
+              color: theme.colors.textSecondary,
+              fontFamily: 'ShareTechMono'
+            }]}>
               How many questions would you like to answer?
-              {examMode ? '\n\nExam Mode is ON' : ''}
+              {examMode ? '\n\nEXAM MODE IS ON' : ''}
             </Text>
             
             <View style={styles.lengthModalOptions}>
@@ -687,6 +1018,7 @@ const TestListScreen = ({ route, navigation }) => {
                       backgroundColor: (selectedLengths[testForLength] || 100) === length
                         ? theme.colors.primary + '20'
                         : theme.colors.inputBackground,
+                      borderWidth: 1,
                       borderColor: (selectedLengths[testForLength] || 100) === length
                         ? theme.colors.primary
                         : theme.colors.border
@@ -696,7 +1028,10 @@ const TestListScreen = ({ route, navigation }) => {
                 >
                   <Text style={[
                     styles.lengthModalOptionText,
-                    { color: theme.colors.text },
+                    { 
+                      color: theme.colors.text,
+                      fontFamily: 'ShareTechMono'
+                    },
                     (selectedLengths[testForLength] || 100) === length && {
                       color: theme.colors.primary,
                       fontWeight: 'bold'
@@ -710,19 +1045,35 @@ const TestListScreen = ({ route, navigation }) => {
             
             <View style={styles.modalButtons}>
               <TouchableOpacity 
-                style={[styles.modalButton, styles.confirmButton, { backgroundColor: theme.colors.primary }]}
+                style={[styles.modalButton, styles.confirmButton, { 
+                  backgroundColor: theme.colors.primary,
+                  shadowColor: theme.colors.shadow
+                }]}
                 onPress={confirmTestLength}
               >
-                <Text style={[styles.modalButtonText, { color: theme.colors.buttonText }]}>Start Test</Text>
+                <Text style={[styles.modalButtonText, { 
+                  color: theme.colors.buttonText,
+                  fontFamily: 'Orbitron',
+                  letterSpacing: 0.5
+                }]}>
+                  START TEST
+                </Text>
               </TouchableOpacity>
+              
               <TouchableOpacity 
                 style={[styles.modalButton, styles.cancelButton, { 
                   backgroundColor: 'transparent',
+                  borderWidth: 1,
                   borderColor: theme.colors.border
                 }]}
                 onPress={() => setShowTestLengthModal(false)}
               >
-                <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary }]}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { 
+                  color: theme.colors.textSecondary,
+                  fontFamily: 'ShareTechMono'
+                }]}>
+                  CANCEL
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -737,9 +1088,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  mainContent: {
+    flex: 1,
+  },
   header: {
     padding: 20,
     borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -750,12 +1105,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   title: {
-    fontSize: 22,
+    fontSize: 14,
     fontWeight: 'bold',
     marginBottom: 5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 9,
   },
   examModeToggle: {
     flexDirection: 'row',
@@ -795,7 +1150,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 15,
     overflow: 'hidden',
-    borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   testCardHeader: {
     flexDirection: 'row',
@@ -803,9 +1161,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 15,
     borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   testNumberText: {
-    fontSize: 18,
+    fontSize: 8,
     fontWeight: 'bold',
   },
   difficultyBadge: {
@@ -814,7 +1173,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   difficultyText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
   },
   progressSection: {
@@ -863,12 +1222,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   startButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 12,
     borderRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   resumeButton: {
     flexDirection: 'row',
@@ -878,6 +1246,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flex: 1,
     marginRight: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   restartButton: {
     flexDirection: 'row',
@@ -887,7 +1259,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flex: 1,
     marginLeft: 8,
-    borderWidth: 1,
   },
   reviewButton: {
     flexDirection: 'row',
@@ -897,6 +1268,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flex: 1,
     marginRight: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   buttonText: {
     fontSize: 14,
@@ -914,9 +1289,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   // Loading and Error states
+  loadingGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
   loadingText: {
-    marginTop: 10,
+    marginTop: 15,
     fontSize: 16,
+  },
+  errorGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   errorTitle: {
     marginTop: 15,
@@ -934,6 +1321,12 @@ const styles = StyleSheet.create({
   // Auth message
   authMessage: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  authMessageGradient: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -960,49 +1353,66 @@ const styles = StyleSheet.create({
   modalContent: {
     borderRadius: 12,
     width: '85%',
-    padding: 20,
     alignItems: 'center',
-    borderWidth: 1,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  modalIcon: {
-    marginBottom: 10,
+  modalHeader: {
+    width: '100%',
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalHeaderIcon: {
+    marginRight: 10,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 15,
   },
   modalText: {
     fontSize: 15,
     textAlign: 'center',
+    marginTop: 20,
     marginBottom: 20,
     lineHeight: 22,
+    paddingHorizontal: 20,
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'center',
     width: '100%',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   modalButton: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
     minWidth: 120,
     alignItems: 'center',
     marginHorizontal: 5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   confirmButton: {
-    // backgroundColor styling moved to inline
+    // Style via props
   },
   cancelButton: {
-    borderWidth: 1,
+    // Style via props
   },
   modalButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   cancelButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   // Test Length Modal specific
@@ -1011,9 +1421,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     marginBottom: 20,
+    paddingHorizontal: 20,
   },
   lengthModalOption: {
-    borderWidth: 1,
     paddingHorizontal: 15,
     paddingVertical: 10,
     borderRadius: 8,

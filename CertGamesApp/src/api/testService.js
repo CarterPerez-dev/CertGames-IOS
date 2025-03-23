@@ -37,10 +37,30 @@ const formatImageUrl = (url) => {
  */
 export const fetchTestsByCategory = async (category) => {
   try {
-    // Generate 10 test objects for the category, matching web app approach
+    // Define proper test name prefixes based on category
+    const displayNames = {
+      "aplus": "A+ (1101)",
+      "aplus2": "A+ (1102)",
+      "nplus": "Network+ (N10-009)",
+      "secplus": "Security+ (SY0-701)",
+      "cysa": "CySA+ (CS0-003)",
+      "penplus": "PenTest+ (PT0-003)",
+      "linuxplus": "Linux+ (XK0-005)",
+      "caspplus": "CASP+ (CAS-005)",
+      "cloudplus": "Cloud+ (CV0-004)",
+      "dataplus": "Data+ (DA0-001)",
+      "serverplus": "Server+ (SK0-005)",
+      "cissp": "ISC² CISSP",
+      "awscloud": "AWS Cloud (CLF-002)"
+    };
+    
+    const namePrefix = displayNames[category] || 
+                       category.charAt(0).toUpperCase() + category.slice(1);
+    
+    // Generate 10 test objects for the category with proper naming
     return Array.from({ length: 10 }, (_, i) => ({
       testId: i + 1,
-      testName: `${category.charAt(0).toUpperCase() + category.slice(1)} Test ${i + 1}`,
+      testName: `${namePrefix} Test #${i + 1}`,
       category: category,
       questionCount: 100
     }));

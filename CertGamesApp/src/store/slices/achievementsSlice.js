@@ -22,7 +22,10 @@ const achievementsSlice = createSlice({
     error: null
   },
   reducers: {
-    // Any additional reducers needed
+    // Add this reducer to handle direct updates to achievements (e.g. from WebSocket)
+    updateAchievements: (state, action) => {
+      state.all = action.payload;
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -40,4 +43,5 @@ const achievementsSlice = createSlice({
   }
 });
 
+export const { updateAchievements } = achievementsSlice.actions;
 export default achievementsSlice.reducer;

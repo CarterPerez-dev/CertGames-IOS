@@ -1,7 +1,7 @@
 // src/hooks/useAchievements.js
 import { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchAchievements } from '../api/achievementService';
+import { fetchAchievements } from '../store/slices/achievementsSlice';
 import { fetchUserData } from '../store/slices/userSlice';
 import { CATEGORY_NAMES, getAchievementCategory } from '../constants/achievementConstants';
 
@@ -12,37 +12,26 @@ import { CATEGORY_NAMES, getAchievementCategory } from '../constants/achievement
 const useAchievements = () => {
   const dispatch = useDispatch();
   const { userId, achievements: userAchievements } = useSelector((state) => state.user);
+  const { all: allAchievements, status: achievementsStatus } = useSelector((state) => state.achievements);
   
-  const [allAchievements, setAllAchievements] = useState([]);
   const [filteredAchievements, setFilteredAchievements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   const [error, setError] = useState(null);
   
-  // Load achievements data
-  const loadAchievements = useCallback(async () => {
-    try {
-      setLoading(true);
-      const achievements = await fetchAchievements();
-      setAllAchievements(achievements);
-      filterAchievements(achievements, activeCategory);
-      setError(null);
-    } catch (err) {
-      console.error('Achievements fetch error:', err);
-      setError('Failed to load achievements. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [activeCategory]);
-  
-  // Initial load
+  // This effect will ensure achievements are fetched when userId changes or when achievements are unlocked
   useEffect(() => {
-    loadAchievements();
-  }, [loadAchievements]);
+    if (userId) {
+      // Fetch achievements if they haven't been loaded yet
+      if (achievementsStatus === 'idle' || allAchievements.length === 0) {
+        dispatch(fetchAchievements());
+      }
+    }
+  }, [userId, achievementsStatus, allAchievements.length, dispatch]);
   
   // Filter achievements by category
-  const filterAchievements = (achievements, category) => {
+  const filterAchievements = useCallback((achievements, category) => {
     if (category === 'all') {
       setFilteredAchievements(achievements);
     } else {
@@ -52,7 +41,13 @@ const useAchievements = () => {
         )
       );
     }
-  };
+  }, []);
+  
+  // This effect will filter achievements whenever userAchievements or allAchievements change
+  useEffect(() => {
+    filterAchievements(allAchievements, activeCategory);
+    setLoading(false);
+  }, [allAchievements, userAchievements, activeCategory, filterAchievements]);
   
   // Handle category change
   const handleCategoryChange = (category) => {
@@ -60,13 +55,18 @@ const useAchievements = () => {
     filterAchievements(allAchievements, category);
   };
   
-  // Handle refresh
+  // Use this improved handleRefresh function
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([
-      loadAchievements(),
-      dispatch(fetchUserData(userId))
-    ]);
+    
+    // Dispatch both actions to refresh data
+    if (userId) {
+      await Promise.all([
+        dispatch(fetchAchievements()),
+        dispatch(fetchUserData(userId))
+      ]);
+    }
+    
     setRefreshing(false);
   };
   
@@ -112,7 +112,7 @@ const useAchievements = () => {
     categories: CATEGORY_NAMES,
     
     // Methods
-    loadAchievements,
+    filterAchievements,
     handleCategoryChange,
     handleRefresh,
     isAchievementUnlocked,

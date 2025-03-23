@@ -61,6 +61,34 @@ const initialState = {
   error: null,
 };
 
+// Helper function to calculate level from XP
+// Note: This should match your backend logic for calculating levels
+function calculateLevelFromXP(xp) {
+  // Basic level calculation
+  if (xp < 0) return 1;
+  
+  if (xp < 500) return 1;
+  if (xp < 1000) return 2;
+  
+  // For levels 3-30: 500 XP per level
+  if (xp < 14500) { // 500 + 14000 (29*500 for levels 3-30)
+    return Math.floor((xp - 500) / 500) + 2;
+  }
+  
+  // For levels 31-60: 750 XP per level
+  if (xp < 37000) { // 14500 + 22500 (30*750 for levels 31-60)
+    return Math.floor((xp - 14500) / 750) + 30;
+  }
+  
+  // For levels 61-100: 1000 XP per level
+  if (xp < 77000) { // 37000 + 40000 (40*1000 for levels 61-100)
+    return Math.floor((xp - 37000) / 1000) + 60;
+  }
+  
+  // For levels 101+: 1500 XP per level
+  return Math.floor((xp - 77000) / 1500) + 100;
+}
+
 // Slice
 const userSlice = createSlice({
   name: 'user',
@@ -96,6 +124,33 @@ const userSlice = createSlice({
     
     updateXp: (state, action) => {
       state.xp = action.payload;
+      // Recalculate level based on new XP
+      state.level = calculateLevelFromXP(action.payload);
+    },
+    
+    setXPAndCoins: (state, action) => {
+      const { xp, coins, newlyUnlocked } = action.payload;
+      
+      // Update XP and coins directly
+      if (typeof xp === 'number') {
+        state.xp = xp;
+        // Recalculate level based on new XP
+        const newLevel = calculateLevelFromXP(xp);
+        if (newLevel !== state.level) {
+          state.level = newLevel;
+        }
+      }
+      
+      if (typeof coins === 'number') state.coins = coins;
+      
+      // Add any new achievements to the array
+      if (newlyUnlocked && Array.isArray(newlyUnlocked) && newlyUnlocked.length > 0) {
+        newlyUnlocked.forEach(achievementId => {
+          if (!state.achievements.includes(achievementId)) {
+            state.achievements.push(achievementId);
+          }
+        });
+      }
     },
     
     // Add this new reducer
@@ -164,6 +219,12 @@ const userSlice = createSlice({
           state.xp = action.payload.newXP;
           state.lastDailyClaim = action.payload.newLastDailyClaim;
           
+          // Recalculate level based on new XP
+          const newLevel = calculateLevelFromXP(action.payload.newXP);
+          if (newLevel !== state.level) {
+            state.level = newLevel;
+          }
+          
           // If there are newly unlocked achievements
           if (action.payload.newlyUnlocked && action.payload.newlyUnlocked.length > 0) {
             // Add the new achievements to the array if they don't already exist
@@ -179,5 +240,5 @@ const userSlice = createSlice({
 });
 
 // Export actions and reducer
-export const { setUser, logout, updateCoins, updateXp, clearAuthErrors } = userSlice.actions;
+export const { setUser, logout, updateCoins, updateXp, setXPAndCoins, clearAuthErrors } = userSlice.actions;
 export default userSlice.reducer;

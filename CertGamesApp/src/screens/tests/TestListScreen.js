@@ -19,6 +19,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 import testService from '../../api/testService';
+import { fetchUserData } from '../../store/slices/userSlice';
+import useUserData from '../../hooks/useUserData';
 import { DIFFICULTY_CATEGORIES, TEST_LENGTHS, EXAM_MODE_INFO } from '../../constants/testConstants';
 
 /**
@@ -31,7 +33,7 @@ import { DIFFICULTY_CATEGORIES, TEST_LENGTHS, EXAM_MODE_INFO } from '../../const
  */
 const TestListScreen = ({ route, navigation }) => {
   const { category, title } = route.params || {};
-  const { userId } = useSelector(state => state.user);
+  const dispatch = useDispatch();
   
   // Access theme
   const { theme } = useTheme();

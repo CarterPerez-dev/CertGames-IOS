@@ -28,6 +28,7 @@ import testService from '../../api/testService';
 
 import { fetchShopItems } from '../../store/slices/shopSlice';
 import { fetchAchievements } from '../../store/slices/achievementsSlice';
+import { setXPAndCoins } from '../../store/slices/userSlice';
 
 import FormattedQuestion from '../../components/FormattedQuestion';
 
@@ -558,13 +559,12 @@ const TestScreen = ({ route, navigation }) => {
           }
 
           if (awardData.isCorrect && !awardData.alreadyCorrect && awardData.awardedXP) {
-            dispatch({
-              type: 'user/setXPAndCoins',
-              payload: {
-                xp: awardData.newXP,
-                coins: awardData.newCoins
-              }
-            });
+            // Use the action creator for Redux updates
+            dispatch(setXPAndCoins({
+              xp: awardData.newXP,
+              coins: awardData.newCoins,
+              newlyUnlocked: awardData.newlyUnlocked || []
+            }));
           }
         }
       } catch (err) {
@@ -575,10 +575,6 @@ const TestScreen = ({ route, navigation }) => {
       isAnswered,
       questionObject,
       examMode,
-      testData,
-      xpBoost,
-      userId,
-      testId,
       dispatch,
       score,
       answers,
@@ -588,6 +584,49 @@ const TestScreen = ({ route, navigation }) => {
     ]
   );
 
+  // Skip the current question
+  const skipQuestion = useCallback(async () => {
+    if (!questionObject) return false;
+    
+    const updatedAnswers = [...answers];
+    const idx = updatedAnswers.findIndex(a => a.questionId === questionObject.id);
+    
+    const skipObj = {
+      questionId: questionObject.id,
+      userAnswerIndex: null,
+      correctAnswerIndex: questionObject.correctAnswerIndex
+    };
+    
+    if (idx >= 0) {
+      updatedAnswers[idx] = skipObj;
+    } else {
+      updatedAnswers.push(skipObj);
+    }
+    
+    setAnswers(updatedAnswers);
+    setIsAnswered(false);
+    setSelectedOptionIndex(null);
+    
+    await updateServerProgress(updatedAnswers, score, false, skipObj);
+    
+    // If this is the last question, finish the test
+    if (currentQuestionIndex === activeTestLength - 1) {
+      return await finishTestProcess();
+    }
+    
+    // Move to next question
+    setCurrentQuestionIndex(prev => prev + 1);
+    return true;
+  }, [
+    questionObject, 
+    answers, 
+    score, 
+    updateServerProgress, 
+    currentQuestionIndex, 
+    activeTestLength,
+    finishTestProcess
+  ]);
+  
   // Finish the test
   const finishTestProcess = useCallback(async () => {
     let finalScore = 0;
@@ -603,8 +642,7 @@ const TestScreen = ({ route, navigation }) => {
     setIsFinished(true);
 
     try {
-    // First ensure the attempt exists with the correct category
-    // This is crucial - we want to make sure there's a valid attempt to finish
+      // First ensure the attempt exists with the correct category
       await testService.createOrUpdateAttempt(userId, testId, {
         category,
         answers,
@@ -641,21 +679,18 @@ const TestScreen = ({ route, navigation }) => {
         category
       });
       
-      // Handle achievement unlocks
-      if (finishData.newlyUnlocked && finishData.newlyUnlocked.length > 0) {
-        console.log('New achievements unlocked:', finishData.newlyUnlocked);
-      }
-
-      // Update user XP and coins
+      // Use the setXPAndCoins action creator for Redux updates
       if (typeof finishData.newXP !== "undefined" && typeof finishData.newCoins !== "undefined") {
-        dispatch({
-          type: 'user/setXPAndCoins',
-          payload: {
-            xp: finishData.newXP,
-            coins: finishData.newCoins,
-            newlyUnlocked: finishData.newlyUnlocked || []
-          }
-        });
+        dispatch(setXPAndCoins({
+          xp: finishData.newXP,
+          coins: finishData.newCoins,
+          newlyUnlocked: finishData.newlyUnlocked || []
+        }));
+
+        // Log achievements for debugging
+        if (finishData.newlyUnlocked && finishData.newlyUnlocked.length > 0) {
+          console.log('New achievements unlocked:', finishData.newlyUnlocked);
+        }
       }
     } catch (err) {
       console.error("Failed to finish test attempt:", err);
@@ -667,88 +702,75 @@ const TestScreen = ({ route, navigation }) => {
     }
 
     setShowScoreModal(true);
-  }, [answers, userId, testId, effectiveTotal, dispatch, category, activeTestLength, 
-      currentQuestionIndex, shuffleOrder, answerOrder, examMode]);
-  
-  // Navigation between questions 
-  const handleNextQuestion = useCallback(() => {
-    if (!isAnswered && !examMode) {
-      setShowWarningModal(true);
-      return;
-    }
-
-    if (currentQuestionIndex === effectiveTotal - 1) {
-      finishTestProcess();
-      return;
-    }
-
-    const nextIndex = currentQuestionIndex + 1;
-    setCurrentQuestionIndex(nextIndex);
-    updateServerProgress(answers, score, false);
+    
+    // Mark that a test was just completed so TestListScreen can refresh when we go back
+    navigation.setParams({ testJustCompleted: true });
+    
+    return { success: true };
   }, [
-    isAnswered,
+    answers, 
+    userId, 
+    testId, 
+    effectiveTotal, 
+    dispatch, 
+    category, 
+    activeTestLength, 
+    currentQuestionIndex, 
+    shuffleOrder, 
+    answerOrder, 
     examMode,
-    currentQuestionIndex,
-    effectiveTotal,
-    finishTestProcess,
-    updateServerProgress,
-    answers,
-    score
+    navigation
   ]);
 
-  const handlePreviousQuestion = useCallback(() => {
+  // Navigate to the next question
+  const handleNextQuestion = useCallback(async () => {
+    if (!isAnswered && !examMode) {
+      setShowWarningModal(true);
+      return { success: false, message: 'Please answer or skip the question' };
+    }
+    
+    // If this is the last question, finish the test
+    if (currentQuestionIndex === activeTestLength - 1) {
+      return await finishTestProcess();
+    }
+    
+    // Move to next question
+    setCurrentQuestionIndex(prev => prev + 1);
+    await updateServerProgress(answers, score, false);
+    return { success: true };
+  }, [
+    isAnswered, 
+    examMode, 
+    currentQuestionIndex, 
+    activeTestLength, 
+    answers, 
+    score, 
+    updateServerProgress,
+    finishTestProcess
+  ]);
+  
+  // Navigate to the previous question
+  const handlePreviousQuestion = useCallback(async () => {
     if (currentQuestionIndex > 0) {
-      const prevIndex = currentQuestionIndex - 1;
-      setCurrentQuestionIndex(prevIndex);
-      updateServerProgress(answers, score, false);
+      setCurrentQuestionIndex(prev => prev - 1);
+      await updateServerProgress(answers, score, false);
+      return true;
     }
-  }, [currentQuestionIndex, updateServerProgress, answers, score]);
-
-  // Skip the current question
-  const handleSkipQuestion = () => {
+    return false;
+  }, [currentQuestionIndex, answers, score, updateServerProgress]);
+  
+  // Toggle flag on the current question
+  const handleFlagQuestion = useCallback(() => {
     if (!questionObject) return;
-
-    const updatedAnswers = [...answers];
-    const idx = updatedAnswers.findIndex(a => a.questionId === questionObject.id);
-
-    const skipObj = {
-      questionId: questionObject.id,
-      userAnswerIndex: null,
-      correctAnswerIndex: questionObject.correctAnswerIndex
-    };
-
-    if (idx >= 0) {
-      updatedAnswers[idx] = skipObj;
-    } else {
-      updatedAnswers.push(skipObj);
-    }
-
-    setAnswers(updatedAnswers);
-    setIsAnswered(false);
-    setSelectedOptionIndex(null);
-
-    updateServerProgress(updatedAnswers, score, false, skipObj);
-
-    if (currentQuestionIndex === effectiveTotal - 1) {
-      finishTestProcess();
-      return;
-    }
-
-    setCurrentQuestionIndex(currentQuestionIndex + 1);
-  };
-
-  // Flag the current question
-  const handleFlagQuestion = () => {
-    if (!questionObject) return;
-
+    
     const qId = questionObject.id;
     if (flaggedQuestions.includes(qId)) {
-      setFlaggedQuestions(flaggedQuestions.filter(x => x !== qId));
+      setFlaggedQuestions(prev => prev.filter(id => id !== qId));
     } else {
-      setFlaggedQuestions([...flaggedQuestions, qId]);
+      setFlaggedQuestions(prev => [...prev, qId]);
     }
-  };
-
+  }, [questionObject, flaggedQuestions]);
+  
   // Restart the test
   const handleRestartTest = useCallback(async () => {
     setCurrentQuestionIndex(0);
@@ -1824,7 +1846,7 @@ const TestScreen = ({ route, navigation }) => {
             backgroundColor: theme.colors.surfaceHighlight,
             borderColor: theme.colors.border
           }]}
-          onPress={handleSkipQuestion}
+          onPress={skipQuestion}
         >
           <Ionicons name="play-skip-forward" size={18} color={theme.colors.textSecondary} />
           <Text style={[styles.skipButtonText, { color: theme.colors.textSecondary }]}>Skip Question</Text>

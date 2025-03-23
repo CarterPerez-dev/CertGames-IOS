@@ -1,5 +1,5 @@
-// src/screens/HomeScreen.js - FINAL VERSION
-import React, { useEffect, useState, useRef } from 'react';
+// src/screens/HomeScreen.js - UPDATED VERSION
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -18,41 +18,49 @@ import * as Haptics from 'expo-haptics';
 import { fetchUserData, claimDailyBonus } from '../store/slices/userSlice';
 import { useTheme } from '../context/ThemeContext'; 
 import { LinearGradient } from 'expo-linear-gradient';
+import useUserData from '../hooks/useUserData';
 
 const { width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { theme } = useTheme(); 
-  const { userId, username, level, xp, coins, status, lastDailyClaim } = useSelector((state) => state.user);
-  const isLoading = status === 'loading';
+  const { theme } = useTheme();
+  
+  // Use our custom hook for user data - this will automatically refresh data
+  const { 
+    userId, 
+    username, 
+    level, 
+    xp, 
+    coins, 
+    achievements: userAchievements, 
+    lastDailyClaim,
+    isLoading,
+    refreshData
+  } = useUserData();
+  
+  // Keep some things in component state for UI purposes
   const [refreshing, setRefreshing] = useState(false);
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const coinsFlashAnim = useRef(new Animated.Value(0)).current;
+  const xpFlashAnim = useRef(new Animated.Value(0)).current;
+  
+  // Store previous values to detect changes for animations
+  const prevCoinsRef = useRef(coins);
+  const prevXpRef = useRef(xp);
+  const prevLevelRef = useRef(level);
   
   // Animated values for cards
   const [cardAnims] = useState([...Array(20)].map(() => new Animated.Value(0)));
   
-  // Start coin flash animation
-  const flashCoins = () => {
-    Animated.sequence([
-      Animated.timing(coinsFlashAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true
-      }),
-      Animated.timing(coinsFlashAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true
-      })
-    ]).start();
-  };
+  // Track level up animation
+  const [showLevelUpAnimation, setShowLevelUpAnimation] = useState(false);
+  const levelUpAnimAnim = useRef(new Animated.Value(0)).current;
   
-  // Animation on mount
+  // Start animations on mount
   useEffect(() => {
     // Animate main content
     Animated.parallel([
@@ -79,31 +87,114 @@ const HomeScreen = ({ navigation }) => {
     });
   }, []);
   
+  // This effect triggers the coin animation whenever coins change
   useEffect(() => {
-    if (userId) {
-      dispatch(fetchUserData(userId));
+    const prevCoins = prevCoinsRef.current;
+    
+    // Only animate if coins increased
+    if (coins > prevCoins) {
+      Animated.sequence([
+        Animated.timing(coinsFlashAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.timing(coinsFlashAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true
+        })
+      ]).start();
+      
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
     }
-  }, [dispatch, userId]);
+    
+    // Update ref for next comparison
+    prevCoinsRef.current = coins;
+  }, [coins, coinsFlashAnim]);
   
+  // This effect triggers the XP animation whenever XP changes
+  useEffect(() => {
+    const prevXp = prevXpRef.current;
+    
+    // Only animate if XP increased
+    if (xp > prevXp) {
+      Animated.sequence([
+        Animated.timing(xpFlashAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.timing(xpFlashAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true
+        })
+      ]).start();
+    }
+    
+    // Update ref for next comparison
+    prevXpRef.current = xp;
+  }, [xp, xpFlashAnim]);
+  
+  // This effect shows the level up animation when level increases
+  useEffect(() => {
+    const prevLevel = prevLevelRef.current;
+    
+    // Show animation if level increased
+    if (level > prevLevel && prevLevel > 0) {  // Avoid initial render
+      setShowLevelUpAnimation(true);
+      
+      Animated.sequence([
+        Animated.timing(levelUpAnimAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true
+        }),
+        Animated.delay(2000),
+        Animated.timing(levelUpAnimAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true
+        })
+      ]).start(() => {
+        setShowLevelUpAnimation(false);
+      });
+      
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    }
+    
+    // Update ref for next comparison
+    prevLevelRef.current = level;
+  }, [level, levelUpAnimAnim]);
+  
+  // Handle refresh
   const onRefresh = async () => {
     setRefreshing(true);
-    if (userId) {
-      await dispatch(fetchUserData(userId));
-    }
+    await refreshData();
     setRefreshing(false);
   };
 
   // Apply haptic feedback on button press
   const handleButtonPress = (callback) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     callback();
   };
   
   const handleClaimDailyBonus = () => {
     if (userId) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
       dispatch(claimDailyBonus(userId));
-      flashCoins();
+      
+      // Animation will be triggered by the useEffect watching for coin changes
     }
   };
   
@@ -168,8 +259,42 @@ const HomeScreen = ({ navigation }) => {
   // Calculate XP percentage for progress bar
   const xpPercentage = Math.min((xp % 1000) / 10, 100);
 
+  // Render level up animation
+  const renderLevelUpAnimation = () => {
+    if (!showLevelUpAnimation) return null;
+
+    return (
+      <Animated.View
+        style={[
+          styles.levelUpOverlay,
+          {
+            opacity: levelUpAnimAnim,
+            transform: [
+              { scale: levelUpAnimAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1]
+              })},
+              { translateY: levelUpAnimAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [50, 0]
+              })}
+            ],
+            backgroundColor: theme.colors.primary + 'E6',
+          }
+        ]}
+      >
+        <Text style={[styles.levelUpText, { color: theme.colors.buttonText }]}>
+          LEVEL UP! You are now Level {level}
+        </Text>
+      </Animated.View>
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Level up animation */}
+      {renderLevelUpAnimation()}
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -186,13 +311,6 @@ const HomeScreen = ({ navigation }) => {
       >
         {/* Header (now part of the scrolling content) */}
         <View style={styles.headerContainer}>
-          {/* Background image commented out
-          <ImageBackground
-            source={require('../../assets/cyber-grid.png')}
-            style={styles.headerBackground}
-            imageStyle={[styles.headerBackgroundImage, { tintColor: theme.colors.primary + '40' }]}
-          >
-          */}
           <LinearGradient
             colors={[theme.colors.primary + '30', theme.colors.background]}
             start={{x: 0, y: 0}}
@@ -208,7 +326,6 @@ const HomeScreen = ({ navigation }) => {
               </Text>
             </View>
           </LinearGradient>
-          {/* </ImageBackground> */}
         </View>
         
         {/* User Stats Panel */}
@@ -252,18 +369,34 @@ const HomeScreen = ({ navigation }) => {
                     USER LEVEL
                   </Text>
                   <View style={styles.statsValueRow}>
-                    <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary }]}>
+                    <Animated.View 
+                      style={[styles.levelBadge, { 
+                        backgroundColor: theme.colors.primary,
+                        transform: [{ scale: xpFlashAnim.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: [1, 1.2, 1]
+                        })}]
+                      }]}
+                    >
                       <Text style={[styles.levelText, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
                         {level}
                       </Text>
-                    </View>
+                    </Animated.View>
                     <View style={styles.levelProgress}>
                       <Text style={[styles.levelProgressText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
                         NEXT LVL: {1000 - (xp % 1000)} XP
                       </Text>
-                      <View style={[styles.progressBarContainer, { backgroundColor: theme.colors.border + '40' }]}>
+                      <Animated.View 
+                        style={[styles.progressBarContainer, { 
+                          backgroundColor: theme.colors.border + '40',
+                          borderColor: xpFlashAnim.interpolate({
+                            inputRange: [0, 0.5, 1],
+                            outputRange: ['transparent', theme.colors.primary, 'transparent']
+                          })
+                        }]}
+                      >
                         <View style={[styles.progressBar, { width: `${xpPercentage}%`, backgroundColor: theme.colors.primary }]} />
-                      </View>
+                      </Animated.View>
                     </View>
                   </View>
                 </View>
@@ -280,7 +413,14 @@ const HomeScreen = ({ navigation }) => {
                     }
                   ]}
                 >
-                  <Ionicons name="cash" size={24} color={theme.colors.goldBadge} style={styles.coinsIcon} />
+                  <Animated.View style={{
+                    transform: [{ scale: coinsFlashAnim.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: [1, 1.3, 1]
+                    })}]
+                  }}>
+                    <Ionicons name="cash" size={24} color={theme.colors.goldBadge} style={styles.coinsIcon} />
+                  </Animated.View>
                   <Text style={[styles.coinsValue, { color: theme.colors.goldBadge, fontFamily: 'Orbitron-Bold' }]}>
                     {coins.toLocaleString()}
                   </Text>
@@ -290,7 +430,16 @@ const HomeScreen = ({ navigation }) => {
                 </Animated.View>
               </View>
               
-              <View style={[styles.experienceBox, { borderColor: theme.colors.border }]}>
+              <Animated.View 
+                style={[styles.experienceBox, { 
+                  borderColor: theme.colors.border,
+                  borderWidth: 1,
+                  backgroundColor: xpFlashAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [theme.colors.surface, theme.colors.primary + '10']
+                  })
+                }]}
+              >
                 <View style={styles.experienceHeader}>
                   <Text style={[styles.experienceLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
                     EXPERIENCE POINTS
@@ -324,7 +473,7 @@ const HomeScreen = ({ navigation }) => {
                     ]} 
                   />
                 </View>
-              </View>
+              </Animated.View>
             </View>
           </Animated.View>
         )}
@@ -542,6 +691,7 @@ const HomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  // All the same styles as before
   container: {
     flex: 1,
   },
@@ -549,16 +699,6 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
   },
-  // Background image style commented out
-  /*
-  headerBackground: {
-    width: '100%',
-    height: '100%',
-  },
-  headerBackgroundImage: {
-    opacity: 0.5,
-  },
-  */
   headerGradient: {
     paddingHorizontal: 20,
     paddingBottom: 15,
@@ -588,6 +728,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 15,
     paddingBottom: 20,
+  },
+  
+  // Level up animation
+  levelUpOverlay: {
+    position: 'absolute',
+    top: 100,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    zIndex: 1000,
+  },
+  levelUpText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   
   // Stats Panel
@@ -681,6 +837,7 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     width: '100%',
+    borderWidth: 1,
   },
   progressBar: {
     position: 'absolute',

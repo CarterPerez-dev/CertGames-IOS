@@ -614,7 +614,7 @@ const ShopScreen = () => {
           color: theme.colors.textSecondary,
           fontFamily: 'ShareTechMono'
         }]}>
-          NO ITEMS FOUND IN THIS CATEGORY
+          COMING SOON....
         </Text>
       </View>
     );

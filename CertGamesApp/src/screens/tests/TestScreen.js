@@ -11,7 +11,8 @@ import {
   Modal,
   FlatList,
   Animated,
-  Image
+  Image,
+  Dimensions
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +32,8 @@ import { fetchAchievements } from '../../store/slices/achievementsSlice';
 import { setXPAndCoins } from '../../store/slices/userSlice';
 
 import FormattedQuestion from '../../components/FormattedQuestion';
+
+const { width, height } = Dimensions.get('window');
 
 // Helper functions
 const shuffleArray = (arr) => {
@@ -477,7 +480,7 @@ const TestScreen = ({ route, navigation }) => {
           return data;
         }
 
-        // Update current position (question index, etc.)
+        // Update position data
         await testService.updatePosition(userId, testId, {
           currentQuestionIndex,
           finished
@@ -925,7 +928,7 @@ const TestScreen = ({ route, navigation }) => {
           }
         ]}
       >
-        <Text style={[styles.levelUpText, { color: theme.colors.buttonText }]}>
+        <Text style={[styles.levelUpText, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
           LEVEL UP! You are now Level {level}
         </Text>
       </Animated.View>
@@ -949,15 +952,15 @@ const TestScreen = ({ route, navigation }) => {
             borderColor: theme.colors.border 
           }]}>
             <Ionicons name="warning" size={30} color={theme.colors.warning} style={styles.modalIcon} />
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>No Answer Selected</Text>
-            <Text style={[styles.modalText, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>NO ANSWER SELECTED</Text>
+            <Text style={[styles.modalText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
               You haven't answered this question yet. Please select an answer or skip the question.
             </Text>
             <TouchableOpacity
               style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
               onPress={() => setShowWarningModal(false)}
             >
-              <Text style={[styles.modalButtonText, { color: theme.colors.buttonText }]}>OK</Text>
+              <Text style={[styles.modalButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>OK</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -982,8 +985,8 @@ const TestScreen = ({ route, navigation }) => {
             borderColor: theme.colors.border 
           }]}>
             <Ionicons name="warning" size={30} color={theme.colors.warning} style={styles.modalIcon} />
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Confirm Restart</Text>
-            <Text style={[styles.modalText, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>CONFIRM RESTART</Text>
+            <Text style={[styles.modalText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
               Are you sure you want to restart the test? All progress will be lost and you'll start from the beginning.
             </Text>
             <View style={styles.modalButtons}>
@@ -994,16 +997,17 @@ const TestScreen = ({ route, navigation }) => {
                   handleRestartTest();
                 }}
               >
-                <Text style={[styles.modalButtonText, { color: theme.colors.buttonText }]}>Yes, Restart</Text>
+                <Text style={[styles.modalButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>YES, RESTART</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton, { 
                   backgroundColor: 'transparent',
+                  borderWidth: 1,
                   borderColor: theme.colors.border
                 }]}
                 onPress={() => setShowRestartModal(false)}
               >
-                <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary }]}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>CANCEL</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1029,8 +1033,8 @@ const TestScreen = ({ route, navigation }) => {
             borderColor: theme.colors.border 
           }]}>
             <Ionicons name="warning" size={30} color={theme.colors.warning} style={styles.modalIcon} />
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Confirm Finish</Text>
-            <Text style={[styles.modalText, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>CONFIRM FINISH</Text>
+            <Text style={[styles.modalText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
               Are you sure you want to finish the test now? Any unanswered questions will be marked as skipped.
             </Text>
             <View style={styles.modalButtons}>
@@ -1041,16 +1045,17 @@ const TestScreen = ({ route, navigation }) => {
                   finishTestProcess();
                 }}
               >
-                <Text style={[styles.modalButtonText, { color: theme.colors.buttonText }]}>Yes, Finish</Text>
+                <Text style={[styles.modalButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>YES, FINISH</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton, { 
                   backgroundColor: 'transparent',
+                  borderWidth: 1,
                   borderColor: theme.colors.border
                 }]}
                 onPress={() => setShowFinishModal(false)}
               >
-                <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary }]}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>CANCEL</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1100,24 +1105,24 @@ const TestScreen = ({ route, navigation }) => {
             backgroundColor: theme.colors.surface,
             borderColor: theme.colors.border 
           }]}>
-            <Text style={[styles.scoreTitle, { color: theme.colors.primary }]}>Test Complete!</Text>
+            <Text style={[styles.scoreTitle, { color: theme.colors.primary, fontFamily: 'Orbitron-Bold' }]}>TEST COMPLETE!</Text>
 
             <View style={styles.scoreContainer}>
               <View style={styles.scoreInfo}>
-                <Text style={[styles.scoreText, { color: theme.colors.text }]}>
+                <Text style={[styles.scoreText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
                   You answered <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{score}</Text> out of <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{effectiveTotal}</Text> questions correctly.
                 </Text>
                 
                 {examMode && (
                   <View style={[styles.examModeNote, { backgroundColor: theme.colors.goldBadge + '20' }]}>
                     <Ionicons name="trophy" size={20} color={theme.colors.goldBadge} />
-                    <Text style={[styles.examModeText, { color: theme.colors.goldBadge }]}>You completed this test in exam mode!</Text>
+                    <Text style={[styles.examModeText, { color: theme.colors.goldBadge, fontFamily: 'ShareTechMono' }]}>You completed this test in exam mode!</Text>
                   </View>
                 )}
               </View>
               
               <View style={[styles.scoreCircleContainer, { borderColor: gradeColor }]}>
-                <Text style={[styles.percentageDisplay, { color: gradeColor }]}>{percentage}%</Text>
+                <Text style={[styles.percentageDisplay, { color: gradeColor, fontFamily: 'Orbitron-Bold' }]}>{percentage}%</Text>
                 <Text style={[styles.gradeLabel, { color: gradeColor }]}>{grade}</Text>
               </View>
             </View>
@@ -1132,7 +1137,7 @@ const TestScreen = ({ route, navigation }) => {
               >
                 <View style={styles.scoreButtonInner}>
                   <Ionicons name="refresh" size={18} color={theme.colors.buttonText} />
-                  <Text style={[styles.scoreButtonText, { color: theme.colors.buttonText }]}>Restart</Text>
+                  <Text style={[styles.scoreButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>RESTART</Text>
                 </View>
               </TouchableOpacity>
 
@@ -1148,7 +1153,7 @@ const TestScreen = ({ route, navigation }) => {
               >
                 <View style={styles.scoreButtonInner}>
                   <Ionicons name="eye" size={18} color={theme.colors.buttonText} />
-                  <Text style={[styles.scoreButtonText, { color: theme.colors.buttonText }]}>Review Answers</Text>
+                  <Text style={[styles.scoreButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>REVIEW ANSWERS</Text>
                 </View>
               </TouchableOpacity>
 
@@ -1162,7 +1167,7 @@ const TestScreen = ({ route, navigation }) => {
               >
                 <View style={styles.scoreButtonInner}>
                   <Ionicons name="arrow-back" size={18} color={theme.colors.text} />
-                  <Text style={[styles.scoreButtonText, { color: theme.colors.text }]}>Back to List</Text>
+                  <Text style={[styles.scoreButtonText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>BACK TO LIST</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -1195,10 +1200,10 @@ const TestScreen = ({ route, navigation }) => {
               >
                 <Ionicons name="close" size={24} color={theme.colors.icon} />
               </TouchableOpacity>
-              <Text style={[styles.reviewTitle, { color: theme.colors.text }]}>Review Mode</Text>
+              <Text style={[styles.reviewTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>REVIEW MODE</Text>
 
               {isFinished && (
-                <Text style={[styles.reviewScoreSummary, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles.reviewScoreSummary, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
                   Your score: {score}/{effectiveTotal} ({effectiveTotal ? Math.round((score / effectiveTotal) * 100) : 0}%)
                 </Text>
               )}
@@ -1216,8 +1221,8 @@ const TestScreen = ({ route, navigation }) => {
                   <Ionicons name="list" size={18} color={reviewFilter === 'all' ? theme.colors.buttonText : theme.colors.icon} />
                   <Text style={[
                     styles.filterButtonText, 
-                    { color: reviewFilter === 'all' ? theme.colors.buttonText : theme.colors.textSecondary }
-                  ]}>All</Text>
+                    { color: reviewFilter === 'all' ? theme.colors.buttonText : theme.colors.textSecondary, fontFamily: 'ShareTechMono' }
+                  ]}>ALL</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1230,8 +1235,8 @@ const TestScreen = ({ route, navigation }) => {
                   <Ionicons name="play-skip-forward" size={18} color={reviewFilter === 'skipped' ? theme.colors.buttonText : theme.colors.icon} />
                   <Text style={[
                     styles.filterButtonText, 
-                    { color: reviewFilter === 'skipped' ? theme.colors.buttonText : theme.colors.textSecondary }
-                  ]}>Skipped</Text>
+                    { color: reviewFilter === 'skipped' ? theme.colors.buttonText : theme.colors.textSecondary, fontFamily: 'ShareTechMono' }
+                  ]}>SKIPPED</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1244,8 +1249,8 @@ const TestScreen = ({ route, navigation }) => {
                   <Ionicons name="flag" size={18} color={reviewFilter === 'flagged' ? theme.colors.buttonText : theme.colors.icon} />
                   <Text style={[
                     styles.filterButtonText, 
-                    { color: reviewFilter === 'flagged' ? theme.colors.buttonText : theme.colors.textSecondary }
-                  ]}>Flagged</Text>
+                    { color: reviewFilter === 'flagged' ? theme.colors.buttonText : theme.colors.textSecondary, fontFamily: 'ShareTechMono' }
+                  ]}>FLAGGED</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1258,8 +1263,8 @@ const TestScreen = ({ route, navigation }) => {
                   <Ionicons name="close-circle" size={18} color={reviewFilter === 'incorrect' ? theme.colors.buttonText : theme.colors.icon} />
                   <Text style={[
                     styles.filterButtonText, 
-                    { color: reviewFilter === 'incorrect' ? theme.colors.buttonText : theme.colors.textSecondary }
-                  ]}>Incorrect</Text>
+                    { color: reviewFilter === 'incorrect' ? theme.colors.buttonText : theme.colors.textSecondary, fontFamily: 'ShareTechMono' }
+                  ]}>INCORRECT</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1272,13 +1277,13 @@ const TestScreen = ({ route, navigation }) => {
                   <Ionicons name="checkmark-circle" size={18} color={reviewFilter === 'correct' ? theme.colors.buttonText : theme.colors.icon} />
                   <Text style={[
                     styles.filterButtonText, 
-                    { color: reviewFilter === 'correct' ? theme.colors.buttonText : theme.colors.textSecondary }
-                  ]}>Correct</Text>
+                    { color: reviewFilter === 'correct' ? theme.colors.buttonText : theme.colors.textSecondary, fontFamily: 'ShareTechMono' }
+                  ]}>CORRECT</Text>
                 </TouchableOpacity>
               </ScrollView>
 
-              <Text style={[styles.filterCount, { color: theme.colors.textSecondary }]}>
-                Showing {filteredQuestions.length} questions
+              <Text style={[styles.filterCount, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                SHOWING {filteredQuestions.length} QUESTIONS
               </Text>
             </View>
 
@@ -1338,7 +1343,7 @@ const TestScreen = ({ route, navigation }) => {
                     }
                   ]}>
                     <View style={styles.reviewQuestionHeader}>
-                      <Text style={[styles.reviewQuestionNumber, { color: theme.colors.text }]}>Question {index + 1}</Text>
+                      <Text style={[styles.reviewQuestionNumber, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>QUESTION {index + 1}</Text>
                       {isFlagged && (
                         <Ionicons name="flag" size={18} color={theme.colors.warning} style={styles.flaggedIcon} />
                       )}
@@ -1357,20 +1362,20 @@ const TestScreen = ({ route, navigation }) => {
                     ]}>
                       <View style={styles.answerStatusRow}>
                         <Ionicons name={answerStatus.icon} size={20} color={answerStatus.color} />
-                        <Text style={[styles.answerStatusText, { color: answerStatus.color }]}>
+                        <Text style={[styles.answerStatusText, { color: answerStatus.color, fontFamily: 'ShareTechMono' }]}>
                           {answerStatus.label}
                         </Text>
                       </View>
 
                       {userAns && userAns.userAnswerIndex !== null && (
                         <Text style={[styles.yourAnswerText, { color: theme.colors.text }]}>
-                          <Text style={[styles.answerLabel, { color: theme.colors.text }]}>Your Answer: </Text>
+                          <Text style={[styles.answerLabel, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>Your Answer: </Text>
                           {item.options[userAns.userAnswerIndex]}
                         </Text>
                       )}
 
                       <Text style={[styles.correctAnswerText, { color: theme.colors.text }]}>
-                        <Text style={[styles.answerLabel, { color: theme.colors.text }]}>Correct Answer: </Text>
+                        <Text style={[styles.answerLabel, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>Correct Answer: </Text>
                         {item.options[item.correctAnswerIndex]}
                       </Text>
                     </View>
@@ -1389,7 +1394,7 @@ const TestScreen = ({ route, navigation }) => {
                 style={[styles.closeReviewButtonBottom, { backgroundColor: theme.colors.primary }]}
                 onPress={handleCloseReview}
               >
-                <Text style={[styles.closeReviewButtonText, { color: theme.colors.buttonText }]}>Return to Test</Text>
+                <Text style={[styles.closeReviewButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>RETURN TO TEST</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1418,6 +1423,17 @@ const TestScreen = ({ route, navigation }) => {
             backgroundColor: theme.colors.surface,
             borderColor: theme.colors.border
           }]}>
+            <LinearGradient
+              colors={[theme.colors.primary, theme.colors.primary + '80']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.dropdownHeader}
+            >
+              <Text style={[styles.dropdownHeaderText, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+                SELECT QUESTION
+              </Text>
+            </LinearGradient>
+            
             <FlatList
               data={Array.from({ length: effectiveTotal }, (_, i) => i)}
               keyExtractor={item => item.toString()}
@@ -1433,8 +1449,8 @@ const TestScreen = ({ route, navigation }) => {
                     ]}
                     onPress={() => handleQuestionSelect(index)}
                   >
-                    <Text style={[styles.dropdownItemText, { color: theme.colors.text }]}>
-                      Question {index + 1}
+                    <Text style={[styles.dropdownItemText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                      QUESTION {index + 1}
                     </Text>
                     <View style={styles.dropdownItemStatus}>
                       {status.isSkipped && (
@@ -1460,7 +1476,7 @@ const TestScreen = ({ route, navigation }) => {
               style={[styles.closeDropdownButton, { backgroundColor: theme.colors.primary }]}
               onPress={() => setShowDropdown(false)}
             >
-              <Text style={[styles.closeDropdownText, { color: theme.colors.buttonText }]}>Close</Text>
+              <Text style={[styles.closeDropdownText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>CLOSE</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -1473,7 +1489,7 @@ const TestScreen = ({ route, navigation }) => {
     return (
       <View style={[globalStyles.loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[globalStyles.text, styles.loadingText]}>Loading test data...</Text>
+        <Text style={[globalStyles.text, styles.loadingText, { fontFamily: 'ShareTechMono' }]}>LOADING TEST DATA...</Text>
       </View>
     );
   }
@@ -1483,14 +1499,14 @@ const TestScreen = ({ route, navigation }) => {
     return (
       <View style={[globalStyles.errorContainer, { backgroundColor: theme.colors.background }]}>
         <Ionicons name="alert-circle" size={50} color={theme.colors.error} />
-        <Text style={[globalStyles.title, styles.errorTitle, { color: theme.colors.text }]}>Error Loading Test</Text>
-        <Text style={[globalStyles.textSecondary, styles.errorMessage, { color: theme.colors.textSecondary }]}>{error}</Text>
+        <Text style={[globalStyles.title, styles.errorTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>ERROR LOADING TEST</Text>
+        <Text style={[globalStyles.textSecondary, styles.errorMessage, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>{error}</Text>
         <View style={styles.errorButtons}>
           <TouchableOpacity
             style={[styles.errorButton, { backgroundColor: theme.colors.primary }]}
             onPress={() => fetchTestAndAttempt()}
           >
-            <Text style={[styles.errorButtonText, { color: theme.colors.buttonText }]}>Try Again</Text>
+            <Text style={[styles.errorButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>TRY AGAIN</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.errorButton, styles.errorBackButton, { 
@@ -1499,7 +1515,7 @@ const TestScreen = ({ route, navigation }) => {
             }]}
             onPress={() => navigation.goBack()}
           >
-            <Text style={[styles.errorButtonTextBack, { color: theme.colors.textSecondary }]}>Back to Tests</Text>
+            <Text style={[styles.errorButtonTextBack, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>BACK TO TESTS</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1511,13 +1527,13 @@ const TestScreen = ({ route, navigation }) => {
     return (
       <View style={[globalStyles.errorContainer, { backgroundColor: theme.colors.background }]}>
         <Ionicons name="alert-circle" size={50} color={theme.colors.error} />
-        <Text style={[globalStyles.title, styles.errorTitle, { color: theme.colors.text }]}>No Questions Found</Text>
-        <Text style={[globalStyles.textSecondary, styles.errorMessage, { color: theme.colors.textSecondary }]}>This test doesn't have any questions yet.</Text>
+        <Text style={[globalStyles.title, styles.errorTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>NO QUESTIONS FOUND</Text>
+        <Text style={[globalStyles.textSecondary, styles.errorMessage, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>This test doesn't have any questions yet.</Text>
         <TouchableOpacity
           style={[styles.errorButton, { backgroundColor: theme.colors.primary }]}
           onPress={() => navigation.goBack()}
         >
-          <Text style={[styles.errorButtonText, { color: theme.colors.buttonText }]}>Back to Tests</Text>
+          <Text style={[styles.errorButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>BACK TO TESTS</Text>
         </TouchableOpacity>
       </View>
     );
@@ -1563,18 +1579,26 @@ const TestScreen = ({ route, navigation }) => {
           <View style={styles.userStats}>
             <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary }]}>
               <Ionicons name="trophy" size={12} color={theme.colors.buttonText} />
-              <Text style={[styles.levelText, { color: theme.colors.buttonText }]}>{level}</Text>
+              <Text style={[styles.levelText, { color: theme.colors.buttonText, fontFamily: 'ShareTechMono' }]}>{level}</Text>
             </View>
             <View style={styles.statsRow}>
               <View style={[styles.xpDisplay, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
                 <Ionicons name="star" size={12} color={theme.colors.goldBadge} />
-                <Text style={[styles.xpText, { color: theme.colors.goldBadge }]}>{xp} XP</Text>
+                <Text style={[styles.xpText, { color: theme.colors.goldBadge, fontFamily: 'ShareTechMono' }]}>{xp} XP</Text>
               </View>
               <View style={[styles.coinsDisplay, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
                 <Ionicons name="cash" size={12} color={theme.colors.success} />
-                <Text style={[styles.coinsText, { color: theme.colors.success }]}>{coins}</Text>
+                <Text style={[styles.coinsText, { color: theme.colors.success, fontFamily: 'ShareTechMono' }]}>{coins}</Text>
               </View>
             </View>
+          </View>
+        </View>
+
+        <View style={styles.testInfo}>
+          <View style={[styles.testNumberBadge, { backgroundColor: theme.colors.primary }]}>
+            <Text style={[styles.testNumberText, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
+              #{testId}
+            </Text>
           </View>
         </View>
 
@@ -1595,19 +1619,11 @@ const TestScreen = ({ route, navigation }) => {
         </View>
       </LinearGradient>
 
-      {/* Title bar */}
-      <View style={[styles.titleBar, { borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.testTitle, { color: theme.colors.primary }]}>{testData.testName}</Text>
-        {examMode && (
-          <View style={[styles.examModeBadge, { backgroundColor: theme.colors.primary }]}>
-            <Ionicons name="trophy" size={14} color={theme.colors.buttonText} />
-            <Text style={[styles.examModeText, { color: theme.colors.buttonText }]}>EXAM MODE</Text>
-          </View>
-        )}
-      </View>
-
       {/* Question controls */}
-      <View style={[styles.questionControlBar, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.questionControlBar, { 
+        backgroundColor: theme.colors.surface,
+        shadowColor: theme.colors.shadow,
+      }]}>
         <TouchableOpacity
           style={[
             styles.flagButton,
@@ -1632,8 +1648,8 @@ const TestScreen = ({ route, navigation }) => {
           style={[styles.questionDropdownButton, { backgroundColor: theme.colors.primary }]}
           onPress={() => setShowDropdown(true)}
         >
-          <Text style={[styles.questionDropdownText, { color: theme.colors.buttonText }]}>
-            Question {currentQuestionIndex + 1} of {effectiveTotal}
+          <Text style={[styles.questionDropdownText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+            QUESTION {currentQuestionIndex + 1} OF {effectiveTotal}
           </Text>
           <Ionicons name="chevron-down" size={18} color={theme.colors.buttonText} />
         </TouchableOpacity>
@@ -1665,8 +1681,10 @@ const TestScreen = ({ route, navigation }) => {
         contentContainerStyle={styles.questionContainer}
       >
         <View style={[styles.questionCard, { 
-          backgroundColor: theme.colors.shadow,
-          borderColor: theme.colors.border 
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border,
+          width: '97%',
+          alignSelf: 'center'
         }]}>
           {/* Question text */}
           <View style={[styles.questionTextContainer, { borderBottomColor: theme.colors.border }]}>
@@ -1796,62 +1814,70 @@ const TestScreen = ({ route, navigation }) => {
             </>
           )}
         </View>
+        
+        {/* Extra space at bottom for navigation buttons */}
+        <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Navigation buttons */}
-      <View style={[styles.navigationContainer, { 
-        backgroundColor: theme.colors.surface,
-        borderTopColor: theme.colors.border 
-      }]}>
-        <View style={styles.navigationRow}>
-          <TouchableOpacity
-            style={[
-              styles.navButton, 
-              styles.prevButton, 
-              currentQuestionIndex === 0 ? { 
-                backgroundColor: theme.colors.surfaceHighlight,
-                opacity: 0.5
-              } : {
-                backgroundColor: theme.colors.surfaceHighlight
-              }
-            ]}
-            onPress={handlePreviousQuestion}
-            disabled={currentQuestionIndex === 0}
-          >
-            <Ionicons name="chevron-back" size={20} color={theme.colors.text} />
-            <Text style={[styles.navButtonText, { color: theme.colors.text }]}>Previous</Text>
-          </TouchableOpacity>
+      {/* Navigation buttons (fixed position) */}
+      {/* Previous button */}
+      <TouchableOpacity
+        style={[
+          styles.navCircleButton,
+          styles.prevCircleButton,
+          {
+            backgroundColor: currentQuestionIndex === 0 ? 
+              theme.colors.surface + '80' : theme.colors.surface,
+            shadowColor: theme.colors.shadow,
+          }
+        ]}
+        onPress={handlePreviousQuestion}
+        disabled={currentQuestionIndex === 0}
+      >
+        <Ionicons 
+          name="chevron-back" 
+          size={24} 
+          color={currentQuestionIndex === 0 ? 
+            theme.colors.text + '40' : theme.colors.text} 
+        />
+      </TouchableOpacity>
 
-          {currentQuestionIndex === effectiveTotal - 1 ? (
-            <TouchableOpacity
-              style={[styles.navButton, styles.finishNavButton, { backgroundColor: theme.colors.buttonDanger }]}
-              onPress={handleNextQuestion}
-            >
-              <Ionicons name="checkmark-done-circle" size={20} color={theme.colors.buttonText} />
-              <Text style={[styles.navButtonText, { color: theme.colors.buttonText }]}>Finish Test</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.navButton, styles.nextButton, { backgroundColor: theme.colors.primary }]}
-              onPress={handleNextQuestion}
-            >
-              <Text style={[styles.navButtonText, { color: theme.colors.buttonText }]}>Next</Text>
-              <Ionicons name="chevron-forward" size={20} color={theme.colors.buttonText} />
-            </TouchableOpacity>
-          )}
-        </View>
+      {/* Next/Finish button */}
+      <TouchableOpacity
+        style={[
+          styles.navCircleButton,
+          styles.nextCircleButton,
+          {
+            backgroundColor: currentQuestionIndex === effectiveTotal - 1 ? 
+              theme.colors.buttonDanger : theme.colors.primary,
+            shadowColor: theme.colors.shadow,
+          }
+        ]}
+        onPress={handleNextQuestion}
+      >
+        <Ionicons 
+          name={currentQuestionIndex === effectiveTotal - 1 ? 
+            "checkmark-done" : "chevron-forward"} 
+          size={24} 
+          color={theme.colors.buttonText} 
+        />
+      </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.skipButton, { 
-            backgroundColor: theme.colors.surfaceHighlight,
-            borderColor: theme.colors.border
-          }]}
-          onPress={skipQuestion}
-        >
-          <Ionicons name="play-skip-forward" size={18} color={theme.colors.textSecondary} />
-          <Text style={[styles.skipButtonText, { color: theme.colors.textSecondary }]}>Skip Question</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Skip button */}
+      <TouchableOpacity
+        style={[
+          styles.skipButton,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+            shadowColor: theme.colors.shadow,
+          }
+        ]}
+        onPress={skipQuestion}
+      >
+        <Ionicons name="play-skip-forward" size={18} color={theme.colors.textSecondary} />
+        <Text style={[styles.skipButtonText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>SKIP</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -1869,6 +1895,7 @@ const styles = StyleSheet.create({
     paddingTop: 15,
     paddingBottom: 15,
     borderBottomWidth: 1,
+    zIndex: 10,
   },
   userInfoSection: {
     flexDirection: 'row',
@@ -1878,7 +1905,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    borderWidth: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   userStats: {
     marginLeft: 10,
@@ -1923,6 +1951,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
   },
+  // Test number display
+  testInfo: {
+    alignItems: 'center',
+  },
+  testNumberBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  testNumberText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   testControls: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1936,41 +1979,20 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
   },
-  // Title bar
-  titleBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-  },
-  testTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    flex: 1,
-  },
-  examModeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  examModeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 5,
-  },
   // Question controls
   questionControlBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 12,
     margin: 12,
     marginTop: 5,
     marginBottom: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
   },
   flagButton: {
     padding: 8,
@@ -1981,7 +2003,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 15,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 12,
     flex: 1,
     marginHorizontal: 10,
     justifyContent: 'center',
@@ -1998,7 +2020,6 @@ const styles = StyleSheet.create({
   // Progress bar
   progressBarContainer: {
     height: 6,
-    borderRadius: 3,
     overflow: 'hidden',
     marginHorizontal: 15,
     marginBottom: 15,
@@ -2011,14 +2032,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   questionContainer: {
-    paddingHorizontal: 15,
-    paddingBottom: 20,
+    paddingVertical: 15,
   },
   questionCard: {
     borderRadius: 12,
-    padding: 20,
+    padding: 16,
     marginBottom: 15,
     borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
   },
   questionTextContainer: {
     marginBottom: 20,
@@ -2087,45 +2111,41 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontStyle: 'italic',
   },
-  // Navigation buttons
-  navigationContainer: {
-    padding: 10,
-    borderTopWidth: 1,
-  },
-  navigationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  // Navigation buttons (fixed)
+  navCircleButton: {
+    position: 'absolute',
+    bottom: 80,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
-    padding: 10,
-    borderRadius: 8,
-    flex: 1,
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
   },
-  prevButton: {
-    marginRight: 8,
+  prevCircleButton: {
+    left: 20,
   },
-  nextButton: {
-    marginLeft: 8,
-  },
-  finishNavButton: {
-    marginLeft: 8,
-  },
-  navButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginHorizontal: 6,
+  nextCircleButton: {
+    right: 20,
   },
   skipButton: {
+    position: 'absolute',
+    bottom: 25,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
-    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
     borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   skipButtonText: {
     fontSize: 13,
@@ -2413,6 +2433,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
   },
+  dropdownHeader: {
+    padding: 15,
+    alignItems: 'center',
+  },
+  dropdownHeaderText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   dropdownList: {
     maxHeight: '90%',
   },
@@ -2430,6 +2458,7 @@ const styles = StyleSheet.create({
   dropdownItemStatus: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   closeDropdownButton: {
     alignItems: 'center',

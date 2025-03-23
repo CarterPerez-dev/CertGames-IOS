@@ -1,5 +1,6 @@
 // src/navigation/AppNavigator.js
 import React, { useEffect, useState } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import * as SecureStore from 'expo-secure-store';
@@ -8,6 +9,9 @@ import * as SplashScreen from 'expo-splash-screen';
 // Import navigators
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+
+// Import the notification overlay
+import NotificationOverlay from '../components/NotificationOverlay';
 
 // Import actions
 import { fetchUserData } from '../store/slices/userSlice';
@@ -62,10 +66,21 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer theme={DarkTheme}>
-      {userId ? <MainNavigator /> : <AuthNavigator />}
-    </NavigationContainer>
+    <View style={styles.container}>
+      <NavigationContainer theme={DarkTheme}>
+        {userId ? <MainNavigator /> : <AuthNavigator />}
+      </NavigationContainer>
+      
+      {/* Add the notification overlay */}
+      {userId && <NotificationOverlay />}
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  }
+});
 
 export default AppNavigator;

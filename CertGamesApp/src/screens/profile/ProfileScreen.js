@@ -1,5 +1,5 @@
 // src/screens/profile/ProfileScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,17 +17,21 @@ import {
   StatusBar,
   Dimensions
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchUserData, logout } from '../../store/slices/userSlice';
+import { useDispatch } from 'react-redux';
+import { logout } from '../../store/slices/userSlice';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
+import { useFocusEffect } from '@react-navigation/native';
+
+// Import useUserData hook for real-time data
+import useUserData from '../../hooks/useUserData';
 
 // Import profile service to handle API calls
-import { changeUsername, changeEmail, changePassword, getAvatarUrl } from '../../api/profileService';
+import { changeUsername, changeEmail, changePassword } from '../../api/profileService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,33 +40,43 @@ const ProfileScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
   
+  // Use our custom hook for user data - this will automatically refresh data
+  const { 
+    userId, 
+    username, 
+    email, 
+    xp, 
+    level, 
+    coins, 
+    achievements, 
+    lastDailyClaim,
+    xpBoost,
+    currentAvatar,
+    nameColor,
+    purchasedItems,
+    subscriptionActive,
+    shopItems,
+    getAvatarUrl,
+    refreshData,
+    isLoading
+  } = useUserData();
+  
   // Animated values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const translateY = useRef(new Animated.Value(20)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
+  const coinsFlashAnim = useRef(new Animated.Value(0)).current;
+  const xpFlashAnim = useRef(new Animated.Value(0)).current;
   
-  // Get user data from Redux store
-  const {
-    userId,
-    username,
-    email,
-    xp,
-    level,
-    coins,
-    achievements = [],
-    currentAvatar,
-    nameColor,
-    purchasedItems,
-    subscriptionActive,
-    lastDailyClaim,
-    status
-  } = useSelector((state) => state.user);
+  // Store previous values to detect changes for animations
+  const prevCoinsRef = useRef(coins);
+  const prevXpRef = useRef(xp);
+  const prevLevelRef = useRef(level);
   
-  // Local state
-  const [activeTab, setActiveTab] = useState('overview');
-  const [refreshing, setRefreshing] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
+  // Track level up animation
+  const [showLevelUpAnimation, setShowLevelUpAnimation] = useState(false);
+  const levelUpAnimAnim = useRef(new Animated.Value(0)).current;
   
   // Form state
   const [showChangeUsername, setShowChangeUsername] = useState(false);
@@ -87,8 +101,20 @@ const ProfileScreen = ({ navigation }) => {
   const [statusType, setStatusType] = useState(''); // 'success', 'error'
   const [showStatusModal, setShowStatusModal] = useState(false);
   
-  // Animation on mount
+  // Local state for UI updates
+  const [refreshing, setRefreshing] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+  
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshData();
+    }, [refreshData])
+  );
+  
+  // Start animations on mount
   useEffect(() => {
+    // Animate main content
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -108,72 +134,106 @@ const ProfileScreen = ({ navigation }) => {
     ]).start();
   }, [fadeAnim, scaleAnim, translateY]);
   
-  // Calculate XP to next level
-  const calculateXpPercentage = () => {
-    return calculateXpToNextLevel();
-  };
-  
-  // Calculate XP required for a given level
-  const xpRequiredForLevel = (level) => {
-    if (level < 1) return 0;
-    if (level === 1) return 0;
+  // This effect triggers the coin animation whenever coins change
+  useEffect(() => {
+    const prevCoins = prevCoinsRef.current;
     
-    if (level <= 30) {
-      return 500 * (level - 1);
-    } else if (level <= 60) {
-      const base = 500 * 29; // XP for levels up to 30
-      return base + 750 * (level - 30);
-    } else if (level <= 100) {
-      const base = 500 * 29 + 750 * 30; // XP for levels up to 60
-      return base + 1000 * (level - 60);
-    } else {
-      const base = 500 * 29 + 750 * 30 + 1000 * 40; // XP for levels up to 100
-      return base + 1500 * (level - 100);
+    // Only animate if coins increased
+    if (coins > prevCoins) {
+      Animated.sequence([
+        Animated.timing(coinsFlashAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.timing(coinsFlashAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true
+        })
+      ]).start();
+      
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
     }
-  };
+    
+    // Update ref for next comparison
+    prevCoinsRef.current = coins;
+  }, [coins, coinsFlashAnim]);
   
-  // Calculate percentage to next level
-  const calculateXpToNextLevel = () => {
-    // Get XP required for current level and next level
-    const currentLevelXp = xpRequiredForLevel(level);
-    const nextLevelXp = xpRequiredForLevel(level + 1);
+  // This effect triggers the XP animation whenever XP changes
+  useEffect(() => {
+    const prevXp = prevXpRef.current;
     
-    // Calculate how much XP we've earned in the current level
-    const xpInCurrentLevel = xp - currentLevelXp;
+    // Only animate if XP increased
+    if (xp > prevXp) {
+      Animated.sequence([
+        Animated.timing(xpFlashAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.timing(xpFlashAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true
+        })
+      ]).start();
+    }
     
-    // Calculate how much XP is needed to reach the next level
-    const xpRequiredForNextLevel = nextLevelXp - currentLevelXp;
+    // Update ref for next comparison
+    prevXpRef.current = xp;
+  }, [xp, xpFlashAnim]);
+  
+  // This effect shows the level up animation when level increases
+  useEffect(() => {
+    const prevLevel = prevLevelRef.current;
     
-    // Calculate percentage (capped at 100%)
-    return Math.min(100, (xpInCurrentLevel / xpRequiredForNextLevel) * 100);
+    // Show animation if level increased
+    if (level > prevLevel && prevLevel > 0) {  // Avoid initial render
+      setShowLevelUpAnimation(true);
+      
+      Animated.sequence([
+        Animated.timing(levelUpAnimAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true
+        }),
+        Animated.delay(2000),
+        Animated.timing(levelUpAnimAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true
+        })
+      ]).start(() => {
+        setShowLevelUpAnimation(false);
+      });
+      
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    }
+    
+    // Update ref for next comparison
+    prevLevelRef.current = level;
+  }, [level, levelUpAnimAnim]);
+  
+  // Calculate XP percentage for progress bar
+  const calculateXpPercentage = () => {
+    return Math.min((xp % 1000) / 10, 100);
   };
   
   const xpPercentage = calculateXpPercentage();
-
-  // Get user avatar URL
-  const getProfilePicUrl = () => {
-    if (!currentAvatar) {
-      return null; // Will use the default local asset
-    }
-
-    // Use the helper function to get a properly formatted avatar URL
-    const avatarUrl = getAvatarUrl(currentAvatar);
-    return avatarUrl;
-  };
   
-  // Fetch user data
-  useEffect(() => {
-    if (userId) {
-      dispatch(fetchUserData(userId));
-    }
-  }, [dispatch, userId]);
-  
+  // Get avatar URL
+  const avatarUrl = getAvatarUrl();
+
   // Handle refresh
-  const handleRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    dispatch(fetchUserData(userId)).then(() => {
-      setRefreshing(false);
-    });
+    await refreshData();
+    setRefreshing(false);
   };
   
   // Handle logout
@@ -239,7 +299,7 @@ const ProfileScreen = ({ navigation }) => {
       setNewUsername('');
       
       // Refresh user data
-      dispatch(fetchUserData(userId));
+      refreshData();
       
       if (Platform.OS === 'ios') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -278,7 +338,7 @@ const ProfileScreen = ({ navigation }) => {
       setNewEmail('');
       
       // Refresh user data
-      dispatch(fetchUserData(userId));
+      refreshData();
       
       if (Platform.OS === 'ios') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -386,6 +446,37 @@ const ProfileScreen = ({ navigation }) => {
     setAvatarError(true);
   };
 
+  // Render level up animation
+  const renderLevelUpAnimation = () => {
+    if (!showLevelUpAnimation) return null;
+
+    return (
+      <Animated.View
+        style={[
+          styles.levelUpOverlay,
+          {
+            opacity: levelUpAnimAnim,
+            transform: [
+              { scale: levelUpAnimAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1]
+              })},
+              { translateY: levelUpAnimAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [50, 0]
+              })}
+            ],
+            backgroundColor: theme.colors.primary + 'E6',
+          }
+        ]}
+      >
+        <Text style={[styles.levelUpText, { color: theme.colors.buttonText }]}>
+          LEVEL UP! You are now Level {level}
+        </Text>
+      </Animated.View>
+    );
+  };
+
   // Header animation effect
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
@@ -396,6 +487,9 @@ const ProfileScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={[globalStyles.screen]}>
       <StatusBar barStyle="light-content" />
+
+      {/* Level up animation */}
+      {renderLevelUpAnimation()}
 
       {/* Animated Header */}
       <Animated.View 
@@ -435,8 +529,14 @@ const ProfileScreen = ({ navigation }) => {
           { useNativeDriver: false }
         )}
         scrollEventThrottle={16}
-        onRefresh={handleRefresh}
-        refreshing={refreshing}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
       >
         {/* Profile Header */}
         <Animated.View 
@@ -456,9 +556,9 @@ const ProfileScreen = ({ navigation }) => {
           >
             <View style={styles.avatarSection}>
               <View style={[styles.avatarContainer, { borderColor: theme.colors.buttonText + '40' }]}>
-                {!avatarError && currentAvatar ? (
+                {!avatarError && avatarUrl ? (
                   <Image 
-                    source={{ uri: getProfilePicUrl() }}
+                    source={{ uri: avatarUrl }}
                     style={styles.avatar}
                     onError={handleAvatarError}
                   />
@@ -476,37 +576,68 @@ const ProfileScreen = ({ navigation }) => {
                 </Text>
                 
                 <View style={styles.levelContainer}>
-                  <View style={[styles.levelBadge, { backgroundColor: theme.colors.buttonText + '30' }]}>
+                  <Animated.View 
+                    style={[styles.levelBadge, { 
+                      backgroundColor: theme.colors.buttonText + '30',
+                      transform: [{ scale: xpFlashAnim.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [1, 1.2, 1]
+                      })}]
+                    }]}
+                  >
                     <Text style={[styles.levelText, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
                       {level}
                     </Text>
-                  </View>
+                  </Animated.View>
                   
-                  <View style={styles.xpContainer}>
-                    <View style={[styles.xpBar, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}>
+                  <View style={styles.levelProgress}>
+                    <Text style={[styles.levelProgressText, { color: theme.colors.buttonText + 'E6', fontFamily: 'ShareTechMono' }]}>
+                      NEXT LVL: {1000 - (xp % 1000)} XP
+                    </Text>
+                    <Animated.View 
+                      style={[styles.progressBarContainer, { 
+                        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                        borderColor: xpFlashAnim.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: ['transparent', theme.colors.buttonText, 'transparent']
+                        })
+                      }]}
+                    >
                       <View 
                         style={[
-                          styles.xpProgress, 
-                          { 
-                            width: `${xpPercentage}%`,
-                            backgroundColor: theme.colors.buttonText
-                          }
+                          styles.progressBar, 
+                          { width: `${xpPercentage}%`, backgroundColor: theme.colors.buttonText }
                         ]} 
                       />
-                    </View>
-                    <Text style={[styles.xpText, { color: theme.colors.buttonText + 'E6', fontFamily: 'ShareTechMono' }]}>
-                      {xp} XP
-                    </Text>
+                    </Animated.View>
                   </View>
                 </View>
                 
                 <View style={styles.statsRow}>
-                  <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-                    <Ionicons name="wallet-outline" size={18} color={theme.colors.goldBadge} />
+                  <Animated.View 
+                    style={[
+                      styles.statItem, 
+                      { 
+                        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                        backgroundColor: coinsFlashAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['rgba(0, 0, 0, 0.2)', theme.colors.goldBadge + '40']
+                        })
+                      }
+                    ]}
+                  >
+                    <Animated.View style={{
+                      transform: [{ scale: coinsFlashAnim.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [1, 1.3, 1]
+                      })}]
+                    }}>
+                      <Ionicons name="wallet-outline" size={18} color={theme.colors.goldBadge} />
+                    </Animated.View>
                     <Text style={[styles.statText, { color: theme.colors.buttonText, fontFamily: 'ShareTechMono' }]}>
-                      {coins}
+                      {coins.toLocaleString()}
                     </Text>
-                  </View>
+                  </Animated.View>
                   
                   <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
                     <Ionicons name="trophy-outline" size={18} color={theme.colors.goldBadge} />
@@ -644,19 +775,55 @@ const ProfileScreen = ({ navigation }) => {
                 <View style={[styles.statsRow, { borderBottomColor: theme.colors.border }]}>
                   <View style={styles.statBlock}>
                     <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>LEVEL</Text>
-                    <Text style={[styles.statValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>{level}</Text>
+                    <Animated.Text style={[
+                      styles.statValue, 
+                      { 
+                        color: theme.colors.text, 
+                        fontFamily: 'Orbitron-Bold',
+                        transform: [{ scale: xpFlashAnim.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: [1, 1.1, 1]
+                        })}]
+                      }
+                    ]}>
+                      {level}
+                    </Animated.Text>
                   </View>
                   
                   <View style={styles.statBlock}>
                     <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>XP POINTS</Text>
-                    <Text style={[styles.statValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>{xp.toLocaleString()}</Text>
+                    <Animated.Text style={[
+                      styles.statValue, 
+                      { 
+                        color: theme.colors.text, 
+                        fontFamily: 'Orbitron-Bold',
+                        backgroundColor: xpFlashAnim.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: ['transparent', theme.colors.primary + '30', 'transparent']
+                        })
+                      }
+                    ]}>
+                      {xp.toLocaleString()}
+                    </Animated.Text>
                   </View>
                 </View>
                 
                 <View style={[styles.statsRow, { borderBottomColor: theme.colors.border }]}>
                   <View style={styles.statBlock}>
                     <Text style={[styles.statLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>COINS</Text>
-                    <Text style={[styles.statValue, { color: theme.colors.goldBadge, fontFamily: 'Orbitron-Bold' }]}>{coins.toLocaleString()}</Text>
+                    <Animated.Text style={[
+                      styles.statValue, 
+                      { 
+                        color: theme.colors.goldBadge, 
+                        fontFamily: 'Orbitron-Bold',
+                        backgroundColor: coinsFlashAnim.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: ['transparent', theme.colors.goldBadge + '30', 'transparent']
+                        })
+                      }
+                    ]}>
+                      {coins.toLocaleString()}
+                    </Animated.Text>
                   </View>
                   
                   <View style={styles.statBlock}>
@@ -1390,12 +1557,27 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   
+  // Level up animation
+  levelUpOverlay: {
+    position: 'absolute',
+    top: 100,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    zIndex: 1000,
+  },
+  levelUpText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  
   // Profile header
   profileHeader: {
-    borderRadius: 16,
+    borderRadius: 12,
+    marginVertical: 10,
     overflow: 'hidden',
-    marginBottom: 16,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -1448,22 +1630,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  xpContainer: {
+  levelProgress: {
     flex: 1,
   },
-  xpBar: {
+  levelProgressText: {
+    fontSize: 10,
+    marginBottom: 4,
+  },
+  progressBarContainer: {
     height: 6,
     borderRadius: 3,
-    marginBottom: 4,
-    overflow: 'hidden',
+    width: '100%',
+    borderWidth: 1,
   },
-  xpProgress: {
+  progressBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
     height: '100%',
     borderRadius: 3,
-  },
-  xpText: {
-    fontSize: 12,
-    textAlign: 'right',
   },
   statsRow: {
     flexDirection: 'row',

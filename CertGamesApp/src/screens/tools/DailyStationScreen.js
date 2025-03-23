@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/screens/tools/DailyStationScreen.js
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,15 +12,18 @@ import {
   Modal,
   Animated
 } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
+import { useFocusEffect } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { claimDailyBonus, getDailyQuestion, submitDailyAnswer } from '../../api/dailyStationService';
-import { fetchUserData } from '../../store/slices/userSlice';
+import { setXPAndCoins } from '../../store/slices/userSlice';
 import FormattedQuestion from '../../components/FormattedQuestion';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
+import useUserData from '../../hooks/useUserData';
 
 // Helper to format seconds as HH:MM:SS
 function formatCountdown(seconds) {
@@ -35,7 +39,20 @@ const DailyStationScreen = () => {
   const globalStyles = createGlobalStyles(theme);
 
   const dispatch = useDispatch();
-  const { userId, username, coins, xp, lastDailyClaim } = useSelector((state) => state.user);
+  
+  // Use our custom hook for user data - this will ensure it's always up-to-date
+  const { 
+    userId, 
+    username, 
+    coins, 
+    xp, 
+    lastDailyClaim,
+    refreshData 
+  } = useUserData();
+
+  // Store previous values for animations
+  const prevCoinsRef = useRef(coins);
+  const prevXpRef = useRef(xp);
 
   // Local states for bonus section
   const [bonusError, setBonusError] = useState(null);
@@ -57,7 +74,65 @@ const DailyStationScreen = () => {
   const [showWrongAnimation, setShowWrongAnimation] = useState(false);
 
   // Animation values
-  const fadeAnim = useState(new Animated.Value(0))[0];
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const coinsFlashAnim = useRef(new Animated.Value(0)).current;
+  const xpFlashAnim = useRef(new Animated.Value(0)).current;
+
+  // Refresh data when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) {
+        refreshData();
+        fetchDailyQuestion();
+      }
+    }, [userId, refreshData])
+  );
+
+  // Animate coins changes
+  useEffect(() => {
+    if (coins > prevCoinsRef.current) {
+      Animated.sequence([
+        Animated.timing(coinsFlashAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.timing(coinsFlashAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true
+        })
+      ]).start();
+      
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+    
+    // Update ref for next comparison
+    prevCoinsRef.current = coins;
+  }, [coins, coinsFlashAnim]);
+
+  // Animate XP changes
+  useEffect(() => {
+    if (xp > prevXpRef.current) {
+      Animated.sequence([
+        Animated.timing(xpFlashAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.timing(xpFlashAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true
+        })
+      ]).start();
+    }
+    
+    // Update ref for next comparison
+    prevXpRef.current = xp;
+  }, [xp, xpFlashAnim]);
 
   // Check if user can claim bonus on initial load
   useEffect(() => {
@@ -212,8 +287,21 @@ const DailyStationScreen = () => {
         setShowBonusAnimation(true);
         setClaimed(true);
         
-        // Update the user data in Redux
-        dispatch(fetchUserData(userId));
+        // Update user data immediately in Redux
+        if (data.newCoins && data.newXP) {
+          dispatch(setXPAndCoins({
+            coins: data.newCoins,
+            xp: data.newXP,
+            newlyUnlocked: data.newlyUnlocked || []
+          }));
+        } else {
+          // Fall back to fetching user data if direct values not available
+          refreshData();
+        }
+        
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
       } else {
         // Server says already claimed
         setBonusError(data.message);
@@ -260,8 +348,17 @@ const DailyStationScreen = () => {
       
       setSubmitResult(ansData);
       
-      // Update the Redux store with new XP and coins
-      dispatch(fetchUserData(userId));
+      // Update user data immediately in Redux
+      if (ansData.newCoins && ansData.newXP) {
+        dispatch(setXPAndCoins({
+          coins: ansData.newCoins,
+          xp: ansData.newXP,
+          newlyUnlocked: ansData.newlyUnlocked || []
+        }));
+      } else {
+        // Fall back to refreshing data
+        refreshData();
+      }
       
       setQuestionData((prev) => ({
         ...prev,
@@ -271,9 +368,15 @@ const DailyStationScreen = () => {
       if (ansData.correct) {
         setShowCorrectAnimation(true);
         setTimeout(() => setShowCorrectAnimation(false), 2000);
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
       } else {
         setShowWrongAnimation(true);
         setTimeout(() => setShowWrongAnimation(false), 2000);
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
       }
     } catch (err) {
       setQuestionError('Error: ' + err.message);
@@ -290,14 +393,49 @@ const DailyStationScreen = () => {
           
           {userId && (
             <View style={styles.userStats}>
-              <View style={[styles.statItem, { backgroundColor: theme.colors.surfaceHighlight }]}>
-                <Ionicons name="cash" size={18} color={theme.colors.goldBadge} />
+              <Animated.View 
+                style={[
+                  styles.statItem, 
+                  { 
+                    backgroundColor: coinsFlashAnim.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: [theme.colors.surfaceHighlight, theme.colors.goldBadge + '30', theme.colors.surfaceHighlight]
+                    })
+                  }
+                ]}
+              >
+                <Animated.View style={{
+                  transform: [{ scale: coinsFlashAnim.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [1, 1.2, 1]
+                  })}]
+                }}>
+                  <Ionicons name="cash" size={18} color={theme.colors.goldBadge} />
+                </Animated.View>
                 <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
-              </View>
-              <View style={[styles.statItem, { backgroundColor: theme.colors.surfaceHighlight }]}>
-                <Ionicons name="star" size={18} color={theme.colors.primary} />
+              </Animated.View>
+              
+              <Animated.View 
+                style={[
+                  styles.statItem, 
+                  { 
+                    backgroundColor: xpFlashAnim.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: [theme.colors.surfaceHighlight, theme.colors.primary + '30', theme.colors.surfaceHighlight]
+                    })
+                  }
+                ]}
+              >
+                <Animated.View style={{
+                  transform: [{ scale: xpFlashAnim.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [1, 1.2, 1]
+                  })}]
+                }}>
+                  <Ionicons name="star" size={18} color={theme.colors.primary} />
+                </Animated.View>
                 <Text style={[styles.statValue, { color: theme.colors.text }]}>{xp}</Text>
-              </View>
+              </Animated.View>
             </View>
           )}
         </View>

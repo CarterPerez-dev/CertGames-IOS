@@ -1,5 +1,5 @@
 // src/screens/profile/AchievementsScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { useFocusEffect } from '@react-navigation/native';
 import useAchievements from '../../hooks/useAchievements';
+import useUserData from '../../hooks/useUserData';
 import AchievementItem from '../../components/AchievementItem';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
@@ -35,6 +37,9 @@ const AchievementsScreen = ({ navigation }) => {
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const translateY = useRef(new Animated.Value(20)).current;
   const [cardAnims] = useState([...Array(50)].map(() => new Animated.Value(0)));
+  
+  // Use the enhanced hooks for real-time data
+  const { achievements: userAchievements } = useUserData();
   
   // Get achievements data using hook
   const {
@@ -56,38 +61,75 @@ const AchievementsScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // Default to list view now
   const [sortOrder, setSortOrder] = useState('default'); // 'default', 'alphabetical', 'locked'
+  const [previousAchievements, setPreviousAchievements] = useState([]);
+  const [newlyUnlockedAchievements, setNewlyUnlockedAchievements] = useState([]);
   
-  // Animations on mount
+  // Refresh data when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Force refresh when screen gains focus
+      handleRefresh();
+      
+      // Reset animations
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true
+        })
+      ]).start();
+      
+      // Staggered card animations
+      cardAnims.forEach((anim, i) => {
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 500,
+          delay: 100 + (i * 70),
+          useNativeDriver: true
+        }).start();
+      });
+    }, [navigation])
+  );
+  
+  // Track achievement changes to detect newly unlocked ones
   useEffect(() => {
-    // Main animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true
-      })
-    ]).start();
+    if (previousAchievements.length > 0 && userAchievements) {
+      // Find achievements that weren't in the previous list
+      const newAchievements = userAchievements.filter(
+        achievementId => !previousAchievements.includes(achievementId)
+      );
+      
+      if (newAchievements.length > 0) {
+        // Found newly unlocked achievements
+        setNewlyUnlockedAchievements(newAchievements);
+        
+        // Apply haptic feedback for new achievements
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        
+        // Animate cards for newly unlocked achievements
+        setTimeout(() => {
+          setNewlyUnlockedAchievements([]);
+        }, 3000); // Clear after 3 seconds
+      }
+    }
     
-    // Staggered card animations
-    cardAnims.forEach((anim, i) => {
-      Animated.timing(anim, {
-        toValue: 1,
-        duration: 500,
-        delay: 100 + (i * 70),
-        useNativeDriver: true
-      }).start();
-    });
-  }, []);
+    // Update previous achievements
+    if (userAchievements) {
+      setPreviousAchievements(userAchievements);
+    }
+  }, [userAchievements, previousAchievements]);
   
   // Stats about achievements
   const { total, unlocked, completionPercentage } = getAchievementStats();
@@ -223,24 +265,35 @@ const AchievementsScreen = ({ navigation }) => {
   const renderAchievementItem = ({ item, index }) => {
     const isUnlocked = isAchievementUnlocked(item.achievementId);
     const animIndex = Math.min(index, cardAnims.length - 1);
+    const isNewlyUnlocked = newlyUnlockedAchievements.includes(item.achievementId);
+    
+    // Special animation for newly unlocked achievements
+    const animStyle = isNewlyUnlocked ? {
+      opacity: cardAnims[animIndex],
+      transform: [{
+        scale: cardAnims[animIndex].interpolate({
+          inputRange: [0, 0.5, 1],
+          outputRange: [0.9, 1.1, 1]
+        })
+      }]
+    } : {
+      opacity: cardAnims[animIndex],
+      transform: [{
+        translateY: cardAnims[animIndex].interpolate({
+          inputRange: [0, 1],
+          outputRange: [30, 0]
+        })
+      }]
+    };
     
     return (
-      <Animated.View
-        style={{
-          opacity: cardAnims[animIndex],
-          transform: [{
-            translateY: cardAnims[animIndex].interpolate({
-              inputRange: [0, 1],
-              outputRange: [30, 0]
-            })
-          }]
-        }}
-      >
+      <Animated.View style={animStyle}>
         <AchievementItem
           achievement={item}
           isUnlocked={isUnlocked}
           onPress={handleAchievementPress}
           compact={true} // Always use compact mode for a vertical list
+          isNewlyUnlocked={isNewlyUnlocked}
         />
       </Animated.View>
     );

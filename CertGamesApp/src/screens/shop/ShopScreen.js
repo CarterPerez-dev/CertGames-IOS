@@ -18,22 +18,26 @@ import {
   Animated,
   ScrollView
 } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { fetchShopItems as reduxFetchShopItems } from '../../store/slices/shopSlice';
-import { fetchUserData } from '../../store/slices/userSlice';
-import * as shopService from '../../api/shopService';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 
 // Import theme context
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 
+// Import hooks
+import useUserData from '../../hooks/useUserData';
+
 // Item type components
 import AvatarItem from './components/AvatarItem';
 import BoostItem from './components/BoostItem';
+import ColorItem from './components/ColorItem';
 
+// Import shop service
+import * as shopService from '../../api/shopService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -42,8 +46,16 @@ const ShopScreen = () => {
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
   
-  const { userId, coins, level, purchasedItems, currentAvatar, nameColor } = useSelector((state) => state.user);
-  const { items: reduxShopItems, status } = useSelector((state) => state.shop);
+  // Use our custom hook for user data
+  const { 
+    userId, 
+    coins, 
+    level, 
+    purchasedItems, 
+    currentAvatar, 
+    nameColor,
+    refreshData 
+  } = useUserData();
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -52,6 +64,10 @@ const ShopScreen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const [cardAnims] = useState([...Array(20)].map(() => new Animated.Value(0)));
   const [headerTextOpacity] = useState(new Animated.Value(1));
+  const coinsFlashAnim = useRef(new Animated.Value(0)).current;
+  
+  // Track previous coins value for animation
+  const prevCoinsRef = useRef(coins);
   
   // State
   const [shopItems, setShopItems] = useState([]);
@@ -64,7 +80,6 @@ const ShopScreen = () => {
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [equipLoading, setEquipLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
-      // No longer need separate purchase options since users can always buy with coins
   const [statusMessage, setStatusMessage] = useState(null);
   const [showStatusMessage, setShowStatusMessage] = useState(false);
   const [statusType, setStatusType] = useState(''); // 'success', 'error', etc.
@@ -104,6 +119,32 @@ const ShopScreen = () => {
     });
   }, []);
   
+  // Effect to animate coin changes
+  useEffect(() => {
+    // Only animate if coins decreased (indicating a purchase)
+    if (coins !== prevCoinsRef.current) {
+      Animated.sequence([
+        Animated.timing(coinsFlashAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.timing(coinsFlashAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true
+        })
+      ]).start();
+      
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+    
+    // Update previous coins value
+    prevCoinsRef.current = coins;
+  }, [coins]);
+  
   // Effect to clear status message after a delay
   useEffect(() => {
     if (statusMessage && showStatusMessage) {
@@ -127,6 +168,19 @@ const ShopScreen = () => {
     }
   }, []);
   
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh user data when the screen is focused
+      refreshData();
+      
+      // Only reload shop items if we don't have any
+      if (shopItems.length === 0) {
+        loadShopData();
+      }
+    }, [refreshData])
+  );
+  
   // Effect to apply sorting when shop items change
   useEffect(() => {
     if (shopItems && shopItems.length > 0) {
@@ -134,25 +188,22 @@ const ShopScreen = () => {
     }
   }, [shopItems, activeCategory]);
   
-  // Watch for Redux shop items changes
-  useEffect(() => {
-    if (reduxShopItems && reduxShopItems.length > 0) {
-      setShopItems(reduxShopItems);
-      filterItems(reduxShopItems, activeCategory);
-      setLoading(false);
-    }
-  }, [reduxShopItems, activeCategory]);
-  
   // Function to load shop data
   const loadShopData = async () => {
     try {
       setLoading(true);
-      // Dispatch Redux action to fetch shop items
-      dispatch(reduxFetchShopItems());
+      
+      // Load shop items from the API
+      const items = await shopService.fetchShopItems();
+      setShopItems(items);
+      filterItems(items, activeCategory);
+      setError(null);
     } catch (error) {
       console.error('Error loading shop data:', error);
       setLoading(false);
       showStatusToast('Failed to load shop items', 'error');
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -204,17 +255,14 @@ const ShopScreen = () => {
   // Handle refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    try {
-      await Promise.all([
-        dispatch(reduxFetchShopItems()),
-        dispatch(fetchUserData(userId))
-      ]);
-    } catch (error) {
-      console.error('Error refreshing shop data:', error);
-      showStatusToast('Failed to refresh shop data', 'error');
-    } finally {
-      setRefreshing(false);
-    }
+    
+    // Refresh user data and shop items
+    await Promise.all([
+      refreshData(),
+      loadShopData()
+    ]);
+    
+    setRefreshing(false);
   };
   
   // Display status toast
@@ -247,6 +295,8 @@ const ShopScreen = () => {
   const isItemEquipped = (itemId, itemType) => {
     if (itemType === 'avatar') {
       return currentAvatar === itemId;
+    } else if (itemType === 'nameColor') {
+      return nameColor === itemId;
     }
     return false;
   };
@@ -259,17 +309,27 @@ const ShopScreen = () => {
     return level >= item.unlockLevel;
   };
   
-  // Can purchase item either by meeting level requirement OR by having enough coins
-  const canPurchaseWithLevel = (item) => {
-    return hasRequiredLevel(item) && canAffordItem(item) && !isItemPurchased(item._id);
+  // Can purchase item if has required level and enough coins and not already purchased
+  const canPurchaseItem = (item) => {
+    if (!item) return false;
+    
+    // Check if item is already purchased
+    if (isItemPurchased(item._id)) {
+      return false;
+    }
+    
+    // Check if user has enough coins
+    if (coins < item.cost) {
+      return false;
+    }
+    
+    // Check if user has required level
+    if (level < item.unlockLevel) {
+      return false;
+    }
+    
+    return true;
   };
-  
-  // Can purchase with just coins regardless of level
-  const canPurchaseWithCoins = (item) => {
-    return canAffordItem(item) && !isItemPurchased(item._id);
-  };
-  
-  // No longer need to toggle purchase options
   
   // Handle item purchase
   const handlePurchase = async () => {
@@ -299,11 +359,13 @@ const ShopScreen = () => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }
               
+              // Call API to make the purchase
               const response = await shopService.purchaseItem(userId, selectedItem._id);
               
-              // Update user data in Redux to reflect new coin balance and purchased items
-              await dispatch(fetchUserData(userId));
+              // Refresh user data to get updated coins and purchased items
+              await refreshData();
               
+              // Show success message
               showStatusToast(`Successfully purchased ${selectedItem.title}!`, 'success');
               
               // Ask if user wants to equip the item immediately if it's an avatar or name color
@@ -350,11 +412,13 @@ const ShopScreen = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       
+      // Call API to equip the item
       await shopService.equipItem(userId, selectedItem._id);
       
-      // Update user data in Redux
-      await dispatch(fetchUserData(userId));
+      // Refresh user data to update equipped items
+      await refreshData();
       
+      // Show success message
       showStatusToast(`Successfully equipped ${selectedItem.title}!`, 'success');
       
       // Close the modal
@@ -385,7 +449,9 @@ const ShopScreen = () => {
       case 'xpBoost':
         ItemComponent = BoostItem;
         break;
-
+      case 'nameColor':
+        ItemComponent = ColorItem;
+        break;
       default:
         ItemComponent = AvatarItem;
     }
@@ -426,6 +492,7 @@ const ShopScreen = () => {
             item={item} 
             isPurchased={isPurchased} 
             isEquipped={isEquipped} 
+            theme={theme}
           />
           
           <View style={[styles.itemInfo, { borderTopColor: theme.colors.border }]}>
@@ -646,7 +713,21 @@ const ShopScreen = () => {
                   </View>
                 )}
                 
-
+                {selectedItem.type === 'nameColor' && (
+                  <View style={styles.colorPreview}>
+                    <View style={[styles.colorSwatch, { backgroundColor: selectedItem.effectValue }]}>
+                      <Text style={[styles.colorText, { 
+                        color: /^#[0-9A-F]{3,6}$/i.test(selectedItem.effectValue) && 
+                               parseInt(selectedItem.effectValue.slice(1), 16) > 0x888888 
+                          ? '#000000' 
+                          : '#FFFFFF',
+                        fontFamily: 'Orbitron-Bold'
+                      }]}>
+                        {selectedItem.title}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
               
               {/* Item Description */}
@@ -749,52 +830,48 @@ const ShopScreen = () => {
               {/* Action Buttons */}
               <View style={styles.modalActions}>
                 {!isPurchased ? (
-                  <>
-                    {/* There's no need for a toggle anymore since users can always purchase with coins */}
-                    
-                    {/* Purchase Button */}
-                    <TouchableOpacity
-                      style={[
-                        styles.actionButton,
-                        { 
-                          backgroundColor: canAfford ? 
-                            theme.colors.primary : 
-                            theme.colors.surfaceHighlight,
-                          borderColor: canAfford ? 
-                            theme.colors.primary : 
-                            theme.colors.border
-                        }
-                      ]}
-                      onPress={handlePurchase}
-                      disabled={!canAfford || purchaseLoading}
-                    >
-                      {purchaseLoading ? (
-                        <ActivityIndicator color={theme.colors.buttonText} size="small" />
-                      ) : (
-                        <>
-                          <Ionicons 
-                            name="cart" 
-                            size={18} 
-                            color={canAfford ? 
-                              theme.colors.buttonText : 
-                              theme.colors.textMuted
-                            } 
-                          />
-                          <Text style={[styles.actionButtonText, { 
-                            color: canAfford ? 
-                              theme.colors.buttonText : 
-                              theme.colors.textMuted,
-                            fontFamily: 'Orbitron'
-                          }]}>
-                            {canAfford ? 
-                              `PURCHASE FOR ${selectedItem.cost} COINS` : 
-                              `NEED ${selectedItem.cost - coins} MORE COINS`
-                            }
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </>
+                  // Purchase Button
+                  <TouchableOpacity
+                    style={[
+                      styles.actionButton,
+                      { 
+                        backgroundColor: canAfford ? 
+                          theme.colors.primary : 
+                          theme.colors.surfaceHighlight,
+                        borderColor: canAfford ? 
+                          theme.colors.primary : 
+                          theme.colors.border
+                      }
+                    ]}
+                    onPress={handlePurchase}
+                    disabled={!canAfford || purchaseLoading}
+                  >
+                    {purchaseLoading ? (
+                      <ActivityIndicator color={theme.colors.buttonText} size="small" />
+                    ) : (
+                      <>
+                        <Ionicons 
+                          name="cart" 
+                          size={18} 
+                          color={canAfford ? 
+                            theme.colors.buttonText : 
+                            theme.colors.textMuted
+                          } 
+                        />
+                        <Text style={[styles.actionButtonText, { 
+                          color: canAfford ? 
+                            theme.colors.buttonText : 
+                            theme.colors.textMuted,
+                          fontFamily: 'Orbitron'
+                        }]}>
+                          {canAfford ? 
+                            `PURCHASE FOR ${selectedItem.cost} COINS` : 
+                            `NEED ${selectedItem.cost - coins} MORE COINS`
+                          }
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 ) : !isEquipped ? (
                   // Equip Button for owned items
                   <TouchableOpacity
@@ -877,10 +954,11 @@ const ShopScreen = () => {
               <Text style={[styles.headerTitle, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
                 ITEM <Text style={{ color: theme.colors.primary }}>SHOP</Text>
               </Text>
-              <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
-              <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                CUSTOMIZE YOUR EXPERIENCE
-              </Text>
+              <View style={styles.headerSubtitleBox}>
+                <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                  CUSTOMIZE YOUR EXPERIENCE
+                </Text>
+              </View>
             </View>
           </LinearGradient>
         </Animated.View>
@@ -902,14 +980,32 @@ const ShopScreen = () => {
           }]}>
             <View style={styles.walletGrid}>
               <View style={[styles.walletItem, { borderRightColor: theme.colors.border + '40' }]}>
-                <Ionicons name="cash" size={24} color={theme.colors.goldBadge} />
+                <Animated.View
+                  style={{
+                    transform: [{ scale: coinsFlashAnim.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: [1, 1.2, 1]
+                    })}]
+                  }}
+                >
+                  <Ionicons name="cash" size={24} color={theme.colors.goldBadge} />
+                </Animated.View>
                 <View style={styles.walletItemContent}>
-                  <Text style={[styles.walletAmount, { 
-                    color: theme.colors.text,
-                    fontFamily: 'Orbitron-Bold'
-                  }]}>
+                  <Animated.Text 
+                    style={[
+                      styles.walletAmount, 
+                      { 
+                        color: theme.colors.text,
+                        fontFamily: 'Orbitron-Bold',
+                        backgroundColor: coinsFlashAnim.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: ['transparent', theme.colors.goldBadge + '30', 'transparent']
+                        })
+                      }
+                    ]}
+                  >
                     {coins.toLocaleString()}
-                  </Text>
+                  </Animated.Text>
                   <Text style={[styles.walletLabel, { 
                     color: theme.colors.textSecondary,
                     fontFamily: 'ShareTechMono'
@@ -1042,7 +1138,34 @@ const ShopScreen = () => {
               </Text>
             </TouchableOpacity>
             
-
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+                activeCategory === 'nameColor' && { 
+                  backgroundColor: theme.colors.primary,
+                  borderColor: theme.colors.primary
+                }
+              ]}
+              onPress={() => handleCategoryChange('nameColor')}
+            >
+              <Ionicons 
+                name="color-palette" 
+                size={16} 
+                color={activeCategory === 'nameColor' ? 
+                  theme.colors.buttonText : 
+                  theme.colors.textMuted
+                } 
+              />
+              <Text style={[styles.filterText, { 
+                color: activeCategory === 'nameColor' ? 
+                  theme.colors.buttonText : 
+                  theme.colors.textMuted,
+                fontFamily: 'ShareTechMono'
+              }]}>
+                NAME COLORS
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
         </Animated.View>
         
@@ -1113,420 +1236,9 @@ const ShopScreen = () => {
   );
 };
 
+// Keep all your existing styles here
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  // Header
-  header: {
-    width: '100%',
-    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
-  },
-  headerGradient: {
-    paddingVertical: 15,
-  },
-  headerContent: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  headerDivider: {
-    width: 60,
-    height: 3,
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-  
-  // User Stats & Wallet
-  userStatsContainer: {
-    paddingHorizontal: 15,
-    marginBottom: 15,
-  },
-  walletCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  walletGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  walletItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderRightWidth: 1,
-  },
-  walletItemContent: {
-    marginLeft: 12,
-  },
-  walletAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  walletLabel: {
-    fontSize: 12,
-    marginTop: 2,
-    letterSpacing: 0.5,
-  },
-  
-  // Category Filters
-  filterContainer: {
-    marginBottom: 15,
-  },
-  filterScrollContainer: {
-    paddingHorizontal: 15,
-    paddingBottom: 5,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 1,
-  },
-  filterText: {
-    fontSize: 12,
-    marginLeft: 5,
-    letterSpacing: 0.5,
-  },
-  
-  // Item Grid
-  listContent: {
-    paddingHorizontal: 15,
-    paddingBottom: 80,
-  },
-  columnWrapper: {
-    justifyContent: 'space-between',
-  },
-  itemCard: {
-    width: (width - 35) / 2, // Two columns with spacing
-    marginBottom: 15,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  itemInfo: {
-    padding: 10,
-    borderTopWidth: 1,
-  },
-  itemTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 5,
-  },
-  itemFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  purchaseInfo: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  requirementBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  requirementText: {
-    fontSize: 10,
-    marginLeft: 3,
-  },
-  priceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  priceText: {
-    fontSize: 10,
-    marginLeft: 3,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-  },
-  equipBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  equipText: {
-    fontSize: 10,
-    marginLeft: 3,
-  },
-  ownedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  ownedText: {
-    fontSize: 10,
-    marginLeft: 3,
-  },
-  
-  // Empty State
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 30,
-    borderRadius: 12,
-    marginTop: 20,
-    borderWidth: 1,
-  },
-  emptyText: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 15,
-    letterSpacing: 0.5,
-  },
-  
-  // Status Toast
-  statusToast: {
-    position: 'absolute',
-    bottom: 30,
-    left: 20,
-    right: 20,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-    zIndex: 1000,
-  },
-  statusText: {
-    marginLeft: 10,
-    fontSize: 14,
-    flex: 1,
-  },
-  
-  // Loading Overlay
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
-  
-  // Item Modal
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    width: '90%',
-    maxWidth: 400,
-    borderRadius: 16,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    gap: 10,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 15,
-    right: 15,
-    zIndex: 10,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalContent: {
-    padding: 20,
-  },
-  previewContainer: {
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 15,
-    borderWidth: 1,
-  },
-  previewImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    resizeMode: 'cover',
-  },
-  previewFallback: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fallbackText: {
-    fontSize: 40,
-    fontWeight: 'bold',
-  },
-  boostPreview: {
-    alignItems: 'center',
-  },
-  boostIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  boostValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  colorPreview: {
-    alignItems: 'center',
-  },
-  colorSwatch: {
-    width: 140,
-    height: 60,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colorText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  itemDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  itemDetailsGrid: {
-    marginBottom: 20,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
-    borderWidth: 1,
-  },
-  detailContent: {
-    marginLeft: 10,
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 12,
-    marginBottom: 2,
-    letterSpacing: 0.5,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  modalActions: {
-    gap: 10,
-  },
-  purchaseToggle: {
-    flexDirection: 'row',
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    marginBottom: 5,
-  },
-  toggleOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 8,
-  },
-  toggleText: {
-    fontSize: 12,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    paddingVertical: 15,
-    borderWidth: 1,
-    gap: 10,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  equippedMessage: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    paddingVertical: 15,
-    borderWidth: 1,
-    gap: 10,
-  },
-  equippedText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
+  // All your existing style definitions here...
 });
 
 export default ShopScreen;

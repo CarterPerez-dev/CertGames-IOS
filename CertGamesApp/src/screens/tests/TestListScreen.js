@@ -4,7 +4,6 @@ import {
   View, 
   Text, 
   FlatList, 
-  StyleSheet, 
   TouchableOpacity, 
   ActivityIndicator, 
   Alert, 
@@ -34,40 +33,43 @@ import { DIFFICULTY_CATEGORIES, TEST_LENGTHS, EXAM_MODE_INFO } from '../../const
 const TestListScreen = ({ route, navigation }) => {
   const { category, title } = route.params || {};
   const dispatch = useDispatch();
-  
+
+  // Use our custom hook for user data - this will ensure it's always up-to-date
+  const { userId, refreshData } = useUserData();
+
   // Access theme
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
-  
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [tests, setTests] = useState([]);
   const [attemptsData, setAttemptsData] = useState({});
-  
+
   // Exam mode toggle
   const [examMode, setExamMode] = useState(false);
-  
+
   // Modal states
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showRestartModal, setShowRestartModal] = useState(false);
   const [selectedTest, setSelectedTest] = useState(null);
-  
+
   // Test length
   const allowedTestLengths = TEST_LENGTHS;
   const [selectedLengths, setSelectedLengths] = useState({});
   const [showTestLengthModal, setShowTestLengthModal] = useState(false);
   const [testForLength, setTestForLength] = useState(null);
-  
+
   // Difficulty categories with colors and levels
   const difficultyCategories = DIFFICULTY_CATEGORIES;
-  
+
   // Fetch tests and attempts
   const fetchTestsAndAttempts = useCallback(async () => {
     try {
       setLoading(true);
       
-      // First, fetch generated test data for this category (similar to web app)
+      // First, fetch generated test data for this category
       try {
         const testsData = await testService.fetchTestsByCategory(category);
         setTests(testsData);
@@ -102,7 +104,7 @@ const TestListScreen = ({ route, navigation }) => {
               
               // If existing is finished and new is unfinished, keep finished
               if (existing.finished && !att.finished) {
-                // Keep existing (finished beats unfinished)
+                // Keep existing
               } 
               // If existing is unfinished and new is finished, use new
               else if (!existing.finished && att.finished) {
@@ -136,11 +138,39 @@ const TestListScreen = ({ route, navigation }) => {
       setRefreshing(false);
     }
   }, [userId, category]);
-  
-  // Load data when screen comes into focus
+
+  // Update the refresh handler to also reload user data
+  const handleRefresh = () => {
+    setRefreshing(true);
+    
+    // Refresh both test data and user data
+    Promise.all([
+      fetchTestsAndAttempts(),
+      userId ? refreshData() : Promise.resolve()
+    ])
+    .finally(() => {
+      setRefreshing(false);
+    });
+  };
+
+  // When returning to the test list from a completed test,
+  // make sure we refresh the data to show the latest progress
   useFocusEffect(
     useCallback(() => {
-      fetchTestsAndAttempts();
+      // Check if coming back from a completed test
+      const forceRefresh = navigation.getState()?.routes?.find(
+        r => r.name === route.name && r.params?.testJustCompleted
+      );
+      
+      if (forceRefresh) {
+        // Clear the state so we don't repeatedly refresh
+        navigation.setParams({ testJustCompleted: undefined });
+        // Refresh the data
+        handleRefresh();
+      } else {
+        // Normal initial load
+        fetchTestsAndAttempts();
+      }
       
       // Load the exam mode from storage
       const loadExamMode = async () => {
@@ -153,30 +183,24 @@ const TestListScreen = ({ route, navigation }) => {
       };
       
       loadExamMode();
-    }, [fetchTestsAndAttempts])
+    }, [navigation, route.name])
   );
-  
+
   // Save exam mode to storage when it changes
   useEffect(() => {
     SecureStore.setItemAsync('examMode', examMode ? 'true' : 'false');
   }, [examMode]);
-  
-  // Handle refresh
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchTestsAndAttempts();
-  };
-  
+
   // Handle exam mode toggle
   const toggleExamMode = () => {
     setExamMode(prev => !prev);
   };
-  
+
   // Get attempt doc for a test
   const getAttemptDoc = (testNumber) => {
     return attemptsData[testNumber] || null;
   };
-  
+
   // Get progress display for an attempt
   const getProgressDisplay = (attemptDoc) => {
     if (!attemptDoc) return { text: "Not started", percentage: 0 };
@@ -205,7 +229,7 @@ const TestListScreen = ({ route, navigation }) => {
       return { text: "Not started", percentage: 0 };
     }
   };
-  
+
   // Start or resume a test
   const startTest = (testNumber, doRestart = false, existingAttempt = null) => {
     // For new tests (or restart), show length selector
@@ -227,7 +251,7 @@ const TestListScreen = ({ route, navigation }) => {
       resuming: true
     });
   };
-  
+
   // Create a new attempt with selected length
   const createNewAttempt = async (testNumber, selectedLength) => {
     try {
@@ -238,8 +262,8 @@ const TestListScreen = ({ route, navigation }) => {
         totalQuestions: 100,
         selectedLength,
         currentQuestionIndex: 0,
-        shuffleOrder: [], // Will be generated on the test screen
-        answerOrder: [],  // Will be generated on the test screen
+        shuffleOrder: [],
+        answerOrder: [],
         finished: false,
         examMode,
       });
@@ -262,7 +286,7 @@ const TestListScreen = ({ route, navigation }) => {
       Alert.alert("Error", "Failed to start test. Please try again.");
     }
   };
-  
+
   // Handle test length selection
   const handleTestLengthSelect = (length) => {
     setSelectedLengths(prev => ({
@@ -270,14 +294,14 @@ const TestListScreen = ({ route, navigation }) => {
       [testForLength]: length
     }));
   };
-  
+
   // Confirm and start test with selected length
   const confirmTestLength = () => {
     const length = selectedLengths[testForLength] || 100;
     setShowTestLengthModal(false);
     createNewAttempt(testForLength, length);
   };
-  
+
   // Render each test item in the list
   const renderTestItem = ({ item }) => {
     // Handle if item is a test object or just a number
@@ -342,7 +366,6 @@ const TestListScreen = ({ route, navigation }) => {
           </View>
         </View>
         
-        {/* Test Length Selector (for new or finished tests) */}
         {(noAttempt || isFinished) && (
           <View style={styles.lengthSelector}>
             <Text style={[styles.lengthLabel, { color: theme.colors.textSecondary }]}>Questions:</Text>
@@ -459,14 +482,14 @@ const TestListScreen = ({ route, navigation }) => {
       </View>
     );
   };
-  
+
   // Handle restart confirmation
   const confirmRestart = () => {
     setShowRestartModal(false);
     const attemptDoc = getAttemptDoc(selectedTest);
     startTest(selectedTest, true, attemptDoc);
   };
-  
+
   // If no userId, show login prompt
   if (!userId) {
     return (
@@ -485,7 +508,7 @@ const TestListScreen = ({ route, navigation }) => {
       </View>
     );
   }
-  
+
   // If loading, show spinner
   if (loading && !refreshing) {
     return (
@@ -495,7 +518,7 @@ const TestListScreen = ({ route, navigation }) => {
       </View>
     );
   }
-  
+
   // If error, show error message
   if (error) {
     return (
@@ -512,7 +535,7 @@ const TestListScreen = ({ route, navigation }) => {
       </View>
     );
   }
-  
+
   return (
     <View style={[globalStyles.screen, styles.container]}>
       <LinearGradient
@@ -706,6 +729,7 @@ const TestListScreen = ({ route, navigation }) => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

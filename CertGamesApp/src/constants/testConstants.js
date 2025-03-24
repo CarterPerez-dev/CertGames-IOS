@@ -33,6 +33,5 @@ export const DIFFICULTY_CATEGORIES = [
 export const EXAM_MODE_INFO = 
   "Exam Mode simulates a real exam environment:\n\n" +
   "• No immediate feedback on answers\n" +
-  "• See results only after completing the test\n" +
-  "• Time is tracked for the entire session\n\n" +
+  "• See results only after completing the test\n\n" +
   "This is perfect for final exam preparation!";

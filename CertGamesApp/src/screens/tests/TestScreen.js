@@ -2257,11 +2257,11 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   percentageDisplay: {
-    fontSize: 19,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   gradeLabel: {
-    fontSize: 9,
+    fontSize: 11,
     marginTop: 5,
     textAlign: 'center',
   },
@@ -2296,7 +2296,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scoreButtonText: {
-    fontSize: 10,
+    fontSize: 7,
     fontWeight: 'bold',
     marginLeft: 8,
   },

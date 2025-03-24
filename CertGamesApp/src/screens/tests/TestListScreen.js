@@ -1117,7 +1117,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   infoButton: {
-    padding: 5,
+    padding: 8,
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -1396,6 +1396,7 @@ const styles = StyleSheet.create({
     minWidth: 120,
     alignItems: 'center',
     marginHorizontal: 5,
+    marginBottom: 8,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,

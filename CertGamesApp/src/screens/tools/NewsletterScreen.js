@@ -324,9 +324,7 @@ const NewsletterScreen = ({ navigation }) => {
                 
                 <View style={styles.cardContent}>
                   <Text style={[globalStyles.text, styles.cardText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
-                    The CERT GAMES Cyber Brief delivers curated, actionable cybersecurity intelligence 
-                    directly to your inbox. Stay informed about emerging threats, security best 
-                    practices, and industry trends.
+                    CERT GAMES Cyber Brief: Exam hacks, study strategies, and life tips, delivered weekly.
                   </Text>
                   
                   <View style={styles.features}>
@@ -337,10 +335,10 @@ const NewsletterScreen = ({ navigation }) => {
                       <Ionicons name="lock-closed" size={20} color={theme.colors.primary} />
                       <View style={styles.featureTextContainer}>
                         <Text style={[styles.featureTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
-                          THREAT INTELLIGENCE
+                          EXAM TIPS
                         </Text>
                         <Text style={[styles.featureText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                          Latest intelligence on emerging cyber threats and vulnerabilities
+                          Expert tips to ace your exams
                         </Text>
                       </View>
                     </View>
@@ -352,10 +350,10 @@ const NewsletterScreen = ({ navigation }) => {
                       <Ionicons name="trending-up" size={20} color={theme.colors.primary} />
                       <View style={styles.featureTextContainer}>
                         <Text style={[styles.featureTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
-                          INDUSTRY TRENDS
+                          LIFE TIPS
                         </Text>
                         <Text style={[styles.featureText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                          Track industry trends and stay ahead of the curve
+                          Actionable insights for personal growth.
                         </Text>
                       </View>
                     </View>
@@ -370,7 +368,7 @@ const NewsletterScreen = ({ navigation }) => {
                           SECURITY TOOLS
                         </Text>
                         <Text style={[styles.featureText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                          Practical security tools and techniques for implementation
+                          Practical tutorials for essential tools.
                         </Text>
                       </View>
                     </View>
@@ -382,10 +380,10 @@ const NewsletterScreen = ({ navigation }) => {
                       <Ionicons name="bulb" size={20} color={theme.colors.primary} />
                       <View style={styles.featureTextContainer}>
                         <Text style={[styles.featureTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
-                          EXPERT INSIGHTS
+                          STUDY TIPS
                         </Text>
                         <Text style={[styles.featureText, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                          Gain insights from security experts and thought leaders
+                          Simple hacks for better studying.
                         </Text>
                       </View>
                     </View>

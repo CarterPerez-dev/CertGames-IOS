@@ -25,8 +25,480 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 import { useNavigation } from '@react-navigation/native';
-
+import { VULNERABILITIES, EVASION_TECHNIQUES } from './xploits';
+// Removed previous syntax highlighter imports
 const { width, height } = Dimensions.get('window');
+
+// Custom syntax highlighting component
+const CustomCodeHighlighter = ({ code, language }) => {
+  const { theme } = useTheme();
+  
+  // Parse and tokenize the code
+  const tokenizedCode = tokenizeCode(code, language);
+  
+  return (
+    <View style={styles.customHighlighterContainer}>
+      <Text style={styles.codeText}>
+        {tokenizedCode.map((token, index) => (
+          <Text
+            key={index}
+            style={{
+              color: getTokenColor(token.type, theme),
+              fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+              fontSize: 14,
+            }}>
+            {token.content}
+          </Text>
+        ))}
+      </Text>
+    </View>
+  );
+};
+
+// Function to tokenize code based on language
+const tokenizeCode = (code, language) => {
+  // Default tokens if we can't properly tokenize
+  if (!code) return [{ type: 'text', content: '' }];
+  
+  const tokens = [];
+  
+  // Simple tokenization based on language
+  switch (language) {
+    case 'javascript':
+      return tokenizeJavaScript(code);
+    case 'python':
+      return tokenizePython(code);
+    case 'sql':
+      return tokenizeSQL(code);
+    case 'html':
+      return tokenizeHTML(code);
+    case 'php':
+      return tokenizePHP(code);
+    case 'ruby':
+      return tokenizeRuby(code);
+    case 'cpp':
+      return tokenizeCPP(code);
+    default:
+      // Basic fallback tokenization
+      return tokenizeGeneric(code);
+  }
+};
+
+// Token type to color mapping function
+const getTokenColor = (type, theme) => {
+  const darkMode = theme.dark;
+  
+  // Color palette for syntax highlighting
+  const colors = {
+    keyword: darkMode ? '#ff79c6' : '#d73a49',
+    string: darkMode ? '#f1fa8c' : '#032f62',
+    comment: darkMode ? '#6272a4' : '#6a737d',
+    number: darkMode ? '#bd93f9' : '#005cc5',
+    function: darkMode ? '#50fa7b' : '#6f42c1',
+    operator: darkMode ? '#ff79c6' : '#d73a49',
+    variable: darkMode ? '#f8f8f2' : '#24292e',
+    tag: darkMode ? '#ff79c6' : '#22863a',
+    attribute: darkMode ? '#50fa7b' : '#6f42c1',
+    class: darkMode ? '#8be9fd' : '#6f42c1',
+    parameter: darkMode ? '#ffb86c' : '#e36209',
+    punctuation: darkMode ? '#f8f8f2' : '#24292e',
+    regex: darkMode ? '#f1fa8c' : '#032f62',
+    text: darkMode ? '#f8f8f2' : '#24292e',
+  };
+  
+  return colors[type] || colors.text;
+};
+
+// Language-specific tokenizers
+const tokenizeGeneric = (code) => {
+  return [{ type: 'text', content: code }];
+};
+
+const tokenizeJavaScript = (code) => {
+  const tokens = [];
+  
+  // Define regex patterns for different token types
+  const patterns = [
+    { type: 'comment', regex: /\/\/.*?$|\/\*[\s\S]*?\*\//gm },
+    { type: 'string', regex: /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g },
+    { type: 'keyword', regex: /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|class|import|export|try|catch|finally|throw|async|await|from|of|in)\b/g },
+    { type: 'number', regex: /\b\d+(\.\d+)?\b/g },
+    { type: 'function', regex: /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g }, // Function calls
+    { type: 'operator', regex: /===|!==|==|!=|>=|<=|=>|=|>|<|\+|\-|\*|\/|\+\+|\-\-|\?\.|\.|\?|:|&&|\|\||\!/g },
+    { type: 'punctuation', regex: /[\[\]\{\}\(\),;]/g },
+  ];
+  
+  // Apply patterns and create tokens
+  let remaining = code;
+  let lastIndex = 0;
+  
+  while (remaining.length > 0) {
+    let earliest = { index: Infinity, type: 'text', match: null };
+    
+    // Find the earliest match among all patterns
+    for (const pattern of patterns) {
+      pattern.regex.lastIndex = 0;
+      const match = pattern.regex.exec(remaining);
+      
+      if (match && match.index < earliest.index) {
+        earliest = { index: match.index, type: pattern.type, match };
+      }
+    }
+    
+    // Add plain text before the match
+    if (earliest.index > 0) {
+      tokens.push({ 
+        type: 'text', 
+        content: remaining.substring(0, earliest.index) 
+      });
+    }
+    
+    // Add the matched token if found
+    if (earliest.match) {
+      tokens.push({ 
+        type: earliest.type, 
+        content: earliest.match[0] 
+      });
+      
+      // Update remaining text
+      remaining = remaining.substring(earliest.index + earliest.match[0].length);
+    } else {
+      // No matches found, add the rest as plain text
+      if (remaining.length > 0) {
+        tokens.push({ type: 'text', content: remaining });
+      }
+      break;
+    }
+  }
+  
+  return tokens;
+};
+
+const tokenizePython = (code) => {
+  const tokens = [];
+  
+  // Define regex patterns for Python tokens
+  const patterns = [
+    { type: 'comment', regex: /#.*?$/gm },
+    { type: 'string', regex: /'''[\s\S]*?'''|"""[\s\S]*?"""|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g },
+    { type: 'keyword', regex: /\b(def|class|if|elif|else|for|while|try|except|finally|with|import|from|as|return|raise|assert|pass|break|continue|and|or|not|in|is|None|True|False|global|nonlocal|lambda|yield)\b/g },
+    { type: 'number', regex: /\b\d+(\.\d+)?(e[+-]?\d+)?\b/g },
+    { type: 'function', regex: /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g },
+    { type: 'operator', regex: /==|!=|>=|<=|>|<|\+|\-|\*|\/|\*\*|\/\/|%|&|\||\^|~|@|=|\+=|\-=|\*=|\/=|\/\/=|%=|&=|\|=|\^=|>>=|<<=|\*\*=/g },
+    { type: 'punctuation', regex: /[\[\]\{\}\(\),;:\.]/g },
+  ];
+  
+  // Apply patterns and create tokens (same approach as JavaScript)
+  let remaining = code;
+  let lastIndex = 0;
+  
+  while (remaining.length > 0) {
+    let earliest = { index: Infinity, type: 'text', match: null };
+    
+    for (const pattern of patterns) {
+      pattern.regex.lastIndex = 0;
+      const match = pattern.regex.exec(remaining);
+      
+      if (match && match.index < earliest.index) {
+        earliest = { index: match.index, type: pattern.type, match };
+      }
+    }
+    
+    if (earliest.index > 0) {
+      tokens.push({ 
+        type: 'text', 
+        content: remaining.substring(0, earliest.index) 
+      });
+    }
+    
+    if (earliest.match) {
+      tokens.push({ 
+        type: earliest.type, 
+        content: earliest.match[0] 
+      });
+      
+      remaining = remaining.substring(earliest.index + earliest.match[0].length);
+    } else {
+      if (remaining.length > 0) {
+        tokens.push({ type: 'text', content: remaining });
+      }
+      break;
+    }
+  }
+  
+  return tokens;
+};
+
+const tokenizeSQL = (code) => {
+  const tokens = [];
+  
+  // SQL tokenization patterns
+  const patterns = [
+    { type: 'comment', regex: /--.*?$|\/\*[\s\S]*?\*\//gm },
+    { type: 'string', regex: /'(?:\\.|[^'\\])*'/g },
+    { type: 'keyword', regex: /\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|AND|OR|LIKE|BETWEEN|IN|IS|NULL|NOT|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|ON|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET|CREATE|ALTER|DROP|TABLE|VIEW|INDEX|TRIGGER|FUNCTION|PROCEDURE|CASE|WHEN|THEN|ELSE|END|AS|UNION|ALL|DISTINCT|INTO|VALUES|SET)\b/gi },
+    { type: 'number', regex: /\b\d+(\.\d+)?\b/g },
+    { type: 'function', regex: /\b(COUNT|SUM|AVG|MIN|MAX|COALESCE|NULLIF|ISNULL|CAST|CONVERT|CONCAT|SUBSTRING|TRIM|UPPER|LOWER|DATEADD|DATEDIFF|DATENAME|DATEPART)\s*\(/gi },
+    { type: 'operator', regex: /=|!=|<>|>=|<=|>|<|\+|-|\*|\/|\%/g },
+    { type: 'punctuation', regex: /[\(\),;\.]/g },
+  ];
+  
+  // Similar tokenization logic as before
+  let remaining = code;
+  
+  while (remaining.length > 0) {
+    let earliest = { index: Infinity, type: 'text', match: null };
+    
+    for (const pattern of patterns) {
+      pattern.regex.lastIndex = 0;
+      const match = pattern.regex.exec(remaining);
+      
+      if (match && match.index < earliest.index) {
+        earliest = { index: match.index, type: pattern.type, match };
+      }
+    }
+    
+    if (earliest.index > 0) {
+      tokens.push({ 
+        type: 'text', 
+        content: remaining.substring(0, earliest.index) 
+      });
+    }
+    
+    if (earliest.match) {
+      tokens.push({ 
+        type: earliest.type, 
+        content: earliest.match[0] 
+      });
+      
+      remaining = remaining.substring(earliest.index + earliest.match[0].length);
+    } else {
+      if (remaining.length > 0) {
+        tokens.push({ type: 'text', content: remaining });
+      }
+      break;
+    }
+  }
+  
+  return tokens;
+};
+
+// Define tokenizers for other languages (simplified)
+const tokenizeHTML = (code) => {
+  const tokens = [];
+  
+  const patterns = [
+    { type: 'comment', regex: /<!--[\s\S]*?-->/g },
+    { type: 'tag', regex: /<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z][a-zA-Z0-9-]*(?:=(?:"[^"]*"|'[^']*'|[^>\s]+))?)*\s*\/?>/g },
+    { type: 'attribute', regex: /\s+[a-zA-Z][a-zA-Z0-9-]*(?:=(?:"[^"]*"|'[^']*'|[^>\s]+))?/g },
+    { type: 'string', regex: /"[^"]*"|'[^']*'/g },
+    { type: 'text', regex: /[^<>]+/g },
+  ];
+  
+  // Simplified implementation
+  // This is a basic implementation - in a real app, HTML parsing is more complex
+  let remaining = code;
+  
+  while (remaining.length > 0) {
+    let earliest = { index: Infinity, type: 'text', match: null };
+    
+    for (const pattern of patterns) {
+      pattern.regex.lastIndex = 0;
+      const match = pattern.regex.exec(remaining);
+      
+      if (match && match.index < earliest.index) {
+        earliest = { index: match.index, type: pattern.type, match };
+      }
+    }
+    
+    if (earliest.index > 0) {
+      tokens.push({ 
+        type: 'text', 
+        content: remaining.substring(0, earliest.index) 
+      });
+    }
+    
+    if (earliest.match) {
+      tokens.push({ 
+        type: earliest.type, 
+        content: earliest.match[0] 
+      });
+      
+      remaining = remaining.substring(earliest.index + earliest.match[0].length);
+    } else {
+      if (remaining.length > 0) {
+        tokens.push({ type: 'text', content: remaining });
+      }
+      break;
+    }
+  }
+  
+  return tokens;
+};
+
+const tokenizePHP = (code) => {
+  // Basic tokenization for PHP
+  const tokens = [];
+  
+  const patterns = [
+    { type: 'comment', regex: /\/\/.*?$|\/\*[\s\S]*?\*\/|#.*?$/gm },
+    { type: 'string', regex: /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g },
+    { type: 'keyword', regex: /\b(if|else|elseif|foreach|while|do|for|switch|case|break|continue|return|function|class|new|extends|implements|namespace|use|require|include|require_once|include_once|echo|print|array|as|public|private|protected|static|final|abstract|interface|trait|const|throw|try|catch|finally)\b/g },
+    { type: 'number', regex: /\b\d+(\.\d+)?\b/g },
+    { type: 'function', regex: /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g },
+    { type: 'variable', regex: /\$[a-zA-Z_][a-zA-Z0-9_]*/g },
+    { type: 'operator', regex: /===|!==|==|!=|>=|<=|=>|=|>|<|\+|\-|\*|\/|\+\+|\-\-|\?\.|\.|\?|:|&&|\|\||\!/g },
+    { type: 'punctuation', regex: /[\[\]\{\}\(\),;]/g },
+  ];
+  
+  let remaining = code;
+  
+  while (remaining.length > 0) {
+    let earliest = { index: Infinity, type: 'text', match: null };
+    
+    for (const pattern of patterns) {
+      pattern.regex.lastIndex = 0;
+      const match = pattern.regex.exec(remaining);
+      
+      if (match && match.index < earliest.index) {
+        earliest = { index: match.index, type: pattern.type, match };
+      }
+    }
+    
+    if (earliest.index > 0) {
+      tokens.push({ 
+        type: 'text', 
+        content: remaining.substring(0, earliest.index) 
+      });
+    }
+    
+    if (earliest.match) {
+      tokens.push({ 
+        type: earliest.type, 
+        content: earliest.match[0] 
+      });
+      
+      remaining = remaining.substring(earliest.index + earliest.match[0].length);
+    } else {
+      if (remaining.length > 0) {
+        tokens.push({ type: 'text', content: remaining });
+      }
+      break;
+    }
+  }
+  
+  return tokens;
+};
+
+// Simplified tokenizers for Ruby and C++
+const tokenizeRuby = (code) => {
+  // Basic tokenization for Ruby
+  const tokens = [];
+  
+  const patterns = [
+    { type: 'comment', regex: /#.*?$/gm },
+    { type: 'string', regex: /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|%[qQwWxr]?\{(?:\\.|[^\\}])*\}|%[qQwWxr]?\[(?:\\.|[^\\\]])*\]|%[qQwWxr]?\((?:\\.|[^\\)])*\)|%[qQwWxr]?<(?:\\.|[^\\>])*>/g },
+    { type: 'keyword', regex: /\b(def|class|module|if|elsif|else|unless|case|when|while|until|for|in|do|end|begin|rescue|ensure|raise|alias|undef|super|yield|return|break|next|redo|retry|and|or|not|defined\?)\b/g },
+    { type: 'number', regex: /\b\d+(\.\d+)?(e[+-]?\d+)?\b/g },
+    { type: 'function', regex: /\b([a-zA-Z_][a-zA-Z0-9_?!]*)\s*\(/g },
+    { type: 'symbol', regex: /:[a-zA-Z_][a-zA-Z0-9_?!]*/g },
+    { type: 'operator', regex: /==|!=|>=|<=|=>|=|>|<|\+|\-|\*|\/|\*\*|%|<<|>>|&|\||\^|~|&&|\|\||!/g },
+    { type: 'punctuation', regex: /[\[\]\{\}\(\),;\.]/g },
+  ];
+  
+  let remaining = code;
+  
+  while (remaining.length > 0) {
+    let earliest = { index: Infinity, type: 'text', match: null };
+    
+    for (const pattern of patterns) {
+      pattern.regex.lastIndex = 0;
+      const match = pattern.regex.exec(remaining);
+      
+      if (match && match.index < earliest.index) {
+        earliest = { index: match.index, type: pattern.type, match };
+      }
+    }
+    
+    if (earliest.index > 0) {
+      tokens.push({ 
+        type: 'text', 
+        content: remaining.substring(0, earliest.index) 
+      });
+    }
+    
+    if (earliest.match) {
+      tokens.push({ 
+        type: earliest.type, 
+        content: earliest.match[0] 
+      });
+      
+      remaining = remaining.substring(earliest.index + earliest.match[0].length);
+    } else {
+      if (remaining.length > 0) {
+        tokens.push({ type: 'text', content: remaining });
+      }
+      break;
+    }
+  }
+  
+  return tokens;
+};
+
+const tokenizeCPP = (code) => {
+  // Basic tokenization for C++
+  const tokens = [];
+  
+  const patterns = [
+    { type: 'comment', regex: /\/\/.*?$|\/\*[\s\S]*?\*\//gm },
+    { type: 'string', regex: /"(?:\\.|[^"\\])*"/g },
+    { type: 'character', regex: /'(?:\\.|[^'\\])'/g },
+    { type: 'keyword', regex: /\b(if|else|for|while|do|switch|case|default|break|continue|return|goto|class|struct|enum|union|typedef|template|namespace|using|public|private|protected|friend|virtual|inline|explicit|operator|try|catch|throw|new|delete|const|static|volatile|auto|register|extern|signed|unsigned|long|short|int|char|float|double|bool|void)\b/g },
+    { type: 'preprocessor', regex: /#\w+/g },
+    { type: 'number', regex: /\b\d+(\.\d+)?(e[+-]?\d+)?\b/g },
+    { type: 'function', regex: /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g },
+    { type: 'operator', regex: /==|!=|>=|<=|->|=>|=|>|<|\+\+|\-\-|\+|\-|\*|\/|%|&&|\|\||!|&|\||\^|~|<<|>>/g },
+    { type: 'punctuation', regex: /[\[\]\{\}\(\),;\.]/g },
+  ];
+  
+  let remaining = code;
+  
+  while (remaining.length > 0) {
+    let earliest = { index: Infinity, type: 'text', match: null };
+    
+    for (const pattern of patterns) {
+      pattern.regex.lastIndex = 0;
+      const match = pattern.regex.exec(remaining);
+      
+      if (match && match.index < earliest.index) {
+        earliest = { index: match.index, type: pattern.type, match };
+      }
+    }
+    
+    if (earliest.index > 0) {
+      tokens.push({ 
+        type: 'text', 
+        content: remaining.substring(0, earliest.index) 
+      });
+    }
+    
+    if (earliest.match) {
+      tokens.push({ 
+        type: earliest.type, 
+        content: earliest.match[0] 
+      });
+      
+      remaining = remaining.substring(earliest.index + earliest.match[0].length);
+    } else {
+      if (remaining.length > 0) {
+        tokens.push({ type: 'text', content: remaining });
+      }
+      break;
+    }
+  }
+  
+  return tokens;
+};
 
 const XploitCraftScreen = () => {
   const navigation = useNavigation();
@@ -51,7 +523,35 @@ const XploitCraftScreen = () => {
   const [activeTab, setActiveTab] = useState('code'); // 'code' or 'explanation'
   const [copySuccess, setCopySuccess] = useState(false);
   
+  // New state for suggestions
+  const [vulnerabilitySuggestions, setVulnerabilitySuggestions] = useState([]);
+  const [showVulnerabilitySuggestions, setShowVulnerabilitySuggestions] = useState(false);
+  const [evasionTechniqueSuggestions, setEvasionTechniqueSuggestions] = useState([]);
+  const [showEvasionTechniqueSuggestions, setShowEvasionTechniqueSuggestions] = useState(false);
+  
   const scrollViewRef = useRef();
+
+  // Detect language from code content
+  const detectLanguage = (code) => {
+    // Simple language detection based on common patterns
+    if (code.includes('import ') && (code.includes('def ') || code.includes('class '))) {
+      return 'python';
+    } else if (code.includes('SELECT ') || code.includes('FROM ') || code.includes('WHERE ')) {
+      return 'sql';
+    } else if (code.includes('function') || code.includes('var ') || code.includes('const ') || code.includes('let ')) {
+      return 'javascript';
+    } else if (code.includes('#include') || code.includes('int main')) {
+      return 'cpp';
+    } else if (code.includes('<?php')) {
+      return 'php';
+    } else if (code.includes('<html>') || code.includes('<!DOCTYPE')) {
+      return 'html';
+    } else if (code.includes('#!/usr/bin/ruby') || code.includes('def ') && code.includes('end')) {
+      return 'ruby';
+    } else {
+      return 'python'; // Default to Python as fallback
+    }
+  };
 
   // Animation on mount
   useEffect(() => {
@@ -79,7 +579,7 @@ const XploitCraftScreen = () => {
       Animated.timing(anim, {
         toValue: 1,
         duration: 500,
-        delay: 200 + (i * 120),
+        delay: 100 + (i * 70),
         useNativeDriver: true
       }).start();
     });
@@ -217,6 +717,60 @@ const XploitCraftScreen = () => {
     }
   };
 
+  // Handle vulnerability input changes and show suggestions
+  const handleVulnerabilityChange = (text) => {
+    setVulnerability(text);
+    
+    if (text.length > 0) {
+      const filtered = VULNERABILITIES.filter(
+        (vuln) => vuln.toLowerCase().includes(text.toLowerCase())
+      );
+      setVulnerabilitySuggestions(filtered);
+      setShowVulnerabilitySuggestions(filtered.length > 0);
+    } else {
+      setVulnerabilitySuggestions([]);
+      setShowVulnerabilitySuggestions(false);
+    }
+  };
+  
+  // Handle evasion technique input changes and show suggestions
+  const handleEvasionTechniqueChange = (text) => {
+    setEvasionTechnique(text);
+    
+    if (text.length > 0) {
+      const filtered = EVASION_TECHNIQUES.filter(
+        (tech) => tech.toLowerCase().includes(text.toLowerCase())
+      );
+      setEvasionTechniqueSuggestions(filtered);
+      setShowEvasionTechniqueSuggestions(filtered.length > 0);
+    } else {
+      setEvasionTechniqueSuggestions([]);
+      setShowEvasionTechniqueSuggestions(false);
+    }
+  };
+  
+  // Select a vulnerability from suggestions
+  const selectVulnerabilitySuggestion = (suggestion) => {
+    setVulnerability(suggestion);
+    setShowVulnerabilitySuggestions(false);
+    
+    // Provide haptic feedback when selecting a suggestion
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync();
+    }
+  };
+  
+  // Select an evasion technique from suggestions
+  const selectEvasionTechniqueSuggestion = (suggestion) => {
+    setEvasionTechnique(suggestion);
+    setShowEvasionTechniqueSuggestions(false);
+    
+    // Provide haptic feedback when selecting a suggestion
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync();
+    }
+  };
+
   return (
     <SafeAreaView style={[globalStyles.screen, styles.container]}>
       <ExpoStatusBar style="light" />
@@ -237,6 +791,7 @@ const XploitCraftScreen = () => {
           style={styles.scrollView}
           ref={scrollViewRef}
           contentContainerStyle={styles.scrollViewContent}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Header Section with Title */}
           <Animated.View 
@@ -304,45 +859,159 @@ const XploitCraftScreen = () => {
               {/* Input Fields */}
               <View style={styles.cardContent}>
                 <View style={styles.inputContainer}>
+                  {/* Vulnerability Input with Suggestions */}
                   <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
                     VULNERABILITY OR EXPLOIT:
                   </Text>
-                  <TextInput
-                    style={[
-                      styles.input, 
-                      { 
-                        backgroundColor: theme.colors.inputBackground,
-                        color: theme.colors.inputText,
-                        borderColor: theme.colors.inputBorder,
-                        fontFamily: 'ShareTechMono'
-                      }
-                    ]}
-                    placeholder="E.g. SQL Injection, XSS, Buffer Overflow..."
-                    placeholderTextColor={theme.colors.placeholder}
-                    value={vulnerability}
-                    onChangeText={setVulnerability}
-                    editable={!isLoading}
-                  />
+                  <View style={styles.inputWithSuggestionsContainer}>
+                    <TextInput
+                      style={[
+                        styles.input, 
+                        { 
+                          backgroundColor: theme.colors.inputBackground,
+                          color: theme.colors.inputText,
+                          borderColor: theme.colors.inputBorder,
+                          fontFamily: 'ShareTechMono'
+                        }
+                      ]}
+                      placeholder="E.g. SQL Injection, XSS, Buffer Overflow..."
+                      placeholderTextColor={theme.colors.placeholder}
+                      value={vulnerability}
+                      onChangeText={handleVulnerabilityChange}
+                      editable={!isLoading}
+                      onFocus={() => {
+                        if (vulnerability.length > 0) {
+                          setShowVulnerabilitySuggestions(vulnerabilitySuggestions.length > 0);
+                        }
+                      }}
+                    />
+                    
+                    {/* Suggestions dropdown for vulnerability */}
+                    {showVulnerabilitySuggestions && (
+                      <View style={[styles.suggestionsContainer, { 
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.colors.border
+                      }]}>
+                        <ScrollView 
+                          style={styles.suggestionsList} 
+                          keyboardShouldPersistTaps="handled"
+                          nestedScrollEnabled={true}
+                        >
+                          {vulnerabilitySuggestions.slice(0, 5).map((suggestion) => (
+                            <TouchableOpacity
+                              key={suggestion}
+                              style={[styles.suggestionItem, { borderBottomColor: theme.colors.border }]}
+                              onPress={() => selectVulnerabilitySuggestion(suggestion)}
+                            >
+                              <Text style={[styles.suggestionText, { 
+                                color: theme.colors.text,
+                                fontFamily: 'ShareTechMono'
+                              }]}>
+                                {suggestion}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                          
+                          {vulnerabilitySuggestions.length > 5 && (
+                            <TouchableOpacity
+                              style={[styles.showMoreSuggestions, { backgroundColor: theme.colors.primary + '20' }]}
+                              onPress={() => {
+                                Alert.alert(
+                                  'Available Vulnerabilities',
+                                  vulnerabilitySuggestions.slice(0, 15).join('\n'),
+                                  [{ text: 'OK', onPress: () => setShowVulnerabilitySuggestions(false) }]
+                                );
+                              }}
+                            >
+                              <Text style={[styles.showMoreText, { 
+                                color: theme.colors.primary,
+                                fontFamily: 'ShareTechMono'
+                              }]}>
+                                Show More ({vulnerabilitySuggestions.length})
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
                   
+                  {/* Evasion Technique Input with Suggestions */}
                   <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
                     EVASION TECHNIQUE OR DELIVERY METHOD:
                   </Text>
-                  <TextInput
-                    style={[
-                      styles.input, 
-                      { 
-                        backgroundColor: theme.colors.inputBackground,
-                        color: theme.colors.inputText,
-                        borderColor: theme.colors.inputBorder,
-                        fontFamily: 'ShareTechMono'
-                      }
-                    ]}
-                    placeholder="E.g. Obfuscation, Encoding, Polyglot..."
-                    placeholderTextColor={theme.colors.placeholder}
-                    value={evasionTechnique}
-                    onChangeText={setEvasionTechnique}
-                    editable={!isLoading}
-                  />
+                  <View style={styles.inputWithSuggestionsContainer}>
+                    <TextInput
+                      style={[
+                        styles.input, 
+                        { 
+                          backgroundColor: theme.colors.inputBackground,
+                          color: theme.colors.inputText,
+                          borderColor: theme.colors.inputBorder,
+                          fontFamily: 'ShareTechMono'
+                        }
+                      ]}
+                      placeholder="E.g. Obfuscation, Encoding, Polyglot..."
+                      placeholderTextColor={theme.colors.placeholder}
+                      value={evasionTechnique}
+                      onChangeText={handleEvasionTechniqueChange}
+                      editable={!isLoading}
+                      onFocus={() => {
+                        if (evasionTechnique.length > 0) {
+                          setShowEvasionTechniqueSuggestions(evasionTechniqueSuggestions.length > 0);
+                        }
+                      }}
+                    />
+                    
+                    {/* Suggestions dropdown for evasion technique */}
+                    {showEvasionTechniqueSuggestions && (
+                      <View style={[styles.suggestionsContainer, { 
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.colors.border
+                      }]}>
+                        <ScrollView 
+                          style={styles.suggestionsList}
+                          keyboardShouldPersistTaps="handled"
+                          nestedScrollEnabled={true}
+                        >
+                          {evasionTechniqueSuggestions.slice(0, 5).map((suggestion) => (
+                            <TouchableOpacity
+                              key={suggestion}
+                              style={[styles.suggestionItem, { borderBottomColor: theme.colors.border }]}
+                              onPress={() => selectEvasionTechniqueSuggestion(suggestion)}
+                            >
+                              <Text style={[styles.suggestionText, { 
+                                color: theme.colors.text,
+                                fontFamily: 'ShareTechMono'
+                              }]}>
+                                {suggestion}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                          
+                          {evasionTechniqueSuggestions.length > 5 && (
+                            <TouchableOpacity
+                              style={[styles.showMoreSuggestions, { backgroundColor: theme.colors.primary + '20' }]}
+                              onPress={() => {
+                                Alert.alert(
+                                  'Available Evasion Techniques',
+                                  evasionTechniqueSuggestions.slice(0, 15).join('\n'),
+                                  [{ text: 'OK', onPress: () => setShowEvasionTechniqueSuggestions(false) }]
+                                );
+                              }}
+                            >
+                              <Text style={[styles.showMoreText, { 
+                                color: theme.colors.primary,
+                                fontFamily: 'ShareTechMono'
+                              }]}>
+                                Show More ({evasionTechniqueSuggestions.length})
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 
                 {/* Generate Button */}
@@ -515,7 +1184,7 @@ const XploitCraftScreen = () => {
                   </View>
                 )}
                 
-                {/* Code Blocks */}
+                {/* Code Blocks with Custom Syntax Highlighting */}
                 {(activeTab === 'code' || !explanations.length) && codeBlocks.length > 0 && (
                   <View style={styles.sectionContainer}>
                     {codeBlocks.map((block, index) => (
@@ -552,12 +1221,11 @@ const XploitCraftScreen = () => {
                           </TouchableOpacity>
                         </LinearGradient>
                         <ScrollView style={styles.codeContent}>
-                          <Text style={[styles.codeText, { 
-                            color: theme.colors.text,
-                            fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
-                          }]}>
-                            {block.code}
-                          </Text>
+                          {/* Replace CodeHighlighter with our custom component */}
+                          <CustomCodeHighlighter 
+                            code={block.code}
+                            language={detectLanguage(block.code)}
+                          />
                         </ScrollView>
                       </View>
                     ))}
@@ -750,6 +1418,7 @@ const XploitCraftScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  // Original styles
   container: {
     flex: 1,
   },
@@ -886,13 +1555,46 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: 0.5,
   },
+  inputWithSuggestionsContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
   input: {
     borderWidth: 1,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    marginBottom: 16,
+  },
+  // Suggestions dropdown
+  suggestionsContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '100%',
+    borderWidth: 1,
+    borderRadius: 8,
+    maxHeight: 200,
+    zIndex: 1000,
+    marginTop: 4,
+  },
+  suggestionsList: {
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+  },
+  suggestionText: {
+    fontSize: 14,
+  },
+  showMoreSuggestions: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  showMoreText: {
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   generateButton: {
     paddingVertical: 14,
@@ -1016,7 +1718,13 @@ const styles = StyleSheet.create({
     padding: 16,
     maxHeight: 250,
   },
+  // Custom syntax highlighter styles
+  customHighlighterContainer: {
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
   codeText: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontSize: 14,
     lineHeight: 20,
   },

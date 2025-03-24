@@ -544,7 +544,7 @@ const HomeScreen = ({ navigation }) => {
                   CYBER BRIEF
                 </Text>
                 <Text style={[styles.actionSubtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                  DAILY INTEL
+                  WEEKLY INTEL
                 </Text>
               </View>
             </View>

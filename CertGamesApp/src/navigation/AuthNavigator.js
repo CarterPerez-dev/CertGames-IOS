@@ -9,6 +9,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import CreateUsernameScreen from '../screens/auth/CreateUsernameScreen';
+import TermsScreen from '../screens/auth/TermsScreen';
 
 const Stack = createStackNavigator();
 
@@ -25,6 +26,7 @@ const HeaderBackground = () => (
 const AuthNavigator = () => {
   return (
     <Stack.Navigator
+      initialRouteName="Register"
       screenOptions={{
         headerBackground: () => <HeaderBackground />,
         headerTintColor: '#FFFFFF',
@@ -36,17 +38,18 @@ const AuthNavigator = () => {
         headerTitleAlign: 'center',
         headerStyle: {
           elevation: 0,
-          shadowOpacity: 0, // Fixed: changed from 'a0' to 0
+          shadowOpacity: 0,
           borderBottomWidth: 0,
           height: 60,
         },
         cardStyle: { backgroundColor: '#0B0C15' }
       }}
     >
+      <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Reset Password' }} />
       <Stack.Screen name="CreateUsername" component={CreateUsernameScreen} options={{ title: 'Choose Username' }} />
+      <Stack.Screen name="Terms" component={TermsScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 };

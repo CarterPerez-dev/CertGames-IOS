@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   coinsValue: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   coinsLabel: {

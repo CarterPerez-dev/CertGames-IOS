@@ -29,11 +29,8 @@ const LeaderboardScreen = () => {
   // Access theme context
   const { theme } = useTheme();
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const [cardAnims] = useState([...Array(50)].map(() => new Animated.Value(0)));
+  // Animation values - keeping these for card animations but removing problematic ones
+  const cardAnims = useRef([...Array(50)].map(() => new Animated.Value(1))).current;
   
   // State for leaderboard data
   const [leaderboardData, setLeaderboardData] = useState([]);
@@ -51,40 +48,6 @@ const LeaderboardScreen = () => {
   
   const pageSize = 20;
   const { username, userId } = useSelector((state) => state.user);
-  
-  // Header opacity animation
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-  
-  // Animation when component mounts
-  useEffect(() => {
-    // Main animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    
-    // Staggered card animations
-    cardAnims.forEach((anim, i) => {
-      Animated.timing(anim, {
-        toValue: 1,
-        duration: 500,
-        delay: 100 + (i * 20), // Faster stagger for more items
-        useNativeDriver: true
-      }).start();
-    });
-  }, [fadeAnim, translateY]);
 
   // Load leaderboard data
   const loadLeaderboard = useCallback(async (pageNum = 0, refresh = false) => {
@@ -147,28 +110,8 @@ const LeaderboardScreen = () => {
   
   // Refresh handler
   const onRefresh = () => {
-    // Reset animations when refreshing
-    fadeAnim.setValue(0);
-    translateY.setValue(20);
-    
     setRefreshing(true);
-    
-    loadLeaderboard(0, true)
-      .finally(() => {
-        // Animate back in
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateY, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      });
+    loadLeaderboard(0, true);
   };
   
   // Load more data handler
@@ -180,17 +123,11 @@ const LeaderboardScreen = () => {
     }
   };
 
-  // Handle scroll event
-  const handleScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { 
-      useNativeDriver: false,
-      listener: (event) => {
-        const offsetY = event.nativeEvent.contentOffset.y;
-        setScrolledDown(offsetY > 200);
-      }
-    }
-  );
+  // Handle scroll event - simplified to just track scrolled state without animation
+  const handleScroll = (event) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    setScrolledDown(offsetY > 200);
+  };
 
   // Scroll to top function
   const scrollToTop = () => {
@@ -203,7 +140,7 @@ const LeaderboardScreen = () => {
     }
   };
 
-  // Find user rank function - IMPROVED VERSION
+  // Find user rank function
   const findUserRank = useCallback(async () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -232,7 +169,6 @@ const LeaderboardScreen = () => {
           });
           
           // Highlight the user's row by making it flash briefly
-          // This will help the user see where they are in the list
           const userItem = leaderboardData[userIndex];
           if (userItem) {
             // We'll temporarily mark the item as flashing and update it
@@ -263,10 +199,6 @@ const LeaderboardScreen = () => {
     setFindingUser(true);
     
     try {
-      // We'll do an optimized approach to find the user
-      // First, let's try the first 5 pages all at once to see if user is in there
-      // This helps quickly find users without having to load page by page
-      
       let foundUserIndex = -1;
       let foundUserPage = -1;
       let allLoadedData = [...leaderboardData];
@@ -596,9 +528,6 @@ const LeaderboardScreen = () => {
     const isTopTen = actualIndex < 10; // Ranks 4-10
     const isFlashing = item.isFlashing; // Check if this item should be flashing (for Find Me feature)
     
-    // Get animation value
-    const animIndex = Math.min(index, cardAnims.length - 1);
-    
     // Background gradient based on rank and status
     let gradientColors;
     
@@ -614,25 +543,16 @@ const LeaderboardScreen = () => {
     }
     
     return (
-      <Animated.View 
-        style={{
-          opacity: cardAnims[animIndex],
-          transform: [{ 
-            translateY: cardAnims[animIndex].interpolate({
-              inputRange: [0, 1],
-              outputRange: [30, 0]
-            })
-          }],
-          marginHorizontal: 2, // Slight margin for shadow visibility
-          borderRadius: 12,
-          marginBottom: 10,
-          shadowColor: theme.colors.shadow,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: isCurrentUser ? 4 : 2,
-        }}
-      >
+      <View style={{
+        marginHorizontal: 2, // Slight margin for shadow visibility
+        borderRadius: 12,
+        marginBottom: 10,
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: isCurrentUser ? 4 : 2,
+      }}>
         <LinearGradient
           colors={gradientColors}
           start={{ x: 0, y: 0 }}
@@ -759,7 +679,7 @@ const LeaderboardScreen = () => {
             </View>
           </View>
         </LinearGradient>
-      </Animated.View>
+      </View>
     );
   };
   
@@ -802,15 +722,10 @@ const LeaderboardScreen = () => {
     );
   };
 
-  // List header component - contains podium
+  // List header component - contains podium - no animation
   const renderListHeader = () => {
     return (
-      <Animated.View 
-        style={{
-          opacity: fadeAnim,
-          transform: [{ translateY }]
-        }}
-      >
+      <View>
         {renderPodium()}
         <View style={styles.sectionHeader}>
           <View style={[styles.sectionTitleBg, { backgroundColor: theme.colors.primary + '20' }]}>
@@ -829,35 +744,13 @@ const LeaderboardScreen = () => {
             <Ionicons name="globe-outline" size={22} color={theme.colors.buttonText} />
           </View>
         </View>
-      </Animated.View>
+      </View>
     );
   };
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle="light-content" />
-      
-      {/* Animated Header */}
-      <Animated.View 
-        style={[
-          styles.animatedHeader, 
-          { 
-            opacity: headerOpacity,
-            backgroundColor: theme.colors.headerBackground 
-          }
-        ]}
-      >
-        <LinearGradient
-          colors={theme.colors.primaryGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.headerGradient}
-        >
-          <Text style={[styles.headerTitle, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
-            LEADERBOARD
-          </Text>
-        </LinearGradient>
-      </Animated.View>
       
       {/* Main Content */}
       {loading && !refreshing ? (
@@ -989,69 +882,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Animated Header
-  animatedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    letterSpacing: 2,
-  },
-  
-  // Section Headers
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    marginBottom: 15,
-    paddingHorizontal: 16,
-  },
-  sectionTitleBg: {
-    flex: 1,
-    borderRadius: 6,
-    padding: 8,
-    marginRight: 10,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  sectionTitleGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-  sectionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
   // Content
   listContent: {
     paddingBottom: 100, 
+    paddingTop: 10, // Added to ensure content doesn't start right at the top
   },
   
   // Podium styles
@@ -1062,7 +896,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   podiumHeader: {
-    marginBottom: 16,
+    marginBottom: 35,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -1274,6 +1108,44 @@ const styles = StyleSheet.create({
   footerText: {
     marginLeft: 8,
     letterSpacing: 0.5,
+  },
+  
+  // Section Headers
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 15,
+    paddingHorizontal: 16,
+  },
+  sectionTitleBg: {
+    flex: 1,
+    borderRadius: 6,
+    padding: 8,
+    marginRight: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sectionTitleGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  sectionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   
   // Utility buttons

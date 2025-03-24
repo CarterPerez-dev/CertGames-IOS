@@ -23,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import axios from 'axios';
 
 // Import theme context
 import { useTheme } from '../../context/ThemeContext';
@@ -36,10 +37,29 @@ import AvatarItem from './components/AvatarItem';
 import BoostItem from './components/BoostItem';
 import ColorItem from './components/ColorItem';
 
-// Import shop service
+// Import shop service and API config
 import * as shopService from '../../api/shopService';
+import { API } from '../../api/apiConfig';
 
 const { width, height } = Dimensions.get('window');
+
+// Completely separate XP boost activation from the equip system
+// This is a standalone function that doesn't use equipItem at all
+const activateXpBoostDirectly = async (userId, boostId, boostValue) => {
+  try {
+    // Make a simple update to user document to change ONLY the xpBoost field
+    // This is similar to how your web app would handle it
+    const response = await axios.post(`${API.USER.UPDATE_XP_BOOST}`, {
+      userId: userId,
+      xpBoostValue: boostValue
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Failed to activate XP boost:', error);
+    throw error;
+  }
+};
 
 const ShopScreen = () => {
   const dispatch = useDispatch();
@@ -54,6 +74,7 @@ const ShopScreen = () => {
     purchasedItems, 
     currentAvatar, 
     nameColor,
+    xpBoost,
     refreshData 
   } = useUserData();
   
@@ -79,11 +100,11 @@ const ShopScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [equipLoading, setEquipLoading] = useState(false);
+  const [activateLoading, setActivateLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [showStatusMessage, setShowStatusMessage] = useState(false);
-  const [statusType, setStatusType] = useState(''); // 'success', 'error', etc.
-  // Add missing error state
+  const [statusType, setStatusType] = useState('');
   const [error, setError] = useState(null);
   
   // Track whether initial loading has been done
@@ -162,7 +183,7 @@ const ShopScreen = () => {
     }
   }, [statusMessage, showStatusMessage]);
   
-  // Initial load - using useEffect to load data on component mount
+  // Initial load
   useEffect(() => {
     if (!initialLoadDone.current) {
       initialLoadDone.current = true;
@@ -173,7 +194,7 @@ const ShopScreen = () => {
   // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      // Refresh user data when the screen is focused
+      // Refresh user data when screen is focused
       refreshData();
       
       // Only reload shop items if we don't have any
@@ -222,8 +243,10 @@ const ShopScreen = () => {
           return typeOrder[a.type] - typeOrder[b.type];
         }
         
-        // Then sort by level requirement
-        if (a.unlockLevel !== b.unlockLevel) {
+        // Then sort by level requirement or cost
+        if (a.type === 'xpBoost') {
+          return a.effectValue - b.effectValue;
+        } else if (a.unlockLevel !== b.unlockLevel) {
           return a.unlockLevel - b.unlockLevel;
         }
         
@@ -231,15 +254,22 @@ const ShopScreen = () => {
         return a.cost - b.cost;
       });
     } else {
-      // Filter by category and sort by level and cost
-      filtered = items
-        .filter(item => item.type === category)
-        .sort((a, b) => {
+      // Filter by category
+      filtered = items.filter(item => item.type === category);
+      
+      // Sort appropriately based on type
+      if (category === 'xpBoost') {
+        // Sort XP boosts by effect value (ascending)
+        filtered.sort((a, b) => a.effectValue - b.effectValue);
+      } else {
+        // Sort avatars and name colors by level requirement then cost
+        filtered.sort((a, b) => {
           if (a.unlockLevel !== b.unlockLevel) {
             return a.unlockLevel - b.unlockLevel;
           }
           return a.cost - b.cost;
         });
+      }
     }
     
     setFilteredItems(filtered);
@@ -289,124 +319,190 @@ const ShopScreen = () => {
     setImageError(true);
   };
   
-  // Item unlock status checks
+  // Check if item is in the user's purchased items array
   const isItemPurchased = (itemId) => {
     return purchasedItems && purchasedItems.includes(itemId);
   };
   
-  const isItemEquipped = (itemId, itemType) => {
-    if (itemType === 'avatar') {
-      return currentAvatar === itemId;
-    } else if (itemType === 'nameColor') {
-      return nameColor === itemId;
+  // Check if item is automatically unlocked by level
+  const isAutoUnlockedByLevel = (item) => {
+    // Only applies to avatars and name colors
+    if (item.type !== 'avatar' && item.type !== 'nameColor') {
+      return false;
     }
+    
+    // If user has reached the required level, it's automatically unlocked
+    return level >= item.unlockLevel;
+  };
+  
+  // Comprehensive check if item is available to the user
+  const isItemUnlocked = (item) => {
+    // If it's in purchased items, it's unlocked
+    if (isItemPurchased(item._id)) {
+      return true;
+    }
+    
+    // If it's auto-unlocked by level, it's unlocked
+    if (isAutoUnlockedByLevel(item)) {
+      return true;
+    }
+    
     return false;
   };
   
+  // Function to determine if the XP boost is active
+  const isBoostActive = (boostItem) => {
+    if (boostItem.type !== 'xpBoost') return false;
+    
+    // Compare the boost's effect value with the user's current XP boost
+    return Math.abs(xpBoost - boostItem.effectValue) < 0.001;
+  };
+  
+  // Updated function to check if item is active/equipped
+  const isItemActive = (item) => {
+    if (item.type === 'xpBoost') {
+      return isBoostActive(item);
+    } else if (item.type === 'avatar') {
+      return currentAvatar === item._id;
+    } else if (item.type === 'nameColor') {
+      return nameColor === item._id;
+    }
+    
+    return false;
+  };
+  
+  // Function to check if a boost would be considered deactivated
+  const checkIfBoostDeactivated = (boostItem) => {
+    if (!boostItem || boostItem.type !== 'xpBoost') return false;
+    
+    // If this boost is active, it's not deactivated
+    if (isBoostActive(boostItem)) return false;
+    
+    // Compute best available boost
+    const availableBoosts = shopItems
+      .filter(item => item.type === 'xpBoost' && isItemPurchased(item._id));
+    
+    // If no boosts are purchased, none can be deactivated
+    if (availableBoosts.length === 0) return false;
+    
+    // If the current active boost value is higher than this item's boost value,
+    // this boost is considered deactivated
+    return xpBoost > boostItem.effectValue;
+  };
+  
+  // Check if user can afford the item
   const canAffordItem = (item) => {
     return coins >= item.cost;
   };
   
+  // Check if user has the required level for the item
   const hasRequiredLevel = (item) => {
+    // XP boosts don't have level requirements
+    if (item.type === 'xpBoost') return true;
+    
     return level >= item.unlockLevel;
   };
   
-  // Can purchase item if has required level and enough coins and not already purchased
+  // Check if user can purchase the item
   const canPurchaseItem = (item) => {
     if (!item) return false;
     
-    // Check if item is already purchased
-    if (isItemPurchased(item._id)) {
+    // If already unlocked, can't purchase again
+    if (isItemUnlocked(item)) {
       return false;
     }
-    
+
     // Check if user has enough coins
-    if (coins < item.cost) {
-      return false;
-    }
-    
-    // Check if user has required level
-    if (level < item.unlockLevel) {
-      return false;
-    }
-    
-    return true;
+    return canAffordItem(item);
   };
   
-  // Handle item purchase
-  const handlePurchase = async () => {
-    if (!selectedItem) return;
-    
-    // Check if user has enough coins - this is always required
-    if (!canAffordItem(selectedItem)) {
-      showStatusToast(`You need ${selectedItem.cost - coins} more coins`, 'error');
-      return;
+  // Handle XP boost activation - COMPLETELY SEPARATE from equip
+  const handleActivateBoost = async () => {
+    if (!selectedItem || selectedItem.type !== 'xpBoost') return;
+
+    try {
+      setActivateLoading(true);
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      
+      // If this boost is already active, just inform the user
+      if (isBoostActive(selectedItem)) {
+        showStatusToast(`This XP boost is already active!`, 'info');
+        setActivateLoading(false);
+        setModalVisible(false);
+        return;
+      }
+      
+      // If activating a lower boost, confirm with the user
+      const isDowngrade = selectedItem.effectValue < xpBoost;
+      if (isDowngrade) {
+        return new Promise((resolve) => {
+          Alert.alert(
+            'Confirm Downgrade',
+            `You're about to activate a ${selectedItem.effectValue}x XP boost, which is lower than your current ${xpBoost}x boost. Continue?`,
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => {
+                  setActivateLoading(false);
+                  resolve(false);
+                }
+              },
+              {
+                text: 'Activate',
+                onPress: async () => {
+                  await activateBoost();
+                  resolve(true);
+                }
+              }
+            ]
+          );
+        });
+      } else {
+        await activateBoost();
+      }
+    } catch (error) {
+      console.error('Activate boost error:', error);
+      showStatusToast('Failed to activate XP boost. Please try again.', 'error');
+      setActivateLoading(false);
     }
-    
-    // Ask for confirmation
-    Alert.alert(
-      'Confirm Purchase',
-      `Are you sure you want to purchase ${selectedItem.title} for ${selectedItem.cost} coins?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Purchase',
-          onPress: async () => {
-            try {
-              setPurchaseLoading(true);
-              if (Platform.OS === 'ios') {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              }
-              
-              // Call API to make the purchase
-              const response = await shopService.purchaseItem(userId, selectedItem._id);
-              
-              // Refresh user data to get updated coins and purchased items
-              await refreshData();
-              
-              // Show success message
-              showStatusToast(`Successfully purchased ${selectedItem.title}!`, 'success');
-              
-              // Ask if user wants to equip the item immediately if it's an avatar or name color
-              if (selectedItem.type === 'avatar' || selectedItem.type === 'nameColor') {
-                setTimeout(() => {
-                  Alert.alert(
-                    'Equip Item',
-                    `Do you want to equip ${selectedItem.title} now?`,
-                    [
-                      {
-                        text: 'No',
-                        style: 'cancel'
-                      },
-                      {
-                        text: 'Yes',
-                        onPress: () => handleEquip()
-                      }
-                    ]
-                  );
-                }, 500);
-              }
-              
-              // Close the modal
-              setModalVisible(false);
-            } catch (error) {
-              console.error('Purchase error:', error);
-              showStatusToast('Failed to purchase item. Please try again.', 'error');
-            } finally {
-              setPurchaseLoading(false);
-            }
-          }
-        }
-      ]
-    );
   };
   
-  // Handle equipping an item
+  // Function to actually activate the boost
+  const activateBoost = async () => {
+    try {
+      // Directly update the user's xpBoost field using a DIRECT database update
+      // This is COMPLETELY SEPARATE from the avatar equip system
+      await activateXpBoostDirectly(userId, selectedItem._id, selectedItem.effectValue);
+      
+      console.log(`Activated XP boost: ${selectedItem.title} (${selectedItem.effectValue}x)`);
+      
+      // Refresh user data to update XP boost value
+      await refreshData();
+      
+      // Show success message
+      showStatusToast(`Successfully activated ${selectedItem.title} XP boost!`, 'success');
+      
+      // Close the modal
+      setModalVisible(false);
+    } catch (error) {
+      console.error('Boost activation failed:', error);
+      showStatusToast('Failed to activate XP boost. Please try again.', 'error');
+    } finally {
+      setActivateLoading(false);
+    }
+  };
+  
+  // Handle equipping an item - ONLY for avatars and name colors
   const handleEquip = async () => {
     if (!selectedItem) return;
+    
+    // Only handle avatar and nameColor types here
+    if (selectedItem.type !== 'avatar' && selectedItem.type !== 'nameColor') {
+      return;
+    }
     
     try {
       setEquipLoading(true);
@@ -433,12 +529,136 @@ const ShopScreen = () => {
     }
   };
   
+  // Handle item purchase
+  const handlePurchase = async () => {
+    if (!selectedItem) return;
+    
+    const itemType = selectedItem.type;
+    const itemTitle = selectedItem.title;
+    const itemId = selectedItem._id;
+    
+    // Check if item is already unlocked
+    if (isItemUnlocked(selectedItem)) {
+      if (itemType === 'xpBoost') {
+        // For already purchased XP Boosts, ask if they want to activate it
+        Alert.alert(
+          'Activate XP Boost',
+          `Do you want to activate ${itemTitle} XP boost now? ${
+            xpBoost > 1 ? `This will replace your current ${xpBoost}x boost.` : ''
+          }`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel'
+            },
+            {
+              text: 'Activate',
+              onPress: handleActivateBoost
+            }
+          ]
+        );
+        return;
+      } else {
+        showStatusToast('This item is already unlocked', 'info');
+        return;
+      }
+    }
+    
+    // Check if user can afford the item
+    if (!canAffordItem(selectedItem)) {
+      showStatusToast(`You need ${selectedItem.cost - coins} more coins`, 'error');
+      return;
+    }
+    
+    // Ask for confirmation
+    Alert.alert(
+      'Confirm Purchase',
+      `Are you sure you want to purchase ${itemTitle} for ${selectedItem.cost} coins?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Purchase',
+          onPress: async () => {
+            try {
+              setPurchaseLoading(true);
+              if (Platform.OS === 'ios') {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              }
+              
+              // Call API to make the purchase
+              const response = await shopService.purchaseItem(userId, itemId);
+              
+              // Refresh user data
+              await refreshData();
+              
+              // Show success message
+              showStatusToast(`Successfully purchased ${itemTitle}!`, 'success');
+              
+              // Ask if user wants to activate/equip the item
+              if (itemType === 'xpBoost') {
+                setTimeout(() => {
+                  Alert.alert(
+                    'Activate XP Boost',
+                    `Do you want to activate ${itemTitle} XP boost now? ${
+                      xpBoost > 1 ? `This will replace your current ${xpBoost}x boost.` : ''
+                    }`,
+                    [
+                      {
+                        text: 'No',
+                        style: 'cancel',
+                        onPress: () => setModalVisible(false)
+                      },
+                      {
+                        text: 'Activate',
+                        onPress: () => handleActivateBoost()
+                      }
+                    ]
+                  );
+                }, 500);
+              } else if (itemType === 'avatar' || itemType === 'nameColor') {
+                setTimeout(() => {
+                  Alert.alert(
+                    'Equip Item',
+                    `Do you want to equip ${itemTitle} now?`,
+                    [
+                      {
+                        text: 'No',
+                        style: 'cancel',
+                        onPress: () => setModalVisible(false)
+                      },
+                      {
+                        text: 'Yes',
+                        onPress: () => handleEquip()
+                      }
+                    ]
+                  );
+                }, 500);
+              } else {
+                // Close the modal for other item types
+                setModalVisible(false);
+              }
+            } catch (error) {
+              console.error('Purchase error:', error);
+              showStatusToast('Failed to purchase item. Please try again.', 'error');
+            } finally {
+              setPurchaseLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+  
   // Render shop item based on type
   const renderShopItem = ({ item, index }) => {
-    const isPurchased = isItemPurchased(item._id);
-    const isEquipped = isItemEquipped(item._id, item.type);
+    const isUnlocked = isItemUnlocked(item);
+    const isActive = isItemActive(item);
+    const isDeactivated = item.type === 'xpBoost' ? checkIfBoostDeactivated(item) : false;
     const canAfford = canAffordItem(item);
-    const isUnlocked = hasRequiredLevel(item);
+    const meetsLevelRequirement = hasRequiredLevel(item);
     
     // Calculate animation index
     const animIndex = Math.min(index, cardAnims.length - 1);
@@ -476,14 +696,18 @@ const ShopScreen = () => {
             { 
               backgroundColor: theme.colors.surface,
               borderWidth: 1,
-              borderColor: isPurchased ? 
-                (isEquipped ? theme.colors.primary : theme.colors.success) + '60' : 
+              borderColor: isUnlocked ? 
+                (isActive ? theme.colors.primary : 
+                  (isDeactivated ? theme.colors.textMuted + '60' : theme.colors.success + '60')) : 
                 theme.colors.border,
               shadowColor: theme.colors.shadow,
             },
-            isEquipped && { 
+            isActive && { 
               borderColor: theme.colors.primary,
               borderWidth: 2
+            },
+            isDeactivated && {
+              opacity: 0.7
             }
           ]}
           onPress={() => showItemDetails(item)}
@@ -492,8 +716,8 @@ const ShopScreen = () => {
         >
           <ItemComponent 
             item={item} 
-            isPurchased={isPurchased} 
-            isEquipped={isEquipped} 
+            isPurchased={isUnlocked} 
+            isEquipped={isActive} 
             theme={theme}
           />
           
@@ -506,34 +730,36 @@ const ShopScreen = () => {
             </Text>
             
             <View style={styles.itemFooter}>
-              {!isPurchased ? (
+              {!isUnlocked ? (
                 <View style={styles.purchaseInfo}>
-                  {/* Level requirement */}
-                  <View style={[styles.requirementBadge, { 
-                    backgroundColor: isUnlocked ? 
-                      `${theme.colors.success}20` : 
-                      `${theme.colors.textMuted}20`,
-                    borderColor: isUnlocked ?
-                      theme.colors.success + '40' :
-                      theme.colors.border
-                  }]}>
-                    <Ionicons 
-                      name="shield" 
-                      size={12} 
-                      color={isUnlocked ? 
-                        theme.colors.success : 
-                        theme.colors.textMuted
-                      } 
-                    />
-                    <Text style={[styles.requirementText, { 
-                      color: isUnlocked ? 
-                        theme.colors.success : 
-                        theme.colors.textMuted,
-                      fontFamily: 'ShareTechMono'
+                  {/* Level requirement - only for avatars and name colors */}
+                  {(item.type === 'avatar' || item.type === 'nameColor') && (
+                    <View style={[styles.requirementBadge, { 
+                      backgroundColor: meetsLevelRequirement ? 
+                        `${theme.colors.success}20` : 
+                        `${theme.colors.textMuted}20`,
+                      borderColor: meetsLevelRequirement ?
+                        theme.colors.success + '40' :
+                        theme.colors.border
                     }]}>
-                      LVL {item.unlockLevel}
-                    </Text>
-                  </View>
+                      <Ionicons 
+                        name="shield" 
+                        size={12} 
+                        color={meetsLevelRequirement ? 
+                          theme.colors.success : 
+                          theme.colors.textMuted
+                        } 
+                      />
+                      <Text style={[styles.requirementText, { 
+                        color: meetsLevelRequirement ? 
+                          theme.colors.success : 
+                          theme.colors.textMuted,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        LVL {item.unlockLevel}
+                      </Text>
+                    </View>
+                  )}
                   
                   {/* Price tag */}
                   <View style={[styles.priceBadge, {
@@ -564,7 +790,7 @@ const ShopScreen = () => {
                 </View>
               ) : (
                 <View style={styles.statusBadge}>
-                  {isEquipped ? (
+                  {isActive ? (
                     <View style={[styles.equipBadge, { 
                       backgroundColor: `${theme.colors.primary}20`,
                       borderColor: theme.colors.primary + '40'
@@ -574,7 +800,20 @@ const ShopScreen = () => {
                         color: theme.colors.primary,
                         fontFamily: 'ShareTechMono'
                       }]}>
-                        EQUIPPED
+                        {item.type === 'xpBoost' ? 'ACTIVE' : 'EQUIPPED'}
+                      </Text>
+                    </View>
+                  ) : isDeactivated ? (
+                    <View style={[styles.deactivatedBadge, { 
+                      backgroundColor: `${theme.colors.textMuted}20`,
+                      borderColor: theme.colors.textMuted + '40'
+                    }]}>
+                      <Ionicons name="close-circle" size={12} color={theme.colors.textMuted} />
+                      <Text style={[styles.deactivatedText, { 
+                        color: theme.colors.textMuted,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        INACTIVE
                       </Text>
                     </View>
                   ) : (
@@ -587,7 +826,7 @@ const ShopScreen = () => {
                         color: theme.colors.success,
                         fontFamily: 'ShareTechMono'
                       }]}>
-                        OWNED
+                        {item.type === 'xpBoost' ? 'AVAILABLE' : 'UNLOCKED'}
                       </Text>
                     </View>
                   )}
@@ -624,10 +863,15 @@ const ShopScreen = () => {
   const renderItemModal = () => {
     if (!selectedItem) return null;
     
-    const isPurchased = isItemPurchased(selectedItem._id);
-    const isEquipped = isItemEquipped(selectedItem._id, selectedItem.type);
+    const itemType = selectedItem.type;
+    const isUnlocked = isItemUnlocked(selectedItem);
+    const isActive = isItemActive(selectedItem);
+    const isDeactivated = itemType === 'xpBoost' ? checkIfBoostDeactivated(selectedItem) : false;
     const canAfford = canAffordItem(selectedItem);
-    const hasLevel = hasRequiredLevel(selectedItem);
+    const meetsLevelRequirement = hasRequiredLevel(selectedItem);
+    
+    // For XP boosts, determine if it would be a downgrade
+    const isDowngrade = itemType === 'xpBoost' && selectedItem.effectValue < xpBoost;
     
     return (
       <Modal
@@ -664,8 +908,8 @@ const ShopScreen = () => {
               style={styles.modalHeader}
             >
               <Ionicons 
-                name={selectedItem.type === 'avatar' ? 'person-circle' : 
-                      selectedItem.type === 'xpBoost' ? 'flash' : 'color-palette'} 
+                name={itemType === 'avatar' ? 'person-circle' : 
+                      itemType === 'xpBoost' ? 'flash' : 'color-palette'} 
                 size={24} 
                 color={theme.colors.buttonText} 
               />
@@ -683,7 +927,7 @@ const ShopScreen = () => {
                 backgroundColor: theme.colors.surfaceHighlight,
                 borderColor: theme.colors.border,
               }]}>
-                {selectedItem.type === 'avatar' && (
+                {itemType === 'avatar' && (
                   !imageError && selectedItem.imageUrl ? (
                     <Image
                       source={{ uri: selectedItem.imageUrl }}
@@ -699,7 +943,7 @@ const ShopScreen = () => {
                   )
                 )}
                 
-                {selectedItem.type === 'xpBoost' && (
+                {itemType === 'xpBoost' && (
                   <View style={styles.boostPreview}>
                     <LinearGradient
                       colors={theme.colors.primaryGradient}
@@ -712,10 +956,30 @@ const ShopScreen = () => {
                     <Text style={[styles.boostValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
                       {selectedItem.effectValue}x XP
                     </Text>
+                    {xpBoost > 1 && (
+                      <View style={styles.compareBoostContainer}>
+                        <Text style={[styles.currentBoostText, { 
+                          color: theme.colors.textSecondary, 
+                          fontFamily: 'ShareTechMono' 
+                        }]}>
+                          Current boost: {xpBoost}x
+                        </Text>
+                        
+                        {isDowngrade && isUnlocked && !isActive && (
+                          <Text style={[styles.downgradingText, { 
+                            color: theme.colors.warning, 
+                            fontFamily: 'ShareTechMono',
+                            marginTop: 4
+                          }]}>
+                            (This is a downgrade from your current boost)
+                          </Text>
+                        )}
+                      </View>
+                    )}
                   </View>
                 )}
                 
-                {selectedItem.type === 'nameColor' && (
+                {itemType === 'nameColor' && (
                   <View style={styles.colorPreview}>
                     <View style={[styles.colorSwatch, { backgroundColor: selectedItem.effectValue }]}>
                       <Text style={[styles.colorText, { 
@@ -742,7 +1006,7 @@ const ShopScreen = () => {
               
               {/* Item Details */}
               <View style={styles.itemDetailsGrid}>
-                {/* Cost */}
+                {/* Cost - show for all items */}
                 <View style={[styles.detailItem, { 
                   backgroundColor: theme.colors.surfaceHighlight,
                   borderColor: theme.colors.border
@@ -759,37 +1023,38 @@ const ShopScreen = () => {
                       color: canAfford ? theme.colors.goldBadge : theme.colors.error,
                       fontFamily: 'Orbitron'
                     }]}>
-                      {selectedItem.cost} COINS
+                      {selectedItem.cost === null ? 'FREE' : `${selectedItem.cost} COINS`}
                     </Text>
                   </View>
                 </View>
                 
-                {/* Level Requirement */}
-                <View style={[styles.detailItem, { 
-                  backgroundColor: theme.colors.surfaceHighlight,
-                  borderColor: theme.colors.border
-                }]}>
-                  <Ionicons 
-                    name="shield" 
-                    size={20} 
-                    color={hasLevel ? theme.colors.success : theme.colors.error} 
-                  />
-                  <View style={styles.detailContent}>
-                    <Text style={[styles.detailLabel, { 
-                      color: theme.colors.textSecondary,
-                      fontFamily: 'ShareTechMono'
-                    }]}>
-                      REQUIRED LEVEL
-                    </Text>
-                    <Text style={[styles.detailValue, { 
-                      color: hasLevel ? theme.colors.success : theme.colors.error,
-                      fontFamily: 'Orbitron'
-                    }]}>
-                      LEVEL {selectedItem.unlockLevel}
-                      {hasLevel ? ' (UNLOCKED)' : ' (LOCKED)'}
-                    </Text>
+                {/* Level Requirement - for avatars and name colors only */}
+                {(itemType === 'avatar' || itemType === 'nameColor') && (
+                  <View style={[styles.detailItem, { 
+                    backgroundColor: theme.colors.surfaceHighlight,
+                    borderColor: theme.colors.border
+                  }]}>
+                    <Ionicons 
+                      name="shield" 
+                      size={20} 
+                      color={meetsLevelRequirement ? theme.colors.success : theme.colors.error} 
+                    />
+                    <View style={styles.detailContent}>
+                      <Text style={[styles.detailLabel, { 
+                        color: theme.colors.textSecondary,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        {meetsLevelRequirement ? 'UNLOCKED BY LEVEL' : 'LEVEL REQUIREMENT'}
+                      </Text>
+                      <Text style={[styles.detailValue, { 
+                        color: meetsLevelRequirement ? theme.colors.success : theme.colors.error,
+                        fontFamily: 'Orbitron'
+                      }]}>
+                        LEVEL {selectedItem.unlockLevel}
+                      </Text>
+                    </View>
                   </View>
-                </View>
+                )}
                 
                 {/* Status */}
                 <View style={[styles.detailItem, { 
@@ -797,13 +1062,15 @@ const ShopScreen = () => {
                   borderColor: theme.colors.border
                 }]}>
                   <Ionicons 
-                    name={isPurchased ? 
-                      (isEquipped ? "checkmark-circle" : "checkmark") : 
+                    name={isUnlocked ? 
+                      (isActive ? "checkmark-circle" : 
+                       isDeactivated ? "close-circle" : "checkmark") : 
                       "cart"
                     } 
                     size={20} 
-                    color={isPurchased ? 
-                      (isEquipped ? theme.colors.primary : theme.colors.success) : 
+                    color={isUnlocked ? 
+                      (isActive ? theme.colors.primary : 
+                       isDeactivated ? theme.colors.textMuted : theme.colors.success) : 
                       theme.colors.text
                     } 
                   />
@@ -815,24 +1082,51 @@ const ShopScreen = () => {
                       STATUS
                     </Text>
                     <Text style={[styles.detailValue, { 
-                      color: isPurchased ? 
-                        (isEquipped ? theme.colors.primary : theme.colors.success) : 
+                      color: isUnlocked ? 
+                        (isActive ? theme.colors.primary : 
+                         isDeactivated ? theme.colors.textMuted : theme.colors.success) : 
                         theme.colors.text,
                       fontFamily: 'Orbitron'
                     }]}>
-                      {isPurchased ? 
-                        (isEquipped ? 'EQUIPPED' : 'OWNED') : 
-                        'NOT PURCHASED'
+                      {isUnlocked ? 
+                        (isActive ? (itemType === 'xpBoost' ? 'ACTIVE' : 'EQUIPPED') : 
+                         isDeactivated ? 'INACTIVE' : 
+                         (itemType === 'xpBoost' ? 'AVAILABLE' : 'UNLOCKED')) : 
+                        'LOCKED'
                       }
                     </Text>
                   </View>
                 </View>
+                
+                {/* XP Boost - show boost effect value */}
+                {itemType === 'xpBoost' && (
+                  <View style={[styles.detailItem, { 
+                    backgroundColor: theme.colors.surfaceHighlight,
+                    borderColor: theme.colors.border
+                  }]}>
+                    <Ionicons name="trending-up" size={20} color={theme.colors.primary} />
+                    <View style={styles.detailContent}>
+                      <Text style={[styles.detailLabel, { 
+                        color: theme.colors.textSecondary,
+                        fontFamily: 'ShareTechMono'
+                      }]}>
+                        BOOST EFFECT
+                      </Text>
+                      <Text style={[styles.detailValue, { 
+                        color: theme.colors.primary,
+                        fontFamily: 'Orbitron'
+                      }]}>
+                        {((selectedItem.effectValue - 1) * 100).toFixed(0)}% EXTRA XP
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
               
               {/* Action Buttons */}
               <View style={styles.modalActions}>
-                {!isPurchased ? (
-                  // Purchase Button
+                {!isUnlocked ? (
+                  // For locked items - show purchase button
                   <TouchableOpacity
                     style={[
                       styles.actionButton,
@@ -874,47 +1168,97 @@ const ShopScreen = () => {
                       </>
                     )}
                   </TouchableOpacity>
-                ) : !isEquipped ? (
-                  // Equip Button for owned items
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      { 
-                        backgroundColor: theme.colors.success,
-                        borderColor: theme.colors.success
-                      }
-                    ]}
-                    onPress={handleEquip}
-                    disabled={equipLoading}
-                  >
-                    {equipLoading ? (
-                      <ActivityIndicator color={theme.colors.buttonText} size="small" />
-                    ) : (
-                      <>
-                        <Ionicons name="checkmark" size={18} color={theme.colors.buttonText} />
-                        <Text style={[styles.actionButtonText, { 
-                          color: theme.colors.buttonText,
-                          fontFamily: 'Orbitron'
-                        }]}>
-                          EQUIP {selectedItem.type.toUpperCase()}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
                 ) : (
-                  // Already Equipped Message
-                  <View style={[styles.equippedMessage, { 
-                    backgroundColor: `${theme.colors.primary}20`,
-                    borderColor: theme.colors.primary
-                  }]}>
-                    <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
-                    <Text style={[styles.equippedText, { 
-                      color: theme.colors.primary,
-                      fontFamily: 'Orbitron'
-                    }]}>
-                      CURRENTLY EQUIPPED
-                    </Text>
-                  </View>
+                  // For unlocked items - show appropriate button based on type and status
+                  <>
+                    {itemType === 'xpBoost' ? (
+                      // For XP Boosts - show activate button if not active
+                      isActive ? (
+                        <View style={[styles.equippedMessage, { 
+                          backgroundColor: `${theme.colors.primary}20`,
+                          borderColor: theme.colors.primary
+                        }]}>
+                          <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+                          <Text style={[styles.equippedText, { 
+                            color: theme.colors.primary,
+                            fontFamily: 'Orbitron'
+                          }]}>
+                            CURRENTLY ACTIVE
+                          </Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButton,
+                            { 
+                              backgroundColor: isDeactivated ? 
+                                theme.colors.warning : theme.colors.success,
+                              borderColor: isDeactivated ? 
+                                theme.colors.warning : theme.colors.success
+                            }
+                          ]}
+                          onPress={handleActivateBoost}
+                          disabled={activateLoading}
+                        >
+                          {activateLoading ? (
+                            <ActivityIndicator color={theme.colors.buttonText} size="small" />
+                          ) : (
+                            <>
+                              <Ionicons name="flash" size={18} color={theme.colors.buttonText} />
+                              <Text style={[styles.actionButtonText, { 
+                                color: theme.colors.buttonText,
+                                fontFamily: 'Orbitron'
+                              }]}>
+                                {isDeactivated ? 'REACTIVATE BOOST' : 'ACTIVATE BOOST'}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )
+                    ) : (
+                      // For Avatar or Name Color - show equip button or equipped message
+                      isActive ? (
+                        <View style={[styles.equippedMessage, { 
+                          backgroundColor: `${theme.colors.primary}20`,
+                          borderColor: theme.colors.primary
+                        }]}>
+                          <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+                          <Text style={[styles.equippedText, { 
+                            color: theme.colors.primary,
+                            fontFamily: 'Orbitron'
+                          }]}>
+                            CURRENTLY EQUIPPED
+                          </Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButton,
+                            { 
+                              backgroundColor: theme.colors.success,
+                              borderColor: theme.colors.success
+                            }
+                          ]}
+                          onPress={handleEquip}
+                          disabled={equipLoading}
+                        >
+                          {equipLoading ? (
+                            <ActivityIndicator color={theme.colors.buttonText} size="small" />
+                          ) : (
+                            <>
+                              <Ionicons name="checkmark" size={18} color={theme.colors.buttonText} />
+                              <Text style={[styles.actionButtonText, { 
+                                color: theme.colors.buttonText,
+                                fontFamily: 'Orbitron'
+                              }]}>
+                                EQUIP {itemType === 'avatar' ? 'AVATAR' : 'COLOR'}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )
+                    )}
+                  </>
                 )}
               </View>
             </View>
@@ -1036,6 +1380,26 @@ const ShopScreen = () => {
               </View>
             </View>
           </View>
+          
+          {/* Current XP Boost Status */}
+          {xpBoost > 1 && (
+            <View style={[styles.boostInfoCard, { 
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.primary + '60',
+              shadowColor: theme.colors.shadow
+            }]}>
+              <View style={styles.boostInfoContent}>
+                <Ionicons name="flash" size={20} color={theme.colors.primary} />
+                <Text style={[styles.boostInfoText, { 
+                  color: theme.colors.text,
+                  fontFamily: 'ShareTechMono'
+                }]}>
+                  Active XP Boost: <Text style={{fontWeight: 'bold', color: theme.colors.primary}}>{xpBoost}x</Text> 
+                  ({((xpBoost - 1) * 100).toFixed(0)}% extra XP)
+                </Text>
+              </View>
+            </View>
+          )}
         </Animated.View>
         
         {/* Category Filters */}
@@ -1282,6 +1646,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    marginBottom: 8,
   },
   walletGrid: {
     flexDirection: 'row',
@@ -1302,6 +1667,26 @@ const styles = StyleSheet.create({
   },
   walletLabel: {
     fontSize: 12,
+  },
+  
+  // XP Boost Info Card
+  boostInfoCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    padding: 10,
+  },
+  boostInfoContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  boostInfoText: {
+    fontSize: 13,
+    marginLeft: 8,
   },
   
   // Category Filters
@@ -1415,6 +1800,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginLeft: 2,
   },
+  deactivatedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+  },
+  deactivatedText: {
+    fontSize: 10,
+    marginLeft: 2,
+  },
   
   // Empty State
   emptyContainer: {
@@ -1515,6 +1912,18 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
+  compareBoostContainer: {
+    marginTop: 5,
+    alignItems: 'center',
+  },
+  currentBoostText: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  downgradingText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
   colorPreview: {
     width: '80%',
     aspectRatio: 3,
@@ -1597,6 +2006,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  deactivatedMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    borderWidth: 1,
   },
   
   // Status Toast

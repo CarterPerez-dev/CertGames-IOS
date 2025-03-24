@@ -69,17 +69,50 @@ export const purchaseItem = async (userId, itemId) => {
 };
 
 /**
- * Equip an item
+ * Equip an item (avatars and name colors only)
  * @param {string} userId User ID
  * @param {string} itemId Item ID to equip
+ * @param {Object} options Additional options
  * @returns {Promise} Equip result
  */
-export const equipItem = async (userId, itemId) => {
+export const equipItem = async (userId, itemId, options = {}) => {
   try {
-    const response = await apiClient.post(API.SHOP.EQUIP, { userId, itemId });
+    const response = await apiClient.post(API.SHOP.EQUIP, { 
+      userId, 
+      itemId,
+      ...options 
+    });
     return response.data;
   } catch (error) {
     console.error('Error equipping item:', error);
+    throw error;
+  }
+};
+
+/**
+ * Activate an XP boost (separate from equipping an avatar)
+ * Using the same endpoint as equipItem but with special parameters
+ * that tell the backend this is an XP boost activation
+ * @param {string} userId User ID
+ * @param {string} boostId XP Boost ID to activate
+ * @returns {Promise} Activation result
+ */
+export const activateXpBoost = async (userId, boostId) => {
+  try {
+    // Use the existing equipItem endpoint but with special parameters
+    // to indicate this is an XP boost activation, not an avatar equip
+    const response = await apiClient.post(API.SHOP.EQUIP, {
+      userId,
+      itemId: boostId,
+      // These are the critical flags that tell the backend
+      // to only update the xpBoost field, not the currentAvatar field
+      xpBoostActivation: true,
+      skipAvatarUpdate: true,
+      updateXpBoostOnly: true
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error activating XP boost:', error);
     throw error;
   }
 };
@@ -88,5 +121,6 @@ export default {
   getShopItems,
   fetchShopItems,
   purchaseItem,
-  equipItem
+  equipItem,
+  activateXpBoost
 };

@@ -32,6 +32,14 @@ export const API = {
     OAUTH_APPLE: `${BASE_URL}/oauth/login/apple`,
   },
   
+  
+  SUBSCRIPTION: {
+    VERIFY_RECEIPT: `${BASE_URL}/subscription/verify-receipt`,
+    CHECK_STATUS: `${BASE_URL}/subscription/check-status`,
+    UPDATE: `${BASE_URL}/subscription/update`,
+    CANCEL: `${BASE_URL}/subscription/cancel`,
+  },
+  
   RESOURCES: {
     CATEGORIES: `${BASE_URL}/resources/categories`,
     BY_CATEGORY: `${BASE_URL}/resources/category`,

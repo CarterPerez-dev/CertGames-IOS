@@ -114,7 +114,7 @@ const RegisterScreen = () => {
     }
     
     return true;
-  };
+  }
   
   const handleSubmit = async () => {
     setFormError('');

@@ -50,6 +50,9 @@
         "asset": "./assets/fonts/FiraCode-Regular.ttf",
         "family": "FiraCode"
       }
+    ],
+    "plugins": [
+      "react-native-iap"
     ]
   }
 }

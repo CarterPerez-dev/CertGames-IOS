@@ -39,6 +39,7 @@
     "react-native-animated-numbers": "0.4.1",
     "react-native-dropdown-picker": "5.4.6",
     "react-native-gesture-handler": "2.20.2",
+    "react-native-iap": "^12.16.2",
     "react-native-reanimated": "~3.16.1",
     "react-native-shared-element": "0.8.9",
     "react-native-toast-notifications": "3.4.0",

@@ -60,6 +60,9 @@ const initialState = {
   nameColor: null,
   purchasedItems: [],
   subscriptionActive: false,
+  subscriptionActive: false,
+  subscriptionStatus: null,
+  subscriptionPlatform: null,
   lastDailyClaim: null,
   
   // Status flags
@@ -211,6 +214,9 @@ const userSlice = createSlice({
         state.nameColor = userData.nameColor;
         state.purchasedItems = userData.purchasedItems || [];
         state.subscriptionActive = userData.subscriptionActive || false;
+        state.subscriptionActive = action.payload.subscriptionActive || false;
+        state.subscriptionStatus = action.payload.subscriptionStatus;
+        state.subscriptionPlatform = action.payload.subscriptionPlatform;
         state.lastDailyClaim = userData.lastDailyClaim;
       })
       .addCase(fetchUserData.rejected, (state, action) => {

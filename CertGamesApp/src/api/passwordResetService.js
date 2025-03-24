@@ -7,7 +7,17 @@ export const requestPasswordReset = async (email) => {
     const response = await apiClient.post(API.AUTH.FORGOT_PASSWORD, { email });
     return response.data;
   } catch (error) {
-    console.error('Error requesting password reset:', error);
+    // Check for expected errors like email not found
+    if (error.response && error.response.status === 404) {
+      // Return a structured error instead of throwing
+      return { 
+        success: false, 
+        error: 'No account found with this email address.'
+      };
+    }
+    
+    // For other errors, still throw
+    console.error('Password reset error:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -17,7 +27,7 @@ export const verifyResetToken = async (token) => {
     const response = await apiClient.get(API.AUTH.VERIFY_TOKEN(token));
     return response.data;
   } catch (error) {
-    console.error('Error verifying reset token:', error);
+    console.error('Token verification error:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -31,7 +41,7 @@ export const resetPassword = async (token, newPassword, confirmPassword) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error resetting password:', error);
+    console.error('Password reset error:', error.response?.data || error.message);
     throw error;
   }
 };

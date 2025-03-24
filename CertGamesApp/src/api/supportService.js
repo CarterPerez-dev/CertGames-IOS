@@ -41,6 +41,11 @@ export const fetchSupportThread = async (threadId) => {
     const response = await apiClient.get(API.SUPPORT.THREAD(threadId));
     return response.data;
   } catch (error) {
+    // For 404 errors, just log without throwing
+    if (error.response?.status === 404) {
+      console.log(`Thread ${threadId} not found - this is normal for new users`);
+      return { messages: [] }; // Return empty messages array instead of throwing
+    }
     console.error('Fetch support thread error:', error);
     throw new Error(error.response?.data?.error || 'Failed to fetch support thread');
   }

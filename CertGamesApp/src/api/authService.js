@@ -14,6 +14,16 @@ export const loginUser = async (credentials) => {
     
     return response.data;
   } catch (error) {
+    // Check if this is an authentication error (401)
+    if (error.response && error.response.status === 401) {
+      // Return a structured error object instead of throwing
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Invalid username or password'
+      };
+    }
+    
+    // For network errors or unexpected server errors, still throw
     console.error('Login error:', error.response?.data || error.message);
     throw error;
   }

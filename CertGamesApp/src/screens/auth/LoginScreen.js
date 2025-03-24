@@ -116,12 +116,18 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     if (!usernameOrEmail || !password) {
-      Alert.alert('Error', 'Please enter both username/email and password');
+      Alert.alert('Missing Information', 'Please enter both username/email and password');
       return;
     }
     
     try {
-      await dispatch(loginUser({ usernameOrEmail, password })).unwrap();
+      const resultAction = await dispatch(loginUser({ usernameOrEmail, password }));
+      
+      if (loginUser.rejected.match(resultAction)) {
+        // This is an expected error, no need to do anything as it's already in the Redux state
+        // and will be displayed in the UI
+        return;
+      }
       
       // If login successful, save credentials for biometric login
       await SecureStore.setItemAsync('userCredentials', JSON.stringify({
@@ -131,7 +137,8 @@ const LoginScreen = () => {
       
       // Navigation is handled by the app navigator once user is set in Redux
     } catch (err) {
-      // Error is already handled in the reducer
+      // This should not happen anymore since we're handling errors above
+      console.log('Unexpected error during login:', err);
     }
   };
   

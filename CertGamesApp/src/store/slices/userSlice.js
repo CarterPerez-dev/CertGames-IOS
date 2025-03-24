@@ -9,9 +9,15 @@ export const loginUser = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await AuthService.loginUser(credentials);
+      
+      // Check if it's an auth error response
+      if (response && response.success === false) {
+        return rejectWithValue(response.error);
+      }
+      
       return response;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Login failed');
+      return rejectWithValue(error.response?.data?.error || 'Network error. Please try again.');
     }
   }
 );

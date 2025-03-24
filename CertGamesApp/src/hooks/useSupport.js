@@ -31,8 +31,8 @@ const useSupport = () => {
   
   // Threads and messages
   const [threads, setThreads] = useState([]);
-  const [messages, setMessages] = useState([]);
   const [selectedThreadId, setSelectedThreadId] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [loadingThreads, setLoadingThreads] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState(null);
@@ -53,6 +53,7 @@ const useSupport = () => {
   // Keys for AsyncStorage
   const ASYNC_THREADS_KEY = 'support_threads';
   const ASYNC_MESSAGES_KEY = prefix => `support_messages_${prefix}`;
+  const SELECTED_THREAD_KEY = 'support_selected_thread';
   
   // Create a message signature for duplicate detection
   const createMessageSignature = useCallback((message) => {
@@ -395,7 +396,9 @@ const useSupport = () => {
     }
     
     setSelectedThreadId(threadId);
-    setMessages([]); // Clear current messages
+    await AsyncStorage.setItem(SELECTED_THREAD_KEY, threadId);
+    
+    setMessages([]);
     setLoadingMessages(true);
     setError(null);
     
@@ -420,36 +423,49 @@ const useSupport = () => {
       }
       
       // Then fetch from server
-      const threadData = await fetchSupportThread(threadId);
-      
-      if (isComponentMountedRef.current) {
-        // Add messages to processed set to prevent duplicates
-        const loadedMessages = threadData.messages || [];
+      try {
+        const threadData = await fetchSupportThread(threadId);
         
-        // Clear processed messages set and rebuild it
-        processedMessagesRef.current.clear();
-        loadedMessages.forEach(msg => {
-          processedMessagesRef.current.add(createMessageSignature(msg));
-        });
+        if (isComponentMountedRef.current) {
+          // Add messages to processed set to prevent duplicates
+          const loadedMessages = threadData.messages || [];
+          
+          // Clear processed messages set and rebuild it
+          processedMessagesRef.current.clear();
+          loadedMessages.forEach(msg => {
+            processedMessagesRef.current.add(createMessageSignature(msg));
+          });
+          
+          setMessages(loadedMessages);
+          
+          // Cache the messages
+          cacheMessages(threadId, loadedMessages);
+          
+          // Scroll to bottom after a short delay
+          setTimeout(() => {
+            if (messageEndRef.current) {
+              messageEndRef.current.scrollToEnd({ animated: true });
+            }
+          }, 100);
+        }
         
-        setMessages(loadedMessages);
-        
-        // Cache the messages
-        cacheMessages(threadId, loadedMessages);
-        
-        // Scroll to bottom after a short delay
-        setTimeout(() => {
-          if (messageEndRef.current) {
-            messageEndRef.current.scrollToEnd({ animated: true });
+        return threadData;
+      } catch (threadErr) {
+        // Only show error if it's not a 404 (not found) which is expected for new threads
+        if (threadErr.response?.status === 404 || threadErr.message?.includes('Thread not found')) {
+          console.log('No messages found for this thread yet - this is normal for new threads');
+        } else {
+          if (isComponentMountedRef.current) {
+            setError(ERROR_MESSAGES.LOAD_MESSAGES);
           }
-        }, 100);
+          console.error('Error loading thread messages:', threadErr);
+        }
+        return null;
       }
-      
-      return threadData;
-    } catch (err) {
-      console.error('Error loading thread messages:', err);
+    } catch (cacheErr) {
+      console.error('Error loading cached messages:', cacheErr);
       if (isComponentMountedRef.current) {
-        setError(ERROR_MESSAGES.LOAD_MESSAGES);
+        setLoadingMessages(false);
       }
       return null;
     } finally {
@@ -536,6 +552,9 @@ const useSupport = () => {
   
   // Reload messages for the current thread
   const loadMessagesForThread = useCallback(async (threadId) => {
+    if (!threadId) return false;
+    console.log(`Loading messages for thread ${threadId}`);
+    
     try {
       const threadData = await fetchSupportThread(threadId);
       
@@ -564,7 +583,12 @@ const useSupport = () => {
       
       return true;
     } catch (err) {
-      console.error('Error reloading messages:', err);
+      // Only log as an error if it's not a 404 (not found)
+      if (err.response?.status === 404 || err.message?.includes('Thread not found')) {
+        console.log('No messages found for this thread yet - this is normal for new threads');
+      } else {
+        console.error('Error reloading messages:', err);
+      }
       return false;
     }
   }, [createMessageSignature, cacheMessages]);

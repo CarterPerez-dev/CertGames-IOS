@@ -1,4 +1,4 @@
-// src/screens/HomeScreen.js - UPDATED VERSION
+// src/screens/HomeScreen.js
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { 
   View, 
@@ -196,17 +196,6 @@ const HomeScreen = ({ navigation }) => {
       
       // Animation will be triggered by the useEffect watching for coin changes
     }
-  };
-  
-  // Check if daily bonus is available
-  const canClaimDaily = () => {
-    if (!lastDailyClaim) return true;
-    
-    const lastClaim = new Date(lastDailyClaim);
-    const now = new Date();
-    
-    // Check if last claim was more than 24 hours ago
-    return (now - lastClaim) > (24 * 60 * 60 * 1000);
   };
   
   // All certification options
@@ -487,11 +476,8 @@ const HomeScreen = ({ navigation }) => {
                 backgroundColor: theme.colors.surface,
                 shadowColor: theme.colors.shadow,
                 borderWidth: 1,
-                borderColor: canClaimDaily() ? 
-                  theme.colors.success + '60' : 
-                  theme.colors.border,
-              },
-              canClaimDaily() && { borderColor: theme.colors.success }
+                borderColor: theme.colors.border,
+              }
             ]}
             onPress={() => navigateWithHaptic('DailyStation')}
             activeOpacity={0.85}
@@ -499,23 +485,20 @@ const HomeScreen = ({ navigation }) => {
             <View style={styles.dailyContent}>
               <View style={[
                 styles.actionIconContainer, 
-                { backgroundColor: canClaimDaily() ? theme.colors.success : theme.colors.primary }
+                { backgroundColor: theme.colors.primary }
               ]}>
                 <Ionicons 
                   name="gift-outline" 
                   size={24} 
                   color={theme.colors.buttonText}
                 />
-                {canClaimDaily() && (
-                  <View style={[styles.pulseCircle, { borderColor: theme.colors.success }]} />
-                )}
               </View>
               <View style={styles.actionTextContainer}>
                 <Text style={[styles.actionTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
                   DAILY BONUS
                 </Text>
                 <Text style={[styles.actionSubtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                  {canClaimDaily() ? 'AVAILABLE NOW' : 'CHECK BACK LATER'}
+                  CHECK REWARDS
                 </Text>
               </View>
             </View>

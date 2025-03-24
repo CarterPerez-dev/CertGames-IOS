@@ -104,11 +104,6 @@ const TestScreen = ({ route, navigation }) => {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // Animation
-  const [showLevelUpAnimation, setShowLevelUpAnimation] = useState(false);
-  const [localLevel, setLocalLevel] = useState(level);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
 
   // Selected test length
   const [activeTestLength, setActiveTestLength] = useState(initialSelectedLength || 100);
@@ -359,45 +354,6 @@ const TestScreen = ({ route, navigation }) => {
     review
   ]);
 
-  // Watch for level up
-  useEffect(() => {
-    if (level > localLevel) {
-      setLocalLevel(level);
-      setShowLevelUpAnimation(true);
-
-      // Animate the level up message
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        })
-      ]).start();
-
-      // Hide the animation after 3 seconds
-      const timer = setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(slideAnim, {
-            toValue: 50,
-            duration: 500,
-            useNativeDriver: true,
-          })
-        ]).start(() => setShowLevelUpAnimation(false));
-      }, 3000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [level, localLevel, fadeAnim, slideAnim]);
 
   // Get the shuffled index for the current question
   const getShuffledIndex = useCallback(
@@ -913,27 +869,6 @@ const TestScreen = ({ route, navigation }) => {
     );
   }, [questionObject, answerOrder, realIndex]);
 
-  // Render level up animation
-  const renderLevelUpAnimation = () => {
-    if (!showLevelUpAnimation) return null;
-
-    return (
-      <Animated.View
-        style={[
-          styles.levelUpOverlay,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-            backgroundColor: theme.colors.primary + 'E6',
-          }
-        ]}
-      >
-        <Text style={[styles.levelUpText, { color: theme.colors.buttonText, fontFamily: 'Orbitron-Bold' }]}>
-          LEVEL UP! You are now Level {level}
-        </Text>
-      </Animated.View>
-    );
-  };
 
   // Render warning modal
   const renderWarningModal = () => {
@@ -1541,9 +1476,6 @@ const TestScreen = ({ route, navigation }) => {
 
   return (
     <View style={[globalStyles.screen, styles.container]}>
-      {/* Level up animation */}
-      {renderLevelUpAnimation()}
-
       {/* Modals */}
       {renderWarningModal()}
       {renderRestartModal()}
@@ -2150,21 +2082,6 @@ const styles = StyleSheet.create({
   skipButtonText: {
     fontSize: 13,
     marginLeft: 6,
-  },
-  // Level up animation
-  levelUpOverlay: {
-    position: 'absolute',
-    top: 100,
-    alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    zIndex: 1000,
-  },
-  levelUpText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
   },
   // Modals
   modalOverlay: {

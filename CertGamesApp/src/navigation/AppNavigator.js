@@ -1,4 +1,3 @@
-// src/navigation/AppNavigator.js
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
@@ -9,6 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 // Import navigators
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+import SubscriptionScreen from '../screens/subscription/SubscriptionScreen';
 
 // Import the notification overlay
 import NotificationOverlay from '../components/NotificationOverlay';
@@ -36,8 +36,9 @@ const DarkTheme = {
 
 const AppNavigator = () => {
   const dispatch = useDispatch();
-  const { userId, status } = useSelector((state) => state.user);
+  const { userId, status, subscriptionActive } = useSelector((state) => state.user);
   const [appIsReady, setAppIsReady] = useState(false);
+  const [initialRoute, setInitialRoute] = useState(null);
 
   useEffect(() => {
     async function prepare() {
@@ -48,6 +49,8 @@ const AppNavigator = () => {
         if (storedUserId) {
           // Fetch user data
           await dispatch(fetchUserData(storedUserId));
+          
+          // Don't navigate here - we'll check subscription in the next effect
         }
       } catch (e) {
         console.warn('Error preparing app:', e);
@@ -61,6 +64,28 @@ const AppNavigator = () => {
     prepare();
   }, [dispatch]);
 
+  // Determine which navigator to render based on auth and subscription status
+  const renderNavigator = () => {
+    if (!userId) {
+      return <AuthNavigator />;
+    }
+    
+    if (!subscriptionActive) {
+      // Here we can create a custom navigator that starts with the Subscription screen
+      // Or we can pass initialParams to MainNavigator
+      return (
+        <MainNavigator 
+          initialParams={{ 
+            screen: 'Subscription',
+            params: { renewSubscription: true, userId: userId }
+          }} 
+        />
+      );
+    }
+    
+    return <MainNavigator />;
+  };
+
   if (!appIsReady) {
     return null;
   }
@@ -68,7 +93,7 @@ const AppNavigator = () => {
   return (
     <View style={styles.container}>
       <NavigationContainer theme={DarkTheme}>
-        {userId ? <MainNavigator /> : <AuthNavigator />}
+        {renderNavigator()}
       </NavigationContainer>
       
       {/* Add the notification overlay */}

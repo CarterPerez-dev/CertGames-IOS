@@ -67,6 +67,11 @@ export const verifyReceipt = async (receiptData) => {
       receiptData
     });
     
+    // If verification successful, refresh user data
+    if (response.data.success) {
+      await dispatch(fetchUserData(userId));
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error verifying receipt:', error);

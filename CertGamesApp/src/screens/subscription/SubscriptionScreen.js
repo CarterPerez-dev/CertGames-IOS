@@ -14,12 +14,13 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
+import * as SecureStore from 'expo-secure-store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fetchUserData } from '../../store/slices/userSlice';
 import { initializeIAP, getSubscriptionProducts, purchaseSubscription } from '../../api/subscriptionService';
 import { useTheme } from '../../context/ThemeContext';
 
-const SubscriptionScreen = ({ navigation }) => {
+const SubscriptionScreen = ({ navigation, route }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
@@ -28,6 +29,10 @@ const SubscriptionScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const dispatch = useDispatch();
   const { userId, subscriptionActive } = useSelector((state) => state.user);
+  
+  // Check if we're in renewal mode from route params
+  const renewalMode = route?.params?.renewSubscription;
+  const renewUserId = route?.params?.userId || userId;
   
   useEffect(() => {
     const loadProducts = async () => {
@@ -42,10 +47,20 @@ const SubscriptionScreen = ({ navigation }) => {
     };
     
     loadProducts();
-  }, []);
+    
+    // Handle renewal mode
+    if (renewalMode) {
+      // Show renewal message
+      Alert.alert(
+        'Subscription Required',
+        'Your subscription has expired or was canceled. Please renew to continue using premium features.',
+        [{ text: 'OK' }]
+      );
+    }
+  }, [renewalMode]);
   
   const handleSubscribe = async () => {
-    if (!userId) {
+    if (!renewUserId) {
       Alert.alert('Authentication Required', 'Please sign in to subscribe.');
       return;
     }
@@ -69,7 +84,7 @@ const SubscriptionScreen = ({ navigation }) => {
       
       if (result.success) {
         // Refresh user data to get updated subscription status
-        await dispatch(fetchUserData(userId));
+        await dispatch(fetchUserData(renewUserId));
         
         Alert.alert(
           'Subscription Activated',
@@ -165,7 +180,9 @@ const SubscriptionScreen = ({ navigation }) => {
             ) : subscriptionActive ? (
               <Text style={styles.buttonText}>Already Subscribed</Text>
             ) : (
-              <Text style={styles.buttonText}>Subscribe Now</Text>
+              <Text style={styles.buttonText}>
+                {renewalMode ? 'Renew Subscription' : 'Subscribe Now'}
+              </Text>
             )}
           </TouchableOpacity>
           

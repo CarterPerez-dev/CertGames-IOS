@@ -1,6 +1,6 @@
 // src/navigation/AuthNavigator.js
 import React from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet } from 'react-native';
 
@@ -11,7 +11,7 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import CreateUsernameScreen from '../screens/auth/CreateUsernameScreen';
 import TermsScreen from '../screens/auth/TermsScreen';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 
 // Custom header background
 const HeaderBackground = () => (
@@ -34,15 +34,13 @@ const AuthNavigator = () => {
           fontWeight: 'bold',
           fontSize: 18,
         },
+        headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
           height: 60,
         },
-        cardStyle: { backgroundColor: '#0B0C15' }
+        contentStyle: { backgroundColor: '#0B0C15' }
       }}
     >
       <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />

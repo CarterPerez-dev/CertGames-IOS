@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
@@ -27,14 +27,13 @@ import ResourcesScreen from '../screens/tools/ResourcesScreen';
 import ThemeSettingsScreen from '../screens/profile/ThemeSettingsScreen';
 import SubscriptionScreenIOS from '../screens/subscription/SubscriptionScreenIOS';
 
-
 import TestNavigator from './TestNavigator';
 
 const Tab = createBottomTabNavigator();
-const HomeStack = createStackNavigator();
-const ProfileStack = createStackNavigator();
-const LeaderboardStack = createStackNavigator();
-const ShopStack = createStackNavigator();
+const HomeStack = createNativeStackNavigator();
+const ProfileStack = createNativeStackNavigator();
+const LeaderboardStack = createNativeStackNavigator();
+const ShopStack = createNativeStackNavigator();
 
 // Custom header background with theme
 const HeaderBackground = () => {
@@ -63,15 +62,13 @@ const HomeStackNavigator = () => {
           fontWeight: 'bold',
           fontSize: 18,
         },
+        headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          elevation: 0, // Android
-          shadowOpacity: 0, // iOS
-          borderBottomWidth: 0,
           height: 60,
         },
-        cardStyle: { backgroundColor: theme.colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <HomeStack.Screen 
@@ -151,15 +148,13 @@ const ProfileStackNavigator = () => {
           fontWeight: 'bold',
           fontSize: 18,
         },
+        headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
           height: 60,
         },
-        cardStyle: { backgroundColor: theme.colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <ProfileStack.Screen 
@@ -220,15 +215,13 @@ const LeaderboardStackNavigator = () => {
           fontWeight: 'bold',
           fontSize: 18,
         },
+        headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
           height: 60,
         },
-        cardStyle: { backgroundColor: theme.colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <LeaderboardStack.Screen 
@@ -253,15 +246,13 @@ const ShopStackNavigator = () => {
           fontWeight: 'bold',
           fontSize: 18,
         },
+        headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
           height: 60,
         },
-        cardStyle: { backgroundColor: theme.colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <ShopStack.Screen 

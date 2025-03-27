@@ -1,6 +1,6 @@
 // src/navigation/TestNavigator.js
 import React from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet } from 'react-native';
 import TestListScreen from '../screens/tests/TestListScreen';
@@ -21,7 +21,7 @@ import ServerPlusScreen from '../screens/tests/categories/ServerPlusScreen';
 import CisspScreen from '../screens/tests/categories/CisspScreen';
 import AWSCloudScreen from '../screens/tests/categories/AWSCloudScreen';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 
 // Custom header background
 const HeaderBackground = () => (
@@ -43,15 +43,13 @@ const TestNavigator = () => {
           fontWeight: 'bold',
           fontSize: 18,
         },
+        headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
           height: 60,
         },
-        cardStyle: { backgroundColor: '#0B0C15' },
+        contentStyle: { backgroundColor: '#0B0C15' },
       }}
     >
       {/* Generic TestList - rarely used if you always go to category screens */}
@@ -70,7 +68,7 @@ const TestNavigator = () => {
         component={TestScreen}
         options={({ route }) => ({
           title: route.params?.title || 'Test',
-          headerBackTitleVisible: false,
+          headerBackVisible: false,
           headerLeft: () => null,
           gestureEnabled: false,
         })}

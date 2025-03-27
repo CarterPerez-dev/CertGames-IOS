@@ -2,7 +2,7 @@
 import Constants from 'expo-constants';
 
 // Use different URLs based on environment
-const DEV_URL = 'http://192.168.1.172:8080/api'; // Replace with your local IP - can it be localhost?
+const DEV_URL = 'https://certgames.com/api'; // Replace with your local IP - can it be localhost?
 const PROD_URL = 'https://certgames.com/api';
 
 // Get the domain part of the URL (for image URLs)

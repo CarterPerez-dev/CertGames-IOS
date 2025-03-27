@@ -11,7 +11,7 @@ import {
 } from 'react-native-iap';
 import { Platform } from 'react-native';
 import axios from 'axios';
-import { API } from '../api/apiConfig';
+import { API } from './apiConfig';
 import * as SecureStore from 'expo-secure-store';
 
 // Apple subscription product ID

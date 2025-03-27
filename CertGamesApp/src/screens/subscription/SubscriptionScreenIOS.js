@@ -14,7 +14,7 @@ import {
 import { useSelector } from 'react-redux';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import AppleSubscriptionService from '../../services/AppleSubscriptionService';
+import AppleSubscriptionService from '../../api/AppleSubscriptionService';
 import * as SecureStore from 'expo-secure-store';
 
 const SubscriptionScreenIOS = ({ route, navigation }) => {

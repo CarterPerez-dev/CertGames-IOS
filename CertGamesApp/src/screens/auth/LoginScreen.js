@@ -1,3 +1,4 @@
+// src/screens/auth/LoginScreen.js
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -24,6 +25,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { API } from '../../api/apiConfig';
 import { useNavigation } from '@react-navigation/native';
+import AppleSubscriptionService from '../../api/AppleSubscriptionService';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -125,7 +127,6 @@ const LoginScreen = () => {
       
       if (loginUser.rejected.match(resultAction)) {
         // This is an expected error, no need to do anything as it's already in the Redux state
-        // and will be displayed in the UI
         return;
       }
       
@@ -134,6 +135,29 @@ const LoginScreen = () => {
         usernameOrEmail,
         password
       }));
+      
+      // Check subscription status from Apple if on iOS
+      if (Platform.OS === 'ios') {
+        try {
+          // Initialize IAP connection
+          await AppleSubscriptionService.initializeConnection();
+          
+          // Check local receipts and verify with backend
+          const subscriptionStatus = await AppleSubscriptionService.checkSubscriptionStatus(
+            resultAction.payload.user_id
+          );
+          
+          // If subscription status differs from backend, sync it
+          if (subscriptionStatus.subscriptionActive !== resultAction.payload.subscriptionActive) {
+            console.log('Syncing subscription status with backend...');
+            // This will update the backend status based on local receipt
+            await AppleSubscriptionService.restorePurchases(resultAction.payload.user_id);
+          }
+        } catch (err) {
+          console.log('Error checking subscription status:', err);
+          // Non-fatal error, continue with login
+        }
+      }
       
       // Navigation is handled by the app navigator once user is set in Redux
     } catch (err) {

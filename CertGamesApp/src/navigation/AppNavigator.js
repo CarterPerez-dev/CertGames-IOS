@@ -8,17 +8,17 @@ import * as SplashScreen from 'expo-splash-screen';
 // Import navigators
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
-import SubscriptionScreen from '../screens/subscription/SubscriptionScreen';
 import SubscriptionScreenIOS from '../screens/subscription/SubscriptionScreenIOS';
 
 // Import the notification overlay
 import NotificationOverlay from '../components/NotificationOverlay';
+import GlobalErrorHandler from '../components/GlobalErrorHandler';
 
 // Import actions
 import { fetchUserData } from '../store/slices/userSlice';
 
 // Import Apple Subscription Service for iOS
-import AppleSubscriptionService from '../services/AppleSubscriptionService';
+import AppleSubscriptionService from '../api/AppleSubscriptionService';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();

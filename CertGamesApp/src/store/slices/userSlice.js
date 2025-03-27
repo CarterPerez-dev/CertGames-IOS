@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import apiClient from '../../api/apiClient';
 import { API } from '../../api/apiConfig';
-import AppleSubscriptionService from '../../services/AppleSubscriptionService';
+import AppleSubscriptionService from '../../api/AppleSubscriptionService';
 
 // Async thunks
 export const loginUser = createAsyncThunk(

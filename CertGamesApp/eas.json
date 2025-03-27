@@ -9,7 +9,8 @@
       "distribution": "internal",
       "ios": {
         "simulator": false,
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "buildConfiguration": "Debug"
       },
       "channel": "development"
     },

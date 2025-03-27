@@ -35,6 +35,18 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      "react-native-iap"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7bb52f0d-6798-4453-93dc-89e91a9a1210"
+      }
+    },
+    "owner": "certgames",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "fonts": [
       {
         "asset": "./assets/fonts/Orbitron-Regular.ttf",
@@ -60,18 +72,6 @@
         "asset": "./assets/fonts/FiraCode-Regular.ttf",
         "family": "FiraCode"
       }
-    ],
-    "plugins": [
-      "react-native-iap"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "7bb52f0d-6798-4453-93dc-89e91a9a1210"
-      }
-    },
-    "owner": "certgames",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    }
+    ]
   }
 }

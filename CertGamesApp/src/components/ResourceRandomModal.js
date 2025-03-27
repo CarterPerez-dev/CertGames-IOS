@@ -118,10 +118,14 @@ const ResourceRandomModal = ({
     if (url.includes('udemy.com')) return 'school-outline';
     if (url.includes('linkedin.com')) return 'logo-linkedin';
     if (url.includes('github.com')) return 'logo-github';
-    if (url.includes('comptia.org') || name.includes('CompTIA') || name.includes('A+') || name.includes('Network+') || name.includes('Security+')) 
+    if (url.includes('comptia.org') || name.toLowerCase().includes('comptia') || name.toLowerCase().includes('a+') || name.toLowerCase().includes('network+') || name.toLowerCase().includes('security+')) 
       return 'document-text-outline';
     if (name.toLowerCase().includes('pentest') || name.toLowerCase().includes('nmap') || name.toLowerCase().includes('kali'))
       return 'construct-outline';
+    if (url.includes('aws.amazon.com') || name.toLowerCase().includes('aws') || name.toLowerCase().includes('amazon web') || name.toLowerCase().includes('cloud practitioner'))
+      return 'cloud-outline';
+    if (name.toLowerCase().includes('cissp') || name.toLowerCase().includes('isc2') || url.includes('isc2.org'))
+      return 'shield-checkmark-outline';
     
     return 'bulb-outline'; // Default icon
   };

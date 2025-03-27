@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import * as SecureStore from 'expo-secure-store';
@@ -9,12 +9,16 @@ import * as SplashScreen from 'expo-splash-screen';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import SubscriptionScreen from '../screens/subscription/SubscriptionScreen';
+import SubscriptionScreenIOS from '../screens/subscription/SubscriptionScreenIOS';
 
 // Import the notification overlay
 import NotificationOverlay from '../components/NotificationOverlay';
 
 // Import actions
 import { fetchUserData } from '../store/slices/userSlice';
+
+// Import Apple Subscription Service for iOS
+import AppleSubscriptionService from '../services/AppleSubscriptionService';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -50,7 +54,10 @@ const AppNavigator = () => {
           // Fetch user data
           await dispatch(fetchUserData(storedUserId));
           
-          // Don't navigate here - we'll check subscription in the next effect
+          // Initialize IAP connection for iOS
+          if (Platform.OS === 'ios') {
+            await AppleSubscriptionService.initializeConnection();
+          }
         }
       } catch (e) {
         console.warn('Error preparing app:', e);
@@ -76,8 +83,8 @@ const AppNavigator = () => {
       return (
         <MainNavigator 
           initialParams={{ 
-            screen: 'Subscription',
-            params: { renewSubscription: true, userId: userId }
+            screen: Platform.OS === 'ios' ? 'SubscriptionIOS' : 'Profile',
+            params: { renewal: true, userId: userId }
           }} 
         />
       );
@@ -95,8 +102,7 @@ const AppNavigator = () => {
       <NavigationContainer theme={DarkTheme}>
         {renderNavigator()}
       </NavigationContainer>
-      
-      {/* Add the notification overlay */}
+      <GlobalErrorHandler />
       {userId && <NotificationOverlay />}
     </View>
   );

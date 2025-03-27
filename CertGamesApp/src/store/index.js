@@ -8,7 +8,8 @@ export const store = configureStore({
   reducer: {
     user: userReducer,
     shop: shopReducer,
-    achievements: achievementsReducer
+    achievements: achievementsReducer,
+    network: networkReducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

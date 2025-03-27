@@ -38,7 +38,10 @@ export const API = {
     CHECK_STATUS: `${BASE_URL}/subscription/check-status`,
     UPDATE: `${BASE_URL}/subscription/update`,
     CANCEL: `${BASE_URL}/subscription/cancel`,
+    APPLE_SUBSCRIPTION: `${BASE_URL}/subscription/apple-subscription`,
+    RESTORE_PURCHASES: `${BASE_URL}/subscription/restore-purchases`,
   },
+
   
   RESOURCES: {
     CATEGORIES: `${BASE_URL}/resources/categories`,

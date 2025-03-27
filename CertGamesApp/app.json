@@ -18,7 +18,9 @@
       "bundleIdentifier": "com.certgames.app",
       "buildNumber": "1.0.0",
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to take profile photos."
+        "NSCameraUsageDescription": "This app uses the camera to take profile photos.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -57,6 +59,11 @@
     ],
     "plugins": [
       "react-native-iap"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
+    }
   }
 }

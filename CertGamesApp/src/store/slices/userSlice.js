@@ -2,6 +2,10 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import * as AuthService from '../../api/authService';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+import apiClient from '../../api/apiClient';
+import { API } from '../../api/apiConfig';
+import AppleSubscriptionService from '../../services/AppleSubscriptionService';
 
 // Async thunks
 export const loginUser = createAsyncThunk(
@@ -46,6 +50,64 @@ export const claimDailyBonus = createAsyncThunk(
   }
 );
 
+export const verifyAppleSubscription = createAsyncThunk(
+  'user/verifyAppleSubscription',
+  async ({ userId, receiptData }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post(API.SUBSCRIPTION.VERIFY_RECEIPT, {
+        userId,
+        receiptData,
+        platform: 'apple'
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to verify Apple subscription');
+    }
+  }
+);
+
+export const restoreAppleSubscription = createAsyncThunk(
+  'user/restoreAppleSubscription',
+  async (userId, { rejectWithValue }) => {
+    try {
+      // First try to get available purchases from device
+      const purchaseResult = await AppleSubscriptionService.restorePurchases(userId);
+      
+      if (!purchaseResult.success) {
+        return rejectWithValue(purchaseResult.message || 'No purchases to restore');
+      }
+      
+      return purchaseResult;
+    } catch (error) {
+      return rejectWithValue(error.message || 'Failed to restore purchases');
+    }
+  }
+);
+
+export const checkSubscription = createAsyncThunk(
+  'user/checkSubscription',
+  async (userId, { rejectWithValue, dispatch }) => {
+    try {
+      // Check subscription status with backend
+      const response = await apiClient.get(`${API.SUBSCRIPTION.CHECK_STATUS}?userId=${userId}`);
+      
+      // On iOS, also verify with local receipt if available
+      if (Platform.OS === 'ios') {
+        try {
+          await AppleSubscriptionService.checkSubscriptionStatus(userId);
+        } catch (error) {
+          console.log('Local receipt verification failed:', error);
+          // This isn't fatal, continue with backend status
+        }
+      }
+      
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to check subscription status');
+    }
+  }
+);
+
 // Initial state
 const initialState = {
   userId: null,
@@ -60,10 +122,10 @@ const initialState = {
   nameColor: null,
   purchasedItems: [],
   subscriptionActive: false,
-  subscriptionActive: false,
   subscriptionStatus: null,
   subscriptionPlatform: null,
   lastDailyClaim: null,
+  appleTransactionId: null,
   
   // Status flags
   status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
@@ -213,11 +275,11 @@ const userSlice = createSlice({
         state.currentAvatar = userData.currentAvatar;
         state.nameColor = userData.nameColor;
         state.purchasedItems = userData.purchasedItems || [];
-        state.subscriptionActive = userData.subscriptionActive || false;
-        state.subscriptionActive = action.payload.subscriptionActive || false;
-        state.subscriptionStatus = action.payload.subscriptionStatus;
-        state.subscriptionPlatform = action.payload.subscriptionPlatform;
+        state.subscriptionActive = userData.subscriptionActive === true;
+        state.subscriptionStatus = userData.subscriptionStatus;
+        state.subscriptionPlatform = userData.subscriptionPlatform;
         state.lastDailyClaim = userData.lastDailyClaim;
+        state.appleTransactionId = userData.appleTransactionId;
       })
       .addCase(fetchUserData.rejected, (state, action) => {
         state.status = 'failed';
@@ -247,6 +309,33 @@ const userSlice = createSlice({
             });
           }
         }
+      })
+      
+      // APPLE SUBSCRIPTION VERIFICATION
+      .addCase(verifyAppleSubscription.fulfilled, (state, action) => {
+        if (action.payload.success) {
+          state.subscriptionActive = action.payload.subscriptionActive;
+          state.subscriptionStatus = action.payload.subscriptionStatus;
+          state.subscriptionPlatform = 'apple';
+          state.appleTransactionId = action.payload.transaction_id;
+        }
+      })
+      
+      // RESTORE APPLE SUBSCRIPTION
+      .addCase(restoreAppleSubscription.fulfilled, (state, action) => {
+        if (action.payload.success) {
+          state.subscriptionActive = true;
+          state.subscriptionStatus = 'active';
+          state.subscriptionPlatform = 'apple';
+        }
+      })
+      
+      // CHECK SUBSCRIPTION STATUS
+      .addCase(checkSubscription.fulfilled, (state, action) => {
+        state.subscriptionActive = action.payload.subscriptionActive;
+        state.subscriptionStatus = action.payload.subscriptionStatus;
+        state.subscriptionPlatform = action.payload.subscriptionPlatform;
+        state.status = 'idle';
       });
   },
 });

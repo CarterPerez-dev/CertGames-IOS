@@ -19,10 +19,14 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
     if (url.includes('udemy.com')) return { name: 'school-outline', color: '#A435F0' };
     if (url.includes('linkedin.com')) return { name: 'logo-linkedin', color: '#0077B5' };
     if (url.includes('github.com')) return { name: 'logo-github', color: '#6E5494' };
-    if (url.includes('comptia.org') || name.includes('CompTIA') || name.includes('A+') || name.includes('Network+') || name.includes('Security+')) 
+    if (url.includes('comptia.org') || name.toLowerCase().includes('comptia') || name.toLowerCase().includes('a+') || name.toLowerCase().includes('network+') || name.toLowerCase().includes('security+')) 
       return { name: 'document-text-outline', color: '#C80024' };
     if (name.toLowerCase().includes('pentest') || name.toLowerCase().includes('nmap') || name.toLowerCase().includes('kali'))
       return { name: 'construct-outline', color: '#00B0FF' };
+    if (url.includes('aws.amazon.com') || name.toLowerCase().includes('aws') || name.toLowerCase().includes('amazon web') || name.toLowerCase().includes('cloud practitioner'))
+      return { name: 'cloud-outline', color: '#FF9900' };
+    if (name.toLowerCase().includes('cissp') || name.toLowerCase().includes('isc2') || url.includes('isc2.org'))
+      return { name: 'shield-checkmark-outline', color: '#2C5773' };
     
     // Default icon
     return { name: 'link-outline', color: theme.colors.primary };

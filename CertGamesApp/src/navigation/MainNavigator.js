@@ -25,8 +25,9 @@ import DailyStationScreen from '../screens/tools/DailyStationScreen';
 import NewsletterScreen from '../screens/tools/NewsletterScreen';
 import ResourcesScreen from '../screens/tools/ResourcesScreen';
 import ThemeSettingsScreen from '../screens/profile/ThemeSettingsScreen';
+import SubscriptionScreenIOS from '../screens/subscription/SubscriptionScreenIOS';
 
-// Import test navigator
+
 import TestNavigator from './TestNavigator';
 
 const Tab = createBottomTabNavigator();
@@ -77,7 +78,7 @@ const HomeStackNavigator = () => {
         name="HomeScreen" 
         component={HomeScreen} 
         options={{ headerShown: false }}
-      />
+      />      
       <HomeStack.Screen 
         name="TestList" 
         component={TestListScreen} 
@@ -197,7 +198,12 @@ const ProfileStackNavigator = () => {
         component={ThemeSettingsScreen} 
         options={{ headerShown: false }}
       />
-    </ProfileStack.Navigator>
+      <ProfileStack.Screen 
+        name="SubscriptionIOS" 
+        component={SubscriptionScreenIOS}
+        options={{ title: 'Subscription' }}
+      />
+    </ProfileStack.Navigator>      
   );
 };
 

@@ -1,5 +1,10 @@
 // App.js
 import 'react-native-gesture-handler';
+import { enableScreens } from 'react-native-screens';
+
+enableScreens();
+
+
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'react-native';
 import { Provider } from 'react-redux';
@@ -10,6 +15,9 @@ import store from './src/store';
 import AppNavigator from './src/navigation/AppNavigator';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { NetworkProvider } from './src/context/NetworkContext';
+
+
+
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -69,7 +77,9 @@ export default function App() {
     <Provider store={store}>
       <NetworkProvider>
         <ThemeProvider>
-          <MainApp />
+          <SafeAreaProvider>
+            <MainApp />
+          </SafeAreaProvider>
         </ThemeProvider>
       </NetworkProvider>
     </Provider>

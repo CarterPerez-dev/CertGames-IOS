@@ -168,15 +168,31 @@ const LoginScreen = () => {
   
   const handleGoogleLogin = async () => {
     try {
-      // Launch web browser for Google OAuth
+      // Create a random state parameter for security
+      const randomState = Math.random().toString(36).substring(2, 15);
+      await SecureStore.setItemAsync('oauth_state', randomState);
+      
+      // Create properly formatted redirect URL for mobile
+      const redirectUrl = Linking.createURL('oauth-callback');
+      
+      // Launch web browser with state parameter and mobile-specific endpoint
+      const authUrl = `${API.AUTH.OAUTH_GOOGLE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios`;
+      
+      console.log("Opening auth URL:", authUrl);
+      
+      // Use Expo's authentication session
       const result = await WebBrowser.openAuthSessionAsync(
-        `${API.AUTH.OAUTH_GOOGLE}?redirect_uri=${encodeURIComponent(redirectUri)}`,
-        redirectUri
+        authUrl,
+        redirectUrl
       );
       
+      console.log("Auth result type:", result.type);
+      
       if (result.type === 'success') {
-        // Handle success, parsing any query params if needed
-        // This might be handled by the deep link handler instead
+        // The URL parameters will be handled by the Linking event handler
+        console.log("Login successful, waiting for deep link handler");
+      } else if (result.type === 'cancel') {
+        console.log("User cancelled login");
       }
     } catch (error) {
       console.error('Google login error:', error);
@@ -193,8 +209,10 @@ const LoginScreen = () => {
         ],
       });
       
-      // Send the credential to your backend
-      const response = await fetch(`${API.AUTH.OAUTH_APPLE}/mobile`, {
+      console.log("Apple credential received:", credential.identityToken ? "Token received" : "No token");
+      
+      // Send the credential to your backend - FIXED: remove /mobile since it doesn't exist
+      const response = await fetch(API.AUTH.OAUTH_APPLE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -203,25 +221,43 @@ const LoginScreen = () => {
           identityToken: credential.identityToken,
           fullName: credential.fullName,
           email: credential.email,
+          platform: 'ios' // Add platform indicator instead of using URL path
         }),
       });
       
-      const data = await response.json();
-      
-      if (response.ok) {
-        // Handle success, user ID would be in data.userId
-        await SecureStore.setItemAsync('userId', data.userId);
-        dispatch({ type: 'user/setCurrentUserId', payload: data.userId });
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await response.json();
         
-        // If the user needs to set a username (new user), navigate to that screen
-        if (data.needsUsername) {
-          navigation.navigate('CreateUsername', { 
-            userId: data.userId, 
-            provider: 'apple' 
-          });
+        if (response.ok) {
+          // Handle success, user ID would be in data.userId
+          await SecureStore.setItemAsync('userId', data.userId);
+          dispatch({ type: 'user/setCurrentUserId', payload: data.userId });
+          
+          // If the user needs to set a username (new user), navigate to that screen
+          if (data.needsUsername) {
+            navigation.navigate('CreateUsername', { 
+              userId: data.userId, 
+              provider: 'apple' 
+            });
+          } else {
+            // Check subscription status and navigate accordingly
+            const subscriptionStatus = await AppleSubscriptionService.checkSubscriptionStatus(data.userId);
+            if (subscriptionStatus.subscriptionActive) {
+              navigation.navigate('Home');
+            } else {
+              navigation.navigate('SubscriptionIOS');
+            }
+          }
+        } else {
+          throw new Error(data.error || 'Apple sign-in failed');
         }
       } else {
-        throw new Error(data.error || 'Apple sign-in failed');
+        // Handle non-JSON response
+        const text = await response.text();
+        console.error("Non-JSON response:", text.substring(0, 100) + "...");
+        throw new Error("Server returned non-JSON response");
       }
     } catch (error) {
       console.error('Apple login error:', error);
@@ -229,23 +265,63 @@ const LoginScreen = () => {
     }
   };
   
-  const handleRedirect = (event) => {
-    // Extract userId and other params from the URL
-    const { url } = event;
-    const params = Linking.parse(url).queryParams;
-    
-    if (params.userId) {
-      // Store user ID and set in Redux
-      SecureStore.setItemAsync('userId', params.userId);
-      dispatch({ type: 'user/setCurrentUserId', payload: params.userId });
+  const handleRedirect = async (event) => {
+    try {
+      // Extract userId and other params from the URL
+      const { url } = event;
+      console.log("Received deep link:", url);
       
-      // If the user needs to set a username, navigate to that screen
-      if (params.needsUsername === 'true') {
-        navigation.navigate('CreateUsername', { 
-          userId: params.userId, 
-          provider: params.provider 
-        });
+      const params = Linking.parse(url).queryParams;
+      console.log("Parsed params:", params);
+      
+      // Verify state parameter to prevent CSRF
+      const storedState = await SecureStore.getItemAsync('oauth_state');
+      if (params.state && storedState && params.state !== storedState) {
+        console.error("State mismatch, possible CSRF attack");
+        Alert.alert('Security Error', 'Authentication failed due to invalid state parameter.');
+        return;
       }
+      
+      // Clear the state after use
+      await SecureStore.deleteItemAsync('oauth_state');
+      
+      if (params.userId) {
+        // Store user ID and set in Redux
+        await SecureStore.setItemAsync('userId', params.userId);
+        dispatch({ type: 'user/setCurrentUserId', payload: params.userId });
+        
+        // If the user needs to set a username, navigate to that screen
+        if (params.needsUsername === 'true') {
+          navigation.navigate('CreateUsername', { 
+            userId: params.userId, 
+            provider: params.provider || 'google'
+          });
+        } else {
+          // Check subscription status and navigate accordingly
+          try {
+            // For new users without subscription, go to subscription page
+            if (params.isNewUser === 'true' || params.hasSubscription === 'false') {
+              navigation.navigate('SubscriptionIOS', {
+                userId: params.userId
+              });
+            } else {
+              // User already has subscription or has been registered previously
+              navigation.navigate('Home');
+            }
+          } catch (err) {
+            console.error("Error checking subscription:", err);
+            // Default to subscription screen if there's an error
+            navigation.navigate('SubscriptionIOS', {
+              userId: params.userId
+            });
+          }
+        }
+      } else if (params.error) {
+        console.error("OAuth error:", params.error);
+        Alert.alert('Login Failed', params.error_description || params.error);
+      }
+    } catch (error) {
+      console.error("Deep link handling error:", error);
     }
   };
 

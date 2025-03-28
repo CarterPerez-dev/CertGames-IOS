@@ -28,16 +28,23 @@ export const API = {
     FORGOT_PASSWORD: `${BASE_URL}/password-reset/request-reset`,
     RESET_PASSWORD: `${BASE_URL}/password-reset/reset-password`,
     VERIFY_TOKEN: (token) => `${BASE_URL}/password-reset/verify-token/${token}`,
-    OAUTH_GOOGLE: `${BASE_URL}/oauth/login/google`,
+
+
     OAUTH_APPLE: `${BASE_URL}/oauth/login/apple`,
+    OAUTH_GOOGLE: `${BASE_URL}/oauth/login/google`,
+    OAUTH_GOOGLE_MOBILE: `${BASE_URL}/oauth/login/google/mobile`,
+    OAUTH_APPLE: `${BASE_URL}/oauth/login/apple`,
+    OAUTH_APPLE_CALLBACK: `${BASE_URL}/oauth/auth/apple`,
+    OAUTH_GOOGLE_CALLBACK: `${BASE_URL}/oauth/auth/google`,
   },
   
   
   SUBSCRIPTION: {
     VERIFY_RECEIPT: `${BASE_URL}/subscription/verify-receipt`,
-    CHECK_STATUS: `${BASE_URL}/subscription/check-status`,
+    // Fix the endpoint name to match backend
+    CHECK_STATUS: `${BASE_URL}/subscription/subscription-status`,
     UPDATE: `${BASE_URL}/subscription/update`,
-    CANCEL: `${BASE_URL}/subscription/cancel`,
+    CANCEL: `${BASE_URL}/subscription/cancel-subscription`, // Fix name if needed
     APPLE_SUBSCRIPTION: `${BASE_URL}/subscription/apple-subscription`,
     RESTORE_PURCHASES: `${BASE_URL}/subscription/restore-purchases`,
   },

@@ -1,4 +1,4 @@
-// src/services/AppleSubscriptionService.js
+// src/api/AppleSubscriptionService.js
 import {
   initConnection,
   getSubscriptions,
@@ -105,8 +105,26 @@ class AppleSubscriptionService {
   // Check subscription status
   async checkSubscriptionStatus(userId) {
     try {
+      console.log("Checking subscription status for userId:", userId);
+      
       // First try to get the status from the backend
-      const backendStatus = await this.getSubscriptionStatusFromBackend(userId);
+      let backendStatus;
+      try {
+        const response = await axios.get(
+          `${API.SUBSCRIPTION.CHECK_STATUS}?userId=${userId}`
+        );
+        backendStatus = response.data;
+        console.log("Backend subscription status:", backendStatus);
+      } catch (error) {
+        console.warn('Backend subscription check failed:', error.message);
+        console.log('Falling back to local receipt check');
+        backendStatus = { subscriptionActive: false };
+        
+        // If it's a 404, we should alert developers during testing
+        if (error.response && error.response.status === 404) {
+          console.error('❌ API ENDPOINT NOT FOUND: Please check that your backend routes match the API config');
+        }
+      }
       
       // If backend confirms active subscription, return that
       if (backendStatus.subscriptionActive) {
@@ -115,21 +133,44 @@ class AppleSubscriptionService {
       
       // If backend says no subscription, check local receipts as fallback
       if (Platform.OS === 'ios') {
-        const purchases = await getAvailablePurchases();
-        
-        // Filter for our subscription product
-        const activeSubscriptions = purchases.filter(
-          purchase => purchase.productId === SUBSCRIPTION_PRODUCT_ID
-        );
-        
-        if (activeSubscriptions.length > 0) {
-          // We found an active subscription receipt on the device
-          // Verify with backend to reconcile any discrepancy
-          const latestPurchase = activeSubscriptions[0];
-          await this.verifyReceiptWithBackend(userId, latestPurchase.transactionReceipt);
+        try {
+          console.log("Checking local App Store receipts");
+          const purchases = await getAvailablePurchases();
+          console.log(`Found ${purchases.length} local purchases`);
           
-          // Check status again after verification
-          return await this.getSubscriptionStatusFromBackend(userId);
+          // Filter for our subscription product
+          const activeSubscriptions = purchases.filter(
+            purchase => purchase.productId === SUBSCRIPTION_PRODUCT_ID
+          );
+          
+          if (activeSubscriptions.length > 0) {
+            console.log("Found active subscription in local receipts");
+            
+            // We found an active subscription receipt on the device
+            // Verify with backend to reconcile any discrepancy
+            const latestPurchase = activeSubscriptions[0];
+            
+            try {
+              await this.verifyReceiptWithBackend(userId, latestPurchase.transactionReceipt);
+              
+              // Check status again after verification
+              const refreshedStatus = await this.getSubscriptionStatusFromBackend(userId);
+              return refreshedStatus;
+            } catch (verifyError) {
+              console.error("Error verifying receipt with backend:", verifyError);
+              // Still return active based on local receipt
+              return { 
+                subscriptionActive: true, 
+                subscriptionStatus: 'active',
+                subscriptionPlatform: 'apple',
+                verificationPending: true
+              };
+            }
+          } else {
+            console.log("No active subscriptions found in local receipts");
+          }
+        } catch (purchasesError) {
+          console.error("Error checking local purchases:", purchasesError);
         }
       }
       
@@ -137,7 +178,11 @@ class AppleSubscriptionService {
       return backendStatus;
     } catch (error) {
       console.error('Failed to check subscription status:', error);
-      return { subscriptionActive: false, error: error.message };
+      return { 
+        subscriptionActive: false, 
+        error: error.message,
+        errorCode: error.code
+      };
     }
   }
 

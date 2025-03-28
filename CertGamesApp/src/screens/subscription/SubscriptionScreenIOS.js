@@ -77,7 +77,25 @@ const SubscriptionScreenIOS = ({ route, navigation }) => {
     setError('');
     
     try {
+      console.log("Starting subscription purchase for userId:", userId);
+      
+      // Initialize IAP connection if needed
+      const connected = await AppleSubscriptionService.initializeConnection();
+      if (!connected) {
+        throw new Error("Failed to connect to App Store");
+      }
+      
+      // Get available subscriptions to confirm product is configured
+      const subscriptions = await AppleSubscriptionService.getAvailableSubscriptions();
+      console.log("Available subscriptions:", subscriptions.length > 0 ? "Found" : "None found");
+      
+      if (!subscriptions || subscriptions.length === 0) {
+        throw new Error("No subscription products available");
+      }
+      
+      // Attempt to purchase subscription
       const result = await AppleSubscriptionService.purchaseSubscription(userId);
+      console.log("Purchase result:", result.success ? "Success" : "Failed");
       
       if (result.success) {
         // Success! Refresh subscription status
@@ -91,11 +109,27 @@ const SubscriptionScreenIOS = ({ route, navigation }) => {
           [{ text: 'Continue', onPress: () => navigation.navigate('Home') }]
         );
       } else {
-        setError(result.error || 'Subscription purchase failed');
+        if (result.error === 'User cancelled') {
+          // User cancellation is not an error to show
+          console.log("User cancelled purchase");
+        } else {
+          setError(result.error || 'Subscription purchase failed');
+        }
       }
     } catch (error) {
       console.error('Error purchasing subscription:', error);
-      setError('Failed to complete subscription purchase');
+      
+      // Provide more helpful error messages
+      if (error.message && error.message.includes('already owns')) {
+        // User already has an active subscription
+        Alert.alert(
+          'Subscription Already Active',
+          'You already have an active subscription. Try restoring purchases instead.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        setError('Failed to complete subscription purchase: ' + error.message);
+      }
     } finally {
       setLoading(false);
     }

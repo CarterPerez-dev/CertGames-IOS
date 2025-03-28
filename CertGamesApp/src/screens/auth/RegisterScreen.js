@@ -1,3 +1,4 @@
+// src/screens/auth/RegisterScreen.js
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -114,7 +115,7 @@ const RegisterScreen = () => {
     }
     
     return true;
-  }
+  };
   
   const handleSubmit = async () => {
     setFormError('');
@@ -123,30 +124,20 @@ const RegisterScreen = () => {
       return;
     }
     
-    try {
-      const resultAction = await dispatch(registerUser({
-        username,
-        email,
-        password,
-        confirmPassword: confirmPassword
-      })).unwrap();
-      
-      // Registration successful, now navigate to login
-      Alert.alert(
-        'Registration Successful', 
-        'Your account has been created. Please log in.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-      );
-    } catch (err) {
-      // Error is handled by the reducer and/or local formError
-      if (err.includes("Email is already taken") || 
-          err.includes("Username or email is already taken") ||
-          err.includes("already taken")) {
-        setFormError('Email address is already registered. Please use a different email or login.');
-      } else {
-        setFormError(err || 'Registration failed. Please try again.');
-      }
-    }
+    // For React Native, we use the navigation object directly
+    // Instead of registering immediately, navigate to subscription page with form data
+    const registrationData = {
+      username,
+      email,
+      password,
+      confirmPassword: confirmPassword
+    };
+    
+    // Navigate to subscription screen with registration data
+    navigation.navigate('SubscriptionIOS', { 
+      registrationData, 
+      isOauthFlow: false 
+    });
   };
   
   const handleGoogleSignUp = async () => {

@@ -1,6 +1,8 @@
+// src/navigation/AppNavigator.js
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSelector, useDispatch } from 'react-redux';
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
@@ -73,23 +75,52 @@ const AppNavigator = () => {
 
   // Determine which navigator to render based on auth and subscription status
   const renderNavigator = () => {
+    // If still loading user data, show a loading screen
+    if (status === 'loading') {
+      return (
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0C15'}}>
+          <ActivityIndicator size="large" color="#6543CC" />
+          <Text style={{color: '#FFFFFF', marginTop: 20}}>Loading user data...</Text>
+        </View>
+      );
+    }
+    
+    // If not logged in, show auth screens
     if (!userId) {
       return <AuthNavigator />;
     }
     
+    // If no subscription, direct to subscription screen
     if (!subscriptionActive) {
-      // Here we can create a custom navigator that starts with the Subscription screen
-      // Or we can pass initialParams to MainNavigator
-      return (
-        <MainNavigator 
-          initialParams={{ 
-            screen: Platform.OS === 'ios' ? 'SubscriptionIOS' : 'Profile',
-            params: { renewal: true, userId: userId }
-          }} 
-        />
-      );
+      // On iOS we should show the iOS subscription screen
+      if (Platform.OS === 'ios') {
+        // Create a special navigator that starts with subscription screen
+        const SubscriptionStack = createNativeStackNavigator();
+        
+        return (
+          <SubscriptionStack.Navigator>
+            <SubscriptionStack.Screen 
+              name="Subscription" 
+              component={SubscriptionScreenIOS} 
+              initialParams={{ renewal: true, userId: userId }}
+              options={{ headerShown: false }}
+            />
+          </SubscriptionStack.Navigator>
+        );
+      } else {
+        // On other platforms, we'll use the main navigator but pass subscription as initial screen
+        return (
+          <MainNavigator 
+            initialParams={{ 
+              screen: 'Profile',
+              params: { showSubscription: true }
+            }} 
+          />
+        );
+      }
     }
     
+    // User is logged in and has active subscription
     return <MainNavigator />;
   };
 

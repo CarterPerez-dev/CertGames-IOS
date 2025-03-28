@@ -70,4 +70,4 @@ export const claimDailyBonus = async (userId) => {
     console.error('Daily bonus error:', error.response?.data || error.message);
     throw error;
   }
-};
+}; 

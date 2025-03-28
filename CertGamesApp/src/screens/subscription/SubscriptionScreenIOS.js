@@ -29,6 +29,7 @@ const SubscriptionScreenIOS = () => {
   const [subscriptionProduct, setSubscriptionProduct] = useState(null);
   const [error, setError] = useState(null);
   const [registrationCompleted, setRegistrationCompleted] = useState(false);
+  const [purchaseInProgress, setPurchaseInProgress] = useState(false); // Added to prevent multiple purchase attempts
   
   const dispatch = useDispatch();
   const navigation = useNavigation();
@@ -130,10 +131,17 @@ const SubscriptionScreenIOS = () => {
   };
   
   const handleSubscribe = async () => {
+    // Prevent concurrent purchase attempts
+    if (purchaseInProgress) {
+      console.log("Purchase already in progress, ignoring tap");
+      return;
+    }
+    
     let userIdToUse = userId;
     
     try {
       setLoading(true);
+      setPurchaseInProgress(true); // Set flag to prevent multiple attempts
       setError(null);
       
       // Check if this is a new registration
@@ -142,6 +150,7 @@ const SubscriptionScreenIOS = () => {
           userIdToUse = await registerNewUser();
         } catch (regError) {
           // Registration error is already set in registerNewUser function
+          setPurchaseInProgress(false); // Reset flag on error
           return;
         }
       }
@@ -149,6 +158,7 @@ const SubscriptionScreenIOS = () => {
       // Ensure we have a user ID
       if (!userIdToUse) {
         setError('User ID is missing. Please try again.');
+        setPurchaseInProgress(false); // Reset flag on error
         return;
       }
       
@@ -195,12 +205,19 @@ const SubscriptionScreenIOS = () => {
       }
     } finally {
       setLoading(false);
+      setPurchaseInProgress(false); // Always reset the flag when done
     }
   };
   
   const handleRestorePurchases = async () => {
+    // Prevent concurrent operations
+    if (purchaseInProgress || loading) {
+      return;
+    }
+    
     try {
       setLoading(true);
+      setPurchaseInProgress(true);
       setError(null);
       
       if (!userId) {
@@ -251,6 +268,7 @@ const SubscriptionScreenIOS = () => {
       setError('Failed to restore purchases. Please try again.');
     } finally {
       setLoading(false);
+      setPurchaseInProgress(false);
     }
   };
   
@@ -367,10 +385,10 @@ const SubscriptionScreenIOS = () => {
                 style={[
                   styles.subscribeButton, 
                   { backgroundColor: theme.colors.primary },
-                  loading && styles.disabledButton
+                  (loading || purchaseInProgress) && styles.disabledButton
                 ]}
                 onPress={handleSubscribe}
-                disabled={loading}
+                disabled={loading || purchaseInProgress}
               >
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -384,7 +402,7 @@ const SubscriptionScreenIOS = () => {
               <TouchableOpacity
                 style={styles.restoreButton}
                 onPress={handleRestorePurchases}
-                disabled={loading}
+                disabled={loading || purchaseInProgress}
               >
                 <Text style={[styles.restoreText, { color: theme.colors.primary }]}>
                   Restore Purchases

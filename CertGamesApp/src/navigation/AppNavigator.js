@@ -53,44 +53,45 @@ const AppNavigator = () => {
   const [appIsReady, setAppIsReady] = useState(false);
   const [initError, setInitError] = useState(null);
 
-  useEffect(() => {
-    async function prepare() {
-      try {
-        // Check if user is already logged in
-        const storedUserId = await SecureStore.getItemAsync('userId');
+  // Move prepare function outside of useEffect so it can be referenced elsewhere
+  const prepare = async () => {
+    try {
+      // Check if user is already logged in
+      const storedUserId = await SecureStore.getItemAsync('userId');
+      
+      if (storedUserId) {
+        // Fetch user data
+        try {
+          console.log("Fetching user data for:", storedUserId);
+          await dispatch(fetchUserData(storedUserId)).unwrap();
+          console.log("User data fetched successfully");
+        } catch (fetchError) {
+          console.error("Error fetching user data:", fetchError);
+          setInitError("Could not fetch user data. Please check your network connection.");
+        }
         
-        if (storedUserId) {
-          // Fetch user data
+        // Initialize IAP connection for iOS
+        if (Platform.OS === 'ios') {
           try {
-            console.log("Fetching user data for:", storedUserId);
-            await dispatch(fetchUserData(storedUserId)).unwrap();
-            console.log("User data fetched successfully");
-          } catch (fetchError) {
-            console.error("Error fetching user data:", fetchError);
-            setInitError("Could not fetch user data. Please check your network connection.");
-          }
-          
-          // Initialize IAP connection for iOS
-          if (Platform.OS === 'ios') {
-            try {
-              await AppleSubscriptionService.initializeConnection();
-              console.log("IAP connection initialized");
-            } catch (iapError) {
-              console.error("Error initializing IAP:", iapError);
-              // Non-fatal error, continue without IAP
-            }
+            await AppleSubscriptionService.initializeConnection();
+            console.log("IAP connection initialized");
+          } catch (iapError) {
+            console.error("Error initializing IAP:", iapError);
+            // Non-fatal error, continue without IAP
           }
         }
-      } catch (e) {
-        console.warn('Error preparing app:', e);
-        setInitError("Error initializing app: " + e.message);
-      } finally {
-        // Tell the application to render
-        setAppIsReady(true);
-        await SplashScreen.hideAsync();
       }
+    } catch (e) {
+      console.warn('Error preparing app:', e);
+      setInitError("Error initializing app: " + e.message);
+    } finally {
+      // Tell the application to render
+      setAppIsReady(true);
+      await SplashScreen.hideAsync();
     }
+  };
 
+  useEffect(() => {
     prepare();
   }, [dispatch]);
 
@@ -110,7 +111,7 @@ const AppNavigator = () => {
             onPress={() => {
               setInitError(null);
               setAppIsReady(false);
-              prepare(); // Re-initialize
+              prepare(); // Now properly in scope
             }}
           >
             <Text style={{color: '#FFFFFF', fontWeight: 'bold'}}>Retry</Text>

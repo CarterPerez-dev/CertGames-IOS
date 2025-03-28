@@ -15,8 +15,8 @@ export const NetworkProvider = ({ children }) => {
       setIsConnected(state.isConnected);
       setIsInternetReachable(state.isInternetReachable);
       
-      // Only show banner when we're sure there's no internet
-      setShowOfflineBanner(!state.isConnected || state.isInternetReachable === false);
+      // Only show banner when BOTH are false (truly offline)
+      setShowOfflineBanner(!state.isConnected && state.isInternetReachable === false);
     });
 
     return () => unsubscribe();

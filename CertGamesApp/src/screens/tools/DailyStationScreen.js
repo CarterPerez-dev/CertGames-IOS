@@ -24,16 +24,46 @@ import FormattedQuestion from '../../components/FormattedQuestion';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 import useUserData from '../../hooks/useUserData';
+import ErrorBoundaryScreen from '../../components/ErrorBoundaryScreen';
 
-// Helper to format seconds as HH:MM:SS
+// Helper to safely format seconds as HH:MM:SS
 function formatCountdown(seconds) {
+  if (!seconds || isNaN(seconds)) return "00:00:00";
+  
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   return [h, m, s].map((x) => String(x).padStart(2, '0')).join(':');
 }
 
-const DailyStationScreen = () => {
+// Helper to safely parse date
+function safelyParseDate(dateValue) {
+  if (!dateValue) return null;
+  
+  try {
+    // If it's already a Date object
+    if (dateValue instanceof Date) {
+      // Validate it's not an invalid date
+      return isNaN(dateValue.getTime()) ? null : dateValue;
+    }
+    
+    // If it's a string, try to parse it
+    if (typeof dateValue === 'string') {
+      const parsed = new Date(dateValue);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+    
+    // If it's anything else, return null
+    return null;
+  } catch (error) {
+    console.error("Date parsing error:", error);
+    return null;
+  }
+}
+
+const DailyStationScreen = ({ navigation }) => {
+  console.log("DailyStationScreen rendering");
+  
   // Theme integration
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
@@ -41,14 +71,19 @@ const DailyStationScreen = () => {
   const dispatch = useDispatch();
   
   // Use our custom hook for user data - this will ensure it's always up-to-date
+  const userData = useUserData();
+  
+  // Safely destructure userData with fallbacks
   const { 
-    userId, 
-    username, 
-    coins, 
-    xp, 
-    lastDailyClaim,
-    refreshData 
-  } = useUserData();
+    userId = null, 
+    username = '', 
+    coins = 0, 
+    xp = 0, 
+    lastDailyClaim = null,
+    refreshData = () => {} 
+  } = userData || {};
+  
+  console.log("UserData loaded:", { userId, coins, xp, lastDailyClaim: lastDailyClaim ? String(lastDailyClaim) : null });
 
   // Store previous values for animations
   const prevCoinsRef = useRef(coins);
@@ -73,14 +108,22 @@ const DailyStationScreen = () => {
   const [showCorrectAnimation, setShowCorrectAnimation] = useState(false);
   const [showWrongAnimation, setShowWrongAnimation] = useState(false);
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const coinsFlashAnim = useRef(new Animated.Value(0)).current;
-  const xpFlashAnim = useRef(new Animated.Value(0)).current;
+  // Animation values - initialize inside useEffect to avoid hydration issues
+  const fadeAnim = useRef(null);
+  const coinsFlashAnim = useRef(null);
+  const xpFlashAnim = useRef(null);
+  
+  // Initialize animations safely
+  useEffect(() => {
+    fadeAnim.current = new Animated.Value(0);
+    coinsFlashAnim.current = new Animated.Value(0);
+    xpFlashAnim.current = new Animated.Value(0);
+  }, []);
 
   // Refresh data when the screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      console.log("DailyStationScreen focused, userId:", userId);
       if (userId) {
         refreshData();
         fetchDailyQuestion();
@@ -90,14 +133,16 @@ const DailyStationScreen = () => {
 
   // Animate coins changes
   useEffect(() => {
+    if (!coinsFlashAnim.current) return;
+    
     if (coins > prevCoinsRef.current) {
       Animated.sequence([
-        Animated.timing(coinsFlashAnim, {
+        Animated.timing(coinsFlashAnim.current, {
           toValue: 1,
           duration: 300,
           useNativeDriver: true
         }),
-        Animated.timing(coinsFlashAnim, {
+        Animated.timing(coinsFlashAnim.current, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true
@@ -111,18 +156,20 @@ const DailyStationScreen = () => {
     
     // Update ref for next comparison
     prevCoinsRef.current = coins;
-  }, [coins, coinsFlashAnim]);
+  }, [coins]);
 
   // Animate XP changes
   useEffect(() => {
+    if (!xpFlashAnim.current) return;
+    
     if (xp > prevXpRef.current) {
       Animated.sequence([
-        Animated.timing(xpFlashAnim, {
+        Animated.timing(xpFlashAnim.current, {
           toValue: 1,
           duration: 300,
           useNativeDriver: true
         }),
-        Animated.timing(xpFlashAnim, {
+        Animated.timing(xpFlashAnim.current, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true
@@ -132,7 +179,7 @@ const DailyStationScreen = () => {
     
     // Update ref for next comparison
     prevXpRef.current = xp;
-  }, [xp, xpFlashAnim]);
+  }, [xp]);
 
   // Check if user can claim bonus on initial load
   useEffect(() => {
@@ -141,14 +188,18 @@ const DailyStationScreen = () => {
       const checkStoredClaim = async () => {
         try {
           const storedLastClaim = await SecureStore.getItemAsync(`lastClaim_${userId}`);
-          const serverLastClaim = lastDailyClaim;
+          // Safely parse the date from server or storage
+          const serverClaimDate = safelyParseDate(lastDailyClaim);
+          const storedClaimDate = storedLastClaim ? safelyParseDate(storedLastClaim) : null;
           
-          const lastClaimDate = serverLastClaim || (storedLastClaim ? new Date(storedLastClaim) : null);
+          const lastClaimDate = serverClaimDate || storedClaimDate;
           
           if (lastClaimDate) {
+            console.log("Using lastClaimDate:", lastClaimDate.toISOString());
             setLocalLastClaim(lastClaimDate);
             checkClaimStatus(lastClaimDate);
           } else {
+            console.log("No valid lastClaimDate found, showing button");
             // No previous claim found, so show button
             setShowButton(true);
           }
@@ -165,18 +216,30 @@ const DailyStationScreen = () => {
 
   // Check claim status helper function
   function checkClaimStatus(lastClaimDate) {
-    const now = new Date();
-    const lastClaimTime = new Date(lastClaimDate).getTime();
-    const diffMs = now - lastClaimTime;
-    
-    if (diffMs >= 24 * 60 * 60 * 1000) {
-      // It's been 24 hours, show button
+    try {
+      if (!lastClaimDate || !(lastClaimDate instanceof Date) || isNaN(lastClaimDate.getTime())) {
+        console.log("Invalid lastClaimDate in checkClaimStatus, showing button");
+        setShowButton(true);
+        return;
+      }
+      
+      const now = new Date();
+      const lastClaimTime = lastClaimDate.getTime();
+      const diffMs = now - lastClaimTime;
+      
+      if (diffMs >= 24 * 60 * 60 * 1000) {
+        // It's been 24 hours, show button
+        setShowButton(true);
+      } else {
+        // Less than 24 hours, show countdown
+        setShowButton(false);
+        const secondsRemaining = Math.floor((24 * 60 * 60 * 1000 - diffMs) / 1000);
+        setBonusCountdown(secondsRemaining);
+      }
+    } catch (error) {
+      console.error("Error in checkClaimStatus:", error);
+      // Default to showing button if there's an error
       setShowButton(true);
-    } else {
-      // Less than 24 hours, show countdown
-      setShowButton(false);
-      const secondsRemaining = Math.floor((24 * 60 * 60 * 1000 - diffMs) / 1000);
-      setBonusCountdown(secondsRemaining);
     }
   }
 
@@ -184,18 +247,30 @@ const DailyStationScreen = () => {
   useEffect(() => {
     if (!showButton && localLastClaim) {
       function tickBonus() {
-        const now = new Date();
-        const lastClaimTime = new Date(localLastClaim).getTime();
-        const diffMs = now - lastClaimTime;
-        
-        if (diffMs >= 24 * 60 * 60 * 1000) {
-          // It's been 24 hours, show button
+        try {
+          if (!localLastClaim || !(localLastClaim instanceof Date) || isNaN(localLastClaim.getTime())) {
+            console.log("Invalid localLastClaim in tickBonus, showing button");
+            setShowButton(true);
+            return;
+          }
+          
+          const now = new Date();
+          const lastClaimTime = localLastClaim.getTime();
+          const diffMs = now - lastClaimTime;
+          
+          if (diffMs >= 24 * 60 * 60 * 1000) {
+            // It's been 24 hours, show button
+            setShowButton(true);
+            setBonusCountdown(0);
+          } else {
+            // Less than 24 hours, update countdown
+            const secondsRemaining = Math.floor((24 * 60 * 60 * 1000 - diffMs) / 1000);
+            setBonusCountdown(secondsRemaining);
+          }
+        } catch (error) {
+          console.error("Error in tickBonus:", error);
+          // Default to showing button if there's an error
           setShowButton(true);
-          setBonusCountdown(0);
-        } else {
-          // Less than 24 hours, update countdown
-          const secondsRemaining = Math.floor((24 * 60 * 60 * 1000 - diffMs) / 1000);
-          setBonusCountdown(secondsRemaining);
         }
       }
       
@@ -208,10 +283,15 @@ const DailyStationScreen = () => {
   // Daily question refresh countdown logic
   useEffect(() => {
     function tickQuestion() {
-      const now = new Date();
-      const nextMidnightUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-      const diff = Math.floor((nextMidnightUTC - now) / 1000);
-      setQuestionCountdown(diff);
+      try {
+        const now = new Date();
+        const nextMidnightUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+        const diff = Math.floor((nextMidnightUTC - now) / 1000);
+        setQuestionCountdown(diff > 0 ? diff : 0);
+      } catch (error) {
+        console.error("Error in tickQuestion:", error);
+        setQuestionCountdown(0);
+      }
     }
     
     tickQuestion(); // Run immediately
@@ -230,15 +310,17 @@ const DailyStationScreen = () => {
 
   // Handle bonus animation
   useEffect(() => {
+    if (!fadeAnim.current) return;
+    
     if (showBonusAnimation) {
       Animated.sequence([
-        Animated.timing(fadeAnim, {
+        Animated.timing(fadeAnim.current, {
           toValue: 1,
           duration: 300,
           useNativeDriver: true
         }),
         Animated.delay(2000),
-        Animated.timing(fadeAnim, {
+        Animated.timing(fadeAnim.current, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true
@@ -247,9 +329,9 @@ const DailyStationScreen = () => {
         setShowBonusAnimation(false);
       });
     } else {
-      fadeAnim.setValue(0);
+      fadeAnim.current.setValue(0);
     }
-  }, [showBonusAnimation, fadeAnim]);
+  }, [showBonusAnimation]);
 
   // Claim daily bonus
   const handleClaimDailyBonus = async () => {
@@ -288,7 +370,7 @@ const DailyStationScreen = () => {
         setClaimed(true);
         
         // Update user data immediately in Redux
-        if (data.newCoins && data.newXP) {
+        if (data.newCoins && data.newXP !== undefined) {
           dispatch(setXPAndCoins({
             coins: data.newCoins,
             xp: data.newXP,
@@ -308,7 +390,7 @@ const DailyStationScreen = () => {
         // Don't change UI state - keep showing countdown
       }
     } catch (err) {
-      setBonusError('Error: ' + err.message);
+      setBonusError('Error: ' + (err.message || 'Unknown error'));
       setClaimInProgress(false);
       // Even if there's an error, keep showing the countdown
     }
@@ -316,6 +398,11 @@ const DailyStationScreen = () => {
 
   // Fetch daily question
   const fetchDailyQuestion = async () => {
+    if (!userId) {
+      setLoadingQuestion(false);
+      return;
+    }
+    
     setLoadingQuestion(true);
     setQuestionError(null);
     
@@ -324,7 +411,8 @@ const DailyStationScreen = () => {
       setQuestionData(data);
       setLoadingQuestion(false);
     } catch (err) {
-      setQuestionError('Error fetching daily question: ' + err.message);
+      console.error("Error fetching daily question:", err);
+      setQuestionError('Error fetching daily question: ' + (err.message || 'Unknown error'));
       setLoadingQuestion(false);
     }
   };
@@ -349,7 +437,7 @@ const DailyStationScreen = () => {
       setSubmitResult(ansData);
       
       // Update user data immediately in Redux
-      if (ansData.newCoins && ansData.newXP) {
+      if (ansData.newCoins && ansData.newXP !== undefined) {
         dispatch(setXPAndCoins({
           coins: ansData.newCoins,
           xp: ansData.newXP,
@@ -379,301 +467,315 @@ const DailyStationScreen = () => {
         }
       }
     } catch (err) {
-      setQuestionError('Error: ' + err.message);
+      setQuestionError('Error: ' + (err.message || 'Unknown error'));
     }
   };
 
-  return (
-    <SafeAreaView style={[globalStyles.screen]}>
-      <ScrollView style={styles.scrollView}>
-        {/* Header Section */}
-        <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[globalStyles.title, styles.headerTitle]}>Daily Station</Text>
-          <Text style={[globalStyles.textSecondary, styles.subtitle]}>Claim your daily rewards and answer the challenge</Text>
-          
-          {userId && (
-            <View style={styles.userStats}>
-              <Animated.View 
-                style={[
-                  styles.statItem, 
-                  { 
-                    backgroundColor: coinsFlashAnim.interpolate({
-                      inputRange: [0, 0.5, 1],
-                      outputRange: [theme.colors.surfaceHighlight, theme.colors.goldBadge + '30', theme.colors.surfaceHighlight]
-                    })
-                  }
-                ]}
-              >
-                <Animated.View style={{
-                  transform: [{ scale: coinsFlashAnim.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [1, 1.2, 1]
-                  })}]
-                }}>
-                  <Ionicons name="cash" size={18} color={theme.colors.goldBadge} />
-                </Animated.View>
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
-              </Animated.View>
-              
-              <Animated.View 
-                style={[
-                  styles.statItem, 
-                  { 
-                    backgroundColor: xpFlashAnim.interpolate({
-                      inputRange: [0, 0.5, 1],
-                      outputRange: [theme.colors.surfaceHighlight, theme.colors.primary + '30', theme.colors.surfaceHighlight]
-                    })
-                  }
-                ]}
-              >
-                <Animated.View style={{
-                  transform: [{ scale: xpFlashAnim.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [1, 1.2, 1]
-                  })}]
-                }}>
-                  <Ionicons name="star" size={18} color={theme.colors.primary} />
-                </Animated.View>
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{xp}</Text>
-              </Animated.View>
-            </View>
-          )}
-        </View>
+  const interpolateCoinsAnim = () => {
+    if (!coinsFlashAnim.current) return { backgroundColor: theme.colors.surfaceHighlight };
+    
+    return {
+      backgroundColor: coinsFlashAnim.current.interpolate({
+        inputRange: [0, 0.5, 1],
+        outputRange: [theme.colors.surfaceHighlight, theme.colors.goldBadge + '30', theme.colors.surfaceHighlight]
+      })
+    };
+  };
 
-        {/* Main Content */}
-        <View style={[globalStyles.container, styles.content]}>
-          {!userId ? (
-            <View style={[styles.loginRequired, { backgroundColor: theme.colors.surface }]}>
-              <Ionicons name="bulb" size={40} color={theme.colors.primary} style={styles.loginIcon} />
-              <Text style={[globalStyles.title, styles.loginTitle]}>Login Required</Text>
-              <Text style={[globalStyles.text, styles.loginText]}>
-                Please log in to claim daily rewards and participate in daily challenges.
-              </Text>
-            </View>
-          ) : (
-            <>
-              {/* Daily Bonus Card */}
-              <View style={[globalStyles.card, styles.card]}>
-                <LinearGradient
-                  colors={theme.colors.secondaryGradient}
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 0}}
-                  style={styles.cardHeader}
+  const interpolateXpAnim = () => {
+    if (!xpFlashAnim.current) return { backgroundColor: theme.colors.surfaceHighlight };
+    
+    return {
+      backgroundColor: xpFlashAnim.current.interpolate({
+        inputRange: [0, 0.5, 1],
+        outputRange: [theme.colors.surfaceHighlight, theme.colors.primary + '30', theme.colors.surfaceHighlight]
+      })
+    };
+  };
+
+  return (
+    <ErrorBoundaryScreen screenName="Daily Station" navigation={navigation}>
+      <SafeAreaView style={[globalStyles.screen]}>
+        <ScrollView style={styles.scrollView}>
+          {/* Header Section */}
+          <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[globalStyles.title, styles.headerTitle]}>Daily Station</Text>
+            <Text style={[globalStyles.textSecondary, styles.subtitle]}>Claim your daily rewards and answer the challenge</Text>
+            
+            {userId && (
+              <View style={styles.userStats}>
+                <Animated.View 
+                  style={[
+                    styles.statItem, 
+                    interpolateCoinsAnim()
+                  ]}
                 >
-                  <Ionicons name="gift" size={20} color={theme.colors.text} />
-                  <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Daily Bonus</Text>
-                </LinearGradient>
+                  <Animated.View style={{
+                    transform: coinsFlashAnim.current ? [{ scale: coinsFlashAnim.current.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: [1, 1.2, 1]
+                    })}] : [{ scale: 1 }]
+                  }}>
+                    <Ionicons name="cash" size={18} color={theme.colors.goldBadge} />
+                  </Animated.View>
+                  <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
+                </Animated.View>
                 
-                <View style={styles.cardContent}>
-                  <View style={styles.bonusInfo}>
-                    <View style={[styles.bonusValue, { backgroundColor: theme.colors.surfaceHighlight, borderColor: `${theme.colors.goldBadge}50` }]}>
-                      <Ionicons name="cash" size={24} color={theme.colors.goldBadge} />
-                      <Text style={[styles.bonusValueText, { color: theme.colors.text }]}>250</Text>
-                    </View>
-                    <Text style={[globalStyles.textSecondary, styles.bonusText]}>Claim your free coins every 24 hours!</Text>
-                  </View>
+                <Animated.View 
+                  style={[
+                    styles.statItem, 
+                    interpolateXpAnim()
+                  ]}
+                >
+                  <Animated.View style={{
+                    transform: xpFlashAnim.current ? [{ scale: xpFlashAnim.current.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: [1, 1.2, 1]
+                    })}] : [{ scale: 1 }]
+                  }}>
+                    <Ionicons name="star" size={18} color={theme.colors.primary} />
+                  </Animated.View>
+                  <Text style={[styles.statValue, { color: theme.colors.text }]}>{xp}</Text>
+                </Animated.View>
+              </View>
+            )}
+          </View>
+
+          {/* Main Content */}
+          <View style={[globalStyles.container, styles.content]}>
+            {!userId ? (
+              <View style={[styles.loginRequired, { backgroundColor: theme.colors.surface }]}>
+                <Ionicons name="bulb" size={40} color={theme.colors.primary} style={styles.loginIcon} />
+                <Text style={[globalStyles.title, styles.loginTitle]}>Login Required</Text>
+                <Text style={[globalStyles.text, styles.loginText]}>
+                  Please log in to claim daily rewards and participate in daily challenges.
+                </Text>
+              </View>
+            ) : (
+              <>
+                {/* Daily Bonus Card */}
+                <View style={[globalStyles.card, styles.card]}>
+                  <LinearGradient
+                    colors={theme.colors.secondaryGradient}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 0}}
+                    style={styles.cardHeader}
+                  >
+                    <Ionicons name="gift" size={20} color={theme.colors.text} />
+                    <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Daily Bonus</Text>
+                  </LinearGradient>
                   
-                  {/* Show error if any */}
-                  {bonusError && !bonusError.includes("Next bonus in") && (
-                    <View style={[globalStyles.errorContainer, styles.errorContainer]}>
-                      <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
-                      <Text style={globalStyles.errorText}>{bonusError}</Text>
+                  <View style={styles.cardContent}>
+                    <View style={styles.bonusInfo}>
+                      <View style={[styles.bonusValue, { backgroundColor: theme.colors.surfaceHighlight, borderColor: `${theme.colors.goldBadge}50` }]}>
+                        <Ionicons name="cash" size={24} color={theme.colors.goldBadge} />
+                        <Text style={[styles.bonusValueText, { color: theme.colors.text }]}>250</Text>
+                      </View>
+                      <Text style={[globalStyles.textSecondary, styles.bonusText]}>Claim your free coins every 24 hours!</Text>
                     </View>
-                  )}
-                  
-                  {/* Claim Button or Countdown */}
-                  <View style={styles.bonusAction}>
-                    {showButton ? (
-                      <TouchableOpacity 
-                        style={[globalStyles.buttonSecondary, styles.claimButton]}
-                        onPress={handleClaimDailyBonus}
-                        disabled={claimInProgress}
-                      >
-                        {claimInProgress ? (
-                          <View style={styles.buttonContent}>
-                            <ActivityIndicator size="small" color={theme.colors.buttonText} />
-                            <Text style={[globalStyles.buttonText, styles.buttonText]}>Claiming...</Text>
-                          </View>
-                        ) : (
-                          <View style={styles.buttonContent}>
-                            <Ionicons name="cash" size={20} color={theme.colors.buttonText} />
-                            <Text style={[globalStyles.buttonText, styles.buttonText]}>Claim Bonus</Text>
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    ) : (
-                      <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
-                        <Ionicons name="hourglass" size={24} color={theme.colors.primary} />
-                        <View style={styles.countdownInfo}>
-                          <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Next bonus in:</Text>
-                          <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(bonusCountdown)}</Text>
-                        </View>
+                    
+                    {/* Show error if any */}
+                    {bonusError && !bonusError.includes("Next bonus in") && (
+                      <View style={[globalStyles.errorContainer, styles.errorContainer]}>
+                        <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
+                        <Text style={globalStyles.errorText}>{bonusError}</Text>
                       </View>
                     )}
-                  </View>
-                </View>
-              </View>
-
-              {/* Daily Question Card */}
-              <View style={[globalStyles.card, styles.card]}>
-                <LinearGradient
-                  colors={theme.colors.primaryGradient}
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 0}}
-                  style={styles.cardHeader}
-                >
-                  <Ionicons name="bulb" size={20} color={theme.colors.text} />
-                  <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Daily Challenge</Text>
-                </LinearGradient>
-                
-                <View style={styles.cardContent}>
-                  {loadingQuestion ? (
-                    <View style={styles.loading}>
-                      <ActivityIndicator size="large" color={theme.colors.primary} />
-                      <Text style={[globalStyles.textMuted, styles.loadingText]}>Loading challenge...</Text>
-                    </View>
-                  ) : questionError ? (
-                    <View style={[globalStyles.errorContainer, styles.errorContainer]}>
-                      <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
-                      <Text style={globalStyles.errorText}>{questionError}</Text>
-                    </View>
-                  ) : !questionData ? (
-                    <View style={styles.emptyState}>
-                      <Text style={[globalStyles.textMuted, styles.emptyText]}>No challenges available today. Check back tomorrow!</Text>
-                    </View>
-                  ) : (
-                    <View style={[
-                      styles.question,
-                      showCorrectAnimation && { borderColor: theme.colors.success, borderWidth: 1 },
-                      showWrongAnimation && { borderColor: theme.colors.error, borderWidth: 1 }
-                    ]}>
-                      <View style={[styles.questionPrompt, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
-                        <FormattedQuestion questionText={questionData.prompt} />
-                      </View>
-                      
-                      {questionData.alreadyAnswered ? (
-                        <View style={styles.questionAnswered}>
-                          {submitResult && (
-                            <View style={[
-                              styles.resultContainer,
-                              submitResult.correct ? 
-                                { backgroundColor: `${theme.colors.success}20`, borderColor: theme.colors.success } : 
-                                { backgroundColor: `${theme.colors.error}20`, borderColor: theme.colors.error }
-                            ]}>
-                              <Ionicons 
-                                name={submitResult.correct ? "checkmark-circle" : "close-circle"} 
-                                size={24} 
-                                color={submitResult.correct ? theme.colors.success : theme.colors.error} 
-                              />
-                              <Text style={[globalStyles.text, styles.resultText]}>
-                                {submitResult.correct ? 
-                                  `Correct! You earned ${submitResult.awardedCoins} coins.` : 
-                                  `Not quite, but you still got ${submitResult.awardedCoins} coins.`}
-                              </Text>
+                    
+                    {/* Claim Button or Countdown */}
+                    <View style={styles.bonusAction}>
+                      {showButton ? (
+                        <TouchableOpacity 
+                          style={[globalStyles.buttonSecondary, styles.claimButton]}
+                          onPress={handleClaimDailyBonus}
+                          disabled={claimInProgress}
+                        >
+                          {claimInProgress ? (
+                            <View style={styles.buttonContent}>
+                              <ActivityIndicator size="small" color={theme.colors.buttonText} />
+                              <Text style={[globalStyles.buttonText, styles.buttonText]}>Claiming...</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.buttonContent}>
+                              <Ionicons name="cash" size={20} color={theme.colors.buttonText} />
+                              <Text style={[globalStyles.buttonText, styles.buttonText]}>Claim Bonus</Text>
                             </View>
                           )}
-                          
-                          {/* Explanation Section */}
-                          {(questionData.explanation || (submitResult && submitResult.explanation)) && (
-                            <View style={[styles.explanation, { 
-                              backgroundColor: theme.colors.surfaceHighlight, 
-                              borderColor: theme.colors.border,
-                              borderLeftColor: theme.colors.primary
-                            }]}>
-                              <Text style={[globalStyles.text, { fontWeight: '600' }, styles.explanationTitle]}>Explanation:</Text>
-                              <FormattedQuestion questionText={questionData.explanation || (submitResult && submitResult.explanation)} />
-                            </View>
-                          )}
-                          
-                          <View style={styles.nextQuestion}>
-                            <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
-                              <Ionicons name="calendar" size={24} color={theme.colors.primary} />
-                              <View style={styles.countdownInfo}>
-                                <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Next challenge in:</Text>
-                                <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(questionCountdown)}</Text>
-                              </View>
-                            </View>
-                          </View>
-                        </View>
+                        </TouchableOpacity>
                       ) : (
-                        <View style={styles.questionOptions}>
-                          {questionData.options.map((option, index) => (
-                            <TouchableOpacity 
-                              key={index}
-                              style={[
-                                styles.optionItem,
-                                { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border },
-                                selectedAnswer === index && { 
-                                  backgroundColor: `${theme.colors.primary}30`, 
-                                  borderColor: theme.colors.primary 
-                                }
-                              ]}
-                              onPress={() => setSelectedAnswer(index)}
-                            >
-                              <Text style={[
-                                globalStyles.text,
-                                styles.optionText,
-                                selectedAnswer === index && { fontWeight: '600' }
-                              ]}>
-                                {option}
-                              </Text>
-                              {selectedAnswer === index && (
-                                <Ionicons name="chevron-forward" size={18} color={theme.colors.primary} style={styles.optionIcon} />
-                              )}
-                            </TouchableOpacity>
-                          ))}
-                          
-                          <TouchableOpacity 
-                            style={[
-                              globalStyles.buttonPrimary,
-                              styles.submitButton,
-                              selectedAnswer === null && { 
-                                backgroundColor: `${theme.colors.primary}80`,
-                              }
-                            ]}
-                            onPress={handleSubmitAnswer}
-                            disabled={selectedAnswer === null}
-                          >
-                            <Text style={globalStyles.buttonText}>Submit Answer</Text>
-                          </TouchableOpacity>
-                          
-                          <View style={styles.nextQuestion}>
-                            <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
-                              <Ionicons name="calendar" size={24} color={theme.colors.primary} />
-                              <View style={styles.countdownInfo}>
-                                <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Challenge refreshes in:</Text>
-                                <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(questionCountdown)}</Text>
-                              </View>
-                            </View>
+                        <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                          <Ionicons name="hourglass" size={24} color={theme.colors.primary} />
+                          <View style={styles.countdownInfo}>
+                            <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Next bonus in:</Text>
+                            <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(bonusCountdown)}</Text>
                           </View>
                         </View>
                       )}
                     </View>
-                  )}
+                  </View>
                 </View>
-              </View>
-            </>
-          )}
-        </View>
-      </ScrollView>
-      
-      {/* BONUS CLAIM ANIMATION OVERLAY */}
-      {showBonusAnimation && (
-        <Animated.View style={[styles.overlay, {opacity: fadeAnim, backgroundColor: theme.colors.overlay}]}>
-          <View style={[styles.bonusAnimation, { 
-            backgroundColor: theme.colors.surface, 
-            borderColor: theme.colors.primary,
-            shadowColor: theme.colors.primary
-          }]}>
-            <Ionicons name="cash" size={60} color={theme.colors.goldBadge} style={styles.bonusIcon} />
-            <View style={styles.bonusAnimationText}>
-              <Text style={[globalStyles.title, styles.bonusAnimationTitle]}>Daily Bonus Claimed!</Text>
-              <Text style={[globalStyles.textSecondary, styles.bonusAnimationSubtitle]}>+250 coins added to your account</Text>
-            </View>
+
+                {/* Daily Question Card */}
+                <View style={[globalStyles.card, styles.card]}>
+                  <LinearGradient
+                    colors={theme.colors.primaryGradient}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 0}}
+                    style={styles.cardHeader}
+                  >
+                    <Ionicons name="bulb" size={20} color={theme.colors.text} />
+                    <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Daily Challenge</Text>
+                  </LinearGradient>
+                  
+                  <View style={styles.cardContent}>
+                    {loadingQuestion ? (
+                      <View style={styles.loading}>
+                        <ActivityIndicator size="large" color={theme.colors.primary} />
+                        <Text style={[globalStyles.textMuted, styles.loadingText]}>Loading challenge...</Text>
+                      </View>
+                    ) : questionError ? (
+                      <View style={[globalStyles.errorContainer, styles.errorContainer]}>
+                        <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
+                        <Text style={globalStyles.errorText}>{questionError}</Text>
+                      </View>
+                    ) : !questionData ? (
+                      <View style={styles.emptyState}>
+                        <Text style={[globalStyles.textMuted, styles.emptyText]}>No challenges available today. Check back tomorrow!</Text>
+                      </View>
+                    ) : (
+                      <View style={[
+                        styles.question,
+                        showCorrectAnimation && { borderColor: theme.colors.success, borderWidth: 1 },
+                        showWrongAnimation && { borderColor: theme.colors.error, borderWidth: 1 }
+                      ]}>
+                        <View style={[styles.questionPrompt, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                          <FormattedQuestion questionText={questionData.prompt} />
+                        </View>
+                        
+                        {questionData.alreadyAnswered ? (
+                          <View style={styles.questionAnswered}>
+                            {submitResult && (
+                              <View style={[
+                                styles.resultContainer,
+                                submitResult.correct ? 
+                                  { backgroundColor: `${theme.colors.success}20`, borderColor: theme.colors.success } : 
+                                  { backgroundColor: `${theme.colors.error}20`, borderColor: theme.colors.error }
+                              ]}>
+                                <Ionicons 
+                                  name={submitResult.correct ? "checkmark-circle" : "close-circle"} 
+                                  size={24} 
+                                  color={submitResult.correct ? theme.colors.success : theme.colors.error} 
+                                />
+                                <Text style={[globalStyles.text, styles.resultText]}>
+                                  {submitResult.correct ? 
+                                    `Correct! You earned ${submitResult.awardedCoins} coins.` : 
+                                    `Not quite, but you still got ${submitResult.awardedCoins} coins.`}
+                                </Text>
+                              </View>
+                            )}
+                            
+                            {/* Explanation Section */}
+                            {(questionData.explanation || (submitResult && submitResult.explanation)) && (
+                              <View style={[styles.explanation, { 
+                                backgroundColor: theme.colors.surfaceHighlight, 
+                                borderColor: theme.colors.border,
+                                borderLeftColor: theme.colors.primary
+                              }]}>
+                                <Text style={[globalStyles.text, { fontWeight: '600' }, styles.explanationTitle]}>Explanation:</Text>
+                                <FormattedQuestion questionText={questionData.explanation || (submitResult && submitResult.explanation)} />
+                              </View>
+                            )}
+                            
+                            <View style={styles.nextQuestion}>
+                              <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                                <Ionicons name="calendar" size={24} color={theme.colors.primary} />
+                                <View style={styles.countdownInfo}>
+                                  <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Next challenge in:</Text>
+                                  <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(questionCountdown)}</Text>
+                                </View>
+                              </View>
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={styles.questionOptions}>
+                            {questionData.options && questionData.options.map((option, index) => (
+                              <TouchableOpacity 
+                                key={index}
+                                style={[
+                                  styles.optionItem,
+                                  { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border },
+                                  selectedAnswer === index && { 
+                                    backgroundColor: `${theme.colors.primary}30`, 
+                                    borderColor: theme.colors.primary 
+                                  }
+                                ]}
+                                onPress={() => setSelectedAnswer(index)}
+                              >
+                                <Text style={[
+                                  globalStyles.text,
+                                  styles.optionText,
+                                  selectedAnswer === index && { fontWeight: '600' }
+                                ]}>
+                                  {option}
+                                </Text>
+                                {selectedAnswer === index && (
+                                  <Ionicons name="chevron-forward" size={18} color={theme.colors.primary} style={styles.optionIcon} />
+                                )}
+                              </TouchableOpacity>
+                            ))}
+                            
+                            <TouchableOpacity 
+                              style={[
+                                globalStyles.buttonPrimary,
+                                styles.submitButton,
+                                selectedAnswer === null && { 
+                                  backgroundColor: `${theme.colors.primary}80`,
+                                }
+                              ]}
+                              onPress={handleSubmitAnswer}
+                              disabled={selectedAnswer === null}
+                            >
+                              <Text style={globalStyles.buttonText}>Submit Answer</Text>
+                            </TouchableOpacity>
+                            
+                            <View style={styles.nextQuestion}>
+                              <View style={[styles.countdown, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
+                                <Ionicons name="calendar" size={24} color={theme.colors.primary} />
+                                <View style={styles.countdownInfo}>
+                                  <Text style={[globalStyles.textMuted, styles.countdownLabel]}>Challenge refreshes in:</Text>
+                                  <Text style={[styles.countdownTime, { color: theme.colors.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>{formatCountdown(questionCountdown)}</Text>
+                                </View>
+                              </View>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </>
+            )}
           </View>
-        </Animated.View>
-      )}
-    </SafeAreaView>
+        </ScrollView>
+        
+        {/* BONUS CLAIM ANIMATION OVERLAY */}
+        {showBonusAnimation && fadeAnim.current && (
+          <Animated.View style={[styles.overlay, {opacity: fadeAnim.current, backgroundColor: theme.colors.overlay}]}>
+            <View style={[styles.bonusAnimation, { 
+              backgroundColor: theme.colors.surface, 
+              borderColor: theme.colors.primary,
+              shadowColor: theme.colors.primary
+            }]}>
+              <Ionicons name="cash" size={60} color={theme.colors.goldBadge} style={styles.bonusIcon} />
+              <View style={styles.bonusAnimationText}>
+                <Text style={[globalStyles.title, styles.bonusAnimationTitle]}>Daily Bonus Claimed!</Text>
+                <Text style={[globalStyles.textSecondary, styles.bonusAnimationSubtitle]}>+250 coins added to your account</Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+      </SafeAreaView>
+    </ErrorBoundaryScreen>
   );
 };
 

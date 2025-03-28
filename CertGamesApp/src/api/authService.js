@@ -2,6 +2,7 @@
 import apiClient from './apiClient';
 import { API } from './apiConfig';
 import * as SecureStore from 'expo-secure-store';
+import { fetchWithRetry } from '../utils/networkUtils';
 
 export const loginUser = async (credentials) => {
   try {
@@ -40,13 +41,15 @@ export const registerUser = async (userData) => {
 };
 
 export const fetchUserData = async (userId) => {
-  try {
-    const response = await apiClient.get(API.USER.DETAILS(userId));
-    return response.data;
-  } catch (error) {
-    console.error('Fetch user error:', error.response?.data || error.message);
-    throw error;
-  }
+  return fetchWithRetry(async () => {
+    try {
+      const response = await apiClient.get(API.USER.DETAILS(userId));
+      return response.data;
+    } catch (error) {
+      console.error('Fetch user error:', error.response?.data || error.message);
+      throw error;
+    }
+  });
 };
 
 export const logoutUser = async () => {
@@ -70,4 +73,4 @@ export const claimDailyBonus = async (userId) => {
     console.error('Daily bonus error:', error.response?.data || error.message);
     throw error;
   }
-}; 
+};

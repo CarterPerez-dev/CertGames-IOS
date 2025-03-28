@@ -21,7 +21,8 @@ apiClient.interceptors.request.use(
       // Check network state first
       const netInfoState = await NetInfo.fetch();
       
-      if (!netInfoState.isConnected || !netInfoState.isInternetReachable) {
+      // Only reject if BOTH conditions are false (completely offline)
+      if (!netInfoState.isConnected && !netInfoState.isInternetReachable) {
         // Dispatch offline status to Redux if available
         if (global.store) {
           global.store.dispatch(setOfflineStatus(true));

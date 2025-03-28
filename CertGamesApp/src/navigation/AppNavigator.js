@@ -53,7 +53,7 @@ const AppNavigator = () => {
   const [appIsReady, setAppIsReady] = useState(false);
   const [initError, setInitError] = useState(null);
 
-  // Move prepare function outside of useEffect so it can be referenced elsewhere
+  // Improved prepare function with better error handling and logging
   const prepare = async () => {
     try {
       // Check if user is already logged in
@@ -63,8 +63,13 @@ const AppNavigator = () => {
         // Fetch user data
         try {
           console.log("Fetching user data for:", storedUserId);
-          await dispatch(fetchUserData(storedUserId)).unwrap();
-          console.log("User data fetched successfully");
+          const userData = await dispatch(fetchUserData(storedUserId)).unwrap();
+          console.log("User data fetched successfully:", userData);  // Log the actual data
+          
+          // Verify the data is usable
+          if (!userData || !userData._id) {
+            console.warn("User data incomplete:", userData);
+          }
         } catch (fetchError) {
           console.error("Error fetching user data:", fetchError);
           setInitError("Could not fetch user data. Please check your network connection.");
@@ -111,7 +116,7 @@ const AppNavigator = () => {
             onPress={() => {
               setInitError(null);
               setAppIsReady(false);
-              prepare(); // Now properly in scope
+              prepare(); // Use the prepare function defined above
             }}
           >
             <Text style={{color: '#FFFFFF', fontWeight: 'bold'}}>Retry</Text>

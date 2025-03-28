@@ -15,30 +15,30 @@ const useUserData = (options = {}) => {
   const dispatch = useDispatch();
   
   // Get all user-related data from Redux
-  const userData = useSelector(state => state.user);
+  const userData = useSelector(state => state.user || {});
   const { 
-    userId, 
-    username, 
-    email,
-    xp, 
-    level, 
-    coins, 
-    achievements, 
-    xpBoost,
-    currentAvatar,
-    nameColor,
-    purchasedItems,
-    subscriptionActive,
-    status,
-    error,
-    lastDailyClaim
-  } = userData;
+    userId = null, 
+    username = '', 
+    email = '',
+    xp = 0, 
+    level = 1, 
+    coins = 0, 
+    achievements = [], 
+    xpBoost = 1.0,
+    currentAvatar = null,
+    nameColor = null,
+    purchasedItems = [],
+    subscriptionActive = false,
+    status = 'idle',
+    error = null,
+    lastDailyClaim = null
+  } = userData || {};
   
   // Get shop items (for avatar display)
-  const { items: shopItems, status: shopStatus } = useSelector(state => state.shop);
+  const { items: shopItems = [], status: shopStatus = 'idle' } = useSelector(state => state.shop || { items: [], status: 'idle' });
   
   // Get all achievements
-  const { all: allAchievements, status: achievementsStatus } = useSelector(state => state.achievements);
+  const { all: allAchievements = [], status: achievementsStatus = 'idle' } = useSelector(state => state.achievements || { all: [], status: 'idle' });
   
   // Auto-fetch data when component mounts if userId is available
   useEffect(() => {
@@ -71,11 +71,9 @@ const useUserData = (options = {}) => {
   
   // Get avatar URL helper
   const getAvatarUrl = useCallback(() => {
-    if (currentAvatar && shopItems && shopItems.length > 0) {
-      const avatarItem = shopItems.find(item => item._id === currentAvatar);
+    if (currentAvatar && shopItems && Array.isArray(shopItems) && shopItems.length > 0) {
+      const avatarItem = shopItems.find(item => item && item._id === currentAvatar);
       if (avatarItem && avatarItem.imageUrl) {
-        // If you have a format helper in your testService, use it:
-        // return testService.formatImageUrl(avatarItem.imageUrl);
         return avatarItem.imageUrl;
       }
     }
@@ -97,36 +95,36 @@ const useUserData = (options = {}) => {
   }, [achievements]);
   
   return {
-    // User data
-    userId,
-    username,
-    email,
-    xp,
-    level,
-    coins,
-    achievements,
-    xpBoost,
-    currentAvatar,
-    nameColor,
-    purchasedItems,
-    subscriptionActive,
-    lastDailyClaim,
+    // User data with explicit fallbacks
+    userId: userId || null,
+    username: username || '',
+    email: email || '',
+    xp: xp || 0,
+    level: level || 1,
+    coins: coins || 0,
+    achievements: achievements || [],
+    xpBoost: xpBoost || 1.0,
+    currentAvatar: currentAvatar || null,
+    nameColor: nameColor || null,
+    purchasedItems: purchasedItems || [],
+    subscriptionActive: subscriptionActive || false,
+    lastDailyClaim: lastDailyClaim || null,
     
     // Shop items
-    shopItems,
+    shopItems: shopItems || [],
     
     // Achievements
-    allAchievements,
+    allAchievements: allAchievements || [],
     
     // Status
     isLoading: status === 'loading',
-    error,
+    error: error || null,
     
     // Helper functions
-    refreshData,
-    getAvatarUrl,
-    getUnlockedAchievements,
-    isAchievementUnlocked
+    refreshData: refreshData || (() => {}),
+    getAvatarUrl: getAvatarUrl || (() => null),
+    getUnlockedAchievements: getUnlockedAchievements || (() => []),
+    isAchievementUnlocked: isAchievementUnlocked || (() => false)
   };
 };
 

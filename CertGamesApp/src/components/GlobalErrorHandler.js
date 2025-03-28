@@ -7,7 +7,7 @@ import { clearErrors } from '../store/slices/networkSlice';
 import { useTheme } from '../context/ThemeContext';
 
 const GlobalErrorHandler = () => {
-  const { isOffline, serverError } = useSelector(state => state.network);
+  const { isOffline = false, serverError = false } = useSelector(state => state.network || {});
   const dispatch = useDispatch();
   const { theme } = useTheme();
   
@@ -21,7 +21,7 @@ const GlobalErrorHandler = () => {
   return (
     <View style={[
       styles.container,
-      { backgroundColor: isOffline ? theme.colors.error : theme.colors.warning }
+      { backgroundColor: isOffline ? theme?.colors?.error : theme?.colors?.warning }
     ]}>
       <View style={styles.content}>
         <Ionicons 

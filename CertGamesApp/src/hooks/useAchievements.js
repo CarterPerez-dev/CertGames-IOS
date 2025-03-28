@@ -11,8 +11,8 @@ import { CATEGORY_NAMES, getAchievementCategory } from '../constants/achievement
  */
 const useAchievements = () => {
   const dispatch = useDispatch();
-  const { userId, achievements: userAchievements } = useSelector((state) => state.user);
-  const { all: allAchievements, status: achievementsStatus } = useSelector((state) => state.achievements);
+  const { userId = null, achievements: userAchievements = [] } = useSelector((state) => state.user || {});
+  const { all: allAchievements = [], status: achievementsStatus = 'idle' } = useSelector((state) => state.achievements || { all: [], status: 'idle' });
   
   const [filteredAchievements, setFilteredAchievements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,23 +102,23 @@ const useAchievements = () => {
   };
   
   return {
-    // State
-    allAchievements,
-    filteredAchievements,
-    loading,
-    refreshing,
-    activeCategory,
-    error,
-    categories: CATEGORY_NAMES,
+    // State with fallbacks
+    allAchievements: allAchievements || [],
+    filteredAchievements: filteredAchievements || [],
+    loading: loading || false,
+    refreshing: refreshing || false,
+    activeCategory: activeCategory || 'all',
+    error: error || null,
+    categories: CATEGORY_NAMES || {},
     
-    // Methods
-    filterAchievements,
-    handleCategoryChange,
-    handleRefresh,
-    isAchievementUnlocked,
-    getAchievementDetails,
-    getCompletionPercentage,
-    getAchievementStats,
+    // Methods with fallbacks
+    filterAchievements: filterAchievements || (() => {}),
+    handleCategoryChange: handleCategoryChange || (() => {}),
+    handleRefresh: handleRefresh || (() => {}),
+    isAchievementUnlocked: isAchievementUnlocked || (() => false),
+    getAchievementDetails: getAchievementDetails || (() => null),
+    getCompletionPercentage: getCompletionPercentage || (() => 0),
+    getAchievementStats: getAchievementStats || (() => ({ total: 0, unlocked: 0, locked: 0, completionPercentage: 0 }))
   };
 };
 

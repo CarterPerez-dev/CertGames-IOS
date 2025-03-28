@@ -12,7 +12,14 @@ import { ERROR_MESSAGES } from '../constants/shopConstants';
  */
 const useShop = () => {
   const dispatch = useDispatch();
-  const { userId, coins, level, purchasedItems, currentAvatar } = useSelector((state) => state.user);
+  const { 
+    userId = null, 
+    coins = 0, 
+    level = 1, 
+    purchasedItems = [], 
+    currentAvatar = null, 
+    nameColor = null 
+  } = useSelector((state) => state.user || {});
   
   const [shopItems, setShopItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -191,23 +198,23 @@ const useShop = () => {
   };
   
   return {
-    // State
-    shopItems,
-    filteredItems,
-    loading,
-    refreshing,
-    activeCategory,
-    error,
+    // State with fallbacks
+    shopItems: shopItems || [],
+    filteredItems: filteredItems || [],
+    loading: loading || false,
+    refreshing: refreshing || false,
+    activeCategory: activeCategory || 'all',
+    error: error || null,
     
-    // Methods
-    loadShopItems,
-    handleCategoryChange,
-    handleRefresh,
-    canPurchaseItem,
-    handlePurchase,
-    handleEquip,
-    isItemPurchased,
-    isItemEquipped,
+    // Methods with fallbacks
+    loadShopItems: loadShopItems || (() => {}),
+    handleCategoryChange: handleCategoryChange || (() => {}),
+    handleRefresh: handleRefresh || (() => {}),
+    canPurchaseItem: canPurchaseItem || (() => false),
+    handlePurchase: handlePurchase || (() => {}),
+    handleEquip: handleEquip || (() => {}),
+    isItemPurchased: isItemPurchased || (() => false),
+    isItemEquipped: isItemEquipped || (() => false)
   };
 };
 

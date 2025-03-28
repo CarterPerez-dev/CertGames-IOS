@@ -1,6 +1,7 @@
 // src/api/AppleSubscriptionService.js
 import {
   initConnection,
+  getProducts,
   getSubscriptions,
   requestSubscription,
   getAvailablePurchases,
@@ -14,7 +15,7 @@ import axios from 'axios';
 import { API } from './apiConfig';
 import * as SecureStore from 'expo-secure-store';
 
-// Apple subscription product ID
+// Update this to match your Apple Connect configuration
 export const SUBSCRIPTION_PRODUCT_ID = 'com.certgames.app.monthly_premium';
 
 class AppleSubscriptionService {
@@ -23,10 +24,19 @@ class AppleSubscriptionService {
     try {
       if (Platform.OS !== 'ios') return false;
       
-      await initConnection();
+      console.log('Initializing IAP connection...');
+      const result = await initConnection();
+      console.log("IAP connection initialized:", result);
       return true;
     } catch (error) {
       console.error('Failed to initialize IAP connection:', error);
+      // Add more detailed error information
+      if (error.code) {
+        console.error('Error code:', error.code);
+      }
+      if (error.message) {
+        console.error('Error message:', error.message);
+      }
       return false;
     }
   }
@@ -39,12 +49,19 @@ class AppleSubscriptionService {
       // Ensure connection is initialized
       await this.initializeConnection();
       
-      // Fetch available subscriptions
-      const subscriptions = await getSubscriptions([SUBSCRIPTION_PRODUCT_ID]);
+      console.log("Requesting subscriptions for product ID:", SUBSCRIPTION_PRODUCT_ID);
+      
+      // Fetch available subscriptions - corrected method call with proper parameter format
+      const subscriptions = await getSubscriptions({
+        skus: [SUBSCRIPTION_PRODUCT_ID]
+      });
+      
+      console.log("Available subscriptions:", subscriptions);
       return subscriptions;
     } catch (error) {
       console.error('Failed to get subscriptions:', error);
-      return [];
+      // Return error info instead of throwing
+      return { error: error.message, code: error.code };
     }
   }
 
@@ -56,8 +73,25 @@ class AppleSubscriptionService {
       // Ensure connection is initialized
       await this.initializeConnection();
       
+      // Check if subscription is available
+      const subscriptions = await this.getAvailableSubscriptions();
+      if (subscriptions.error) {
+        throw new Error(subscriptions.error);
+      }
+      
+      if (!subscriptions || subscriptions.length === 0) {
+        throw new Error('No subscription products are available');
+      }
+      
+      console.log("Requesting subscription purchase for:", SUBSCRIPTION_PRODUCT_ID);
+      
       // Request the subscription purchase
-      const result = await requestSubscription(SUBSCRIPTION_PRODUCT_ID);
+      const result = await requestSubscription({
+        sku: SUBSCRIPTION_PRODUCT_ID,
+        andDangerouslyFinishTransactionAutomaticallyIOS: false
+      });
+      
+      console.log("Purchase result:", result);
       
       // Validate receipt with Apple and our backend
       if (result && result.transactionReceipt) {
@@ -88,6 +122,8 @@ class AppleSubscriptionService {
   // Verify purchase receipt with our backend
   async verifyReceiptWithBackend(userId, receiptData) {
     try {
+      console.log("Verifying receipt with backend for user:", userId);
+      
       const response = await axios.post(API.SUBSCRIPTION.VERIFY_RECEIPT, {
         userId: userId,
         receiptData: receiptData,
@@ -95,10 +131,11 @@ class AppleSubscriptionService {
         productId: SUBSCRIPTION_PRODUCT_ID
       });
       
+      console.log("Receipt verification response:", response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to verify receipt with backend:', error);
-      throw error;
+      return { success: false, error: error.message };
     }
   }
 

@@ -34,7 +34,10 @@
       },
       "associatedDomains": [
         "applinks:certgames.com"
-      ]
+      ],
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {

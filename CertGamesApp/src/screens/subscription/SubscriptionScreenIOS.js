@@ -5,357 +5,407 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
   ActivityIndicator,
   Alert,
-  Platform,
+  Image,
   SafeAreaView,
-  ScrollView
+  Platform
 } from 'react-native';
-import { useSelector } from 'react-redux';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import AppleSubscriptionService from '../../api/AppleSubscriptionService';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../context/ThemeContext';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
+import AppleSubscriptionService, { SUBSCRIPTION_PRODUCT_ID } from '../../api/AppleSubscriptionService';
+import apiClient from '../../api/apiClient';
+import { fetchUserData, checkSubscription } from '../../store/slices/userSlice';
+import { API } from '../../api/apiConfig';
 
-const SubscriptionScreenIOS = ({ route, navigation }) => {
+const SubscriptionScreenIOS = () => {
   const [loading, setLoading] = useState(false);
-  const [initializing, setInitializing] = useState(true);
-  const [error, setError] = useState('');
-  const [subscriptionInfo, setSubscriptionInfo] = useState(null);
-  const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [subscriptionProduct, setSubscriptionProduct] = useState(null);
+  const [error, setError] = useState(null);
+  const [registrationCompleted, setRegistrationCompleted] = useState(false);
   
-  const { userId } = useSelector(state => state.user);
-  const renewalParam = route.params?.renewal === true;
-
+  const dispatch = useDispatch();
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { theme } = useTheme();
+  
+  // Get parameters from route
+  const registrationData = route.params?.registrationData;
+  const isOauthFlow = route.params?.isOauthFlow || false;
+  const userId = route.params?.userId || useSelector(state => state.user.userId);
+  const isRenewal = route.params?.renewal || false;
+  
   useEffect(() => {
-    const loadSubscriptionData = async () => {
-      if (Platform.OS !== 'ios') {
-        setInitializing(false);
-        return;
-      }
-      
+    // Initialize IAP connection and fetch subscription product
+    const initializeSubscription = async () => {
       try {
-        // Initialize IAP connection
-        await AppleSubscriptionService.initializeConnection();
+        setInitialLoading(true);
         
-        // Get available subscriptions
-        const subscriptions = await AppleSubscriptionService.getAvailableSubscriptions();
-        if (subscriptions && subscriptions.length > 0) {
-          setSubscriptionInfo(subscriptions[0]);
+        // Initialize connection to App Store
+        const connectionInitialized = await AppleSubscriptionService.initializeConnection();
+        if (!connectionInitialized) {
+          throw new Error('Failed to initialize App Store connection');
         }
         
-        // Check subscription status
-        if (userId) {
-          const status = await AppleSubscriptionService.checkSubscriptionStatus(userId);
-          setIsSubscriptionActive(status.subscriptionActive);
+        console.log("Fetching available subscriptions...");
+        
+        // Fetch available subscription products
+        try {
+          const subscriptions = await AppleSubscriptionService.getAvailableSubscriptions();
+          console.log("Available subscriptions:", subscriptions);
+          
+          if (subscriptions && subscriptions.length > 0) {
+            setSubscriptionProduct(subscriptions[0]);
+          } else {
+            console.warn("No subscription products found");
+            setError("No subscription products found. Please try again later.");
+          }
+        } catch (subscriptionError) {
+          console.error("Error getting subscriptions:", subscriptionError);
+          setError(`Failed to retrieve subscription information: ${subscriptionError.message}`);
         }
-      } catch (error) {
-        console.error('Error loading subscription data:', error);
-        setError('Failed to load subscription information');
+      } catch (err) {
+        console.error('Error initializing subscription:', err);
+        setError('Failed to initialize subscription services. Please try again later.');
       } finally {
-        setInitializing(false);
+        setInitialLoading(false);
       }
     };
     
-    loadSubscriptionData();
-  }, [userId]);
-
-  const handleSubscribe = async () => {
-    if (!userId) {
-      Alert.alert(
-        'Account Required',
-        'Please create an account or sign in to subscribe',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign In', onPress: () => navigation.navigate('Login') }
-        ]
-      );
-      return;
+    initializeSubscription();
+  }, []);
+  
+  const registerNewUser = async () => {
+    try {
+      setLoading(true);
+      
+      console.log("Registering new user with data:", {
+        ...registrationData,
+        password: '********' // Log masked password for security
+      });
+      
+      // Register the user via API
+      const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
+      
+      if (!response.data || !response.data.user_id) {
+        throw new Error('Registration failed: No user ID returned');
+      }
+      
+      const newUserId = response.data.user_id;
+      console.log("User registered successfully, ID:", newUserId);
+      
+      // Save user ID to secure storage
+      await SecureStore.setItemAsync('userId', newUserId);
+      
+      // Update Redux state
+      dispatch({ type: 'user/setCurrentUserId', payload: newUserId });
+      
+      // Fetch user data to update Redux
+      await dispatch(fetchUserData(newUserId));
+      
+      setRegistrationCompleted(true);
+      return newUserId;
+      
+    } catch (error) {
+      console.error('Registration error:', error);
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      if (error.response && error.response.data && error.response.data.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      throw error;
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(true);
-    setError('');
+  };
+  
+  const handleSubscribe = async () => {
+    let userIdToUse = userId;
     
     try {
-      console.log("Starting subscription purchase for userId:", userId);
+      setLoading(true);
+      setError(null);
       
-      // Initialize IAP connection if needed
-      const connected = await AppleSubscriptionService.initializeConnection();
-      if (!connected) {
-        throw new Error("Failed to connect to App Store");
-      }
-      
-      // Get available subscriptions to confirm product is configured
-      const subscriptions = await AppleSubscriptionService.getAvailableSubscriptions();
-      console.log("Available subscriptions:", subscriptions.length > 0 ? "Found" : "None found");
-      
-      if (!subscriptions || subscriptions.length === 0) {
-        throw new Error("No subscription products available");
-      }
-      
-      // Attempt to purchase subscription
-      const result = await AppleSubscriptionService.purchaseSubscription(userId);
-      console.log("Purchase result:", result.success ? "Success" : "Failed");
-      
-      if (result.success) {
-        // Success! Refresh subscription status
-        const status = await AppleSubscriptionService.checkSubscriptionStatus(userId);
-        setIsSubscriptionActive(status.subscriptionActive);
-        
-        // Show success message
-        Alert.alert(
-          'Subscription Activated',
-          'Your premium subscription has been activated successfully!',
-          [{ text: 'Continue', onPress: () => navigation.navigate('Home') }]
-        );
-      } else {
-        if (result.error === 'User cancelled') {
-          // User cancellation is not an error to show
-          console.log("User cancelled purchase");
-        } else {
-          setError(result.error || 'Subscription purchase failed');
+      // Check if this is a new registration
+      if (registrationData && !registrationCompleted) {
+        try {
+          userIdToUse = await registerNewUser();
+        } catch (regError) {
+          // Registration error is already set in registerNewUser function
+          return;
         }
       }
-    } catch (error) {
-      console.error('Error purchasing subscription:', error);
       
-      // Provide more helpful error messages
-      if (error.message && error.message.includes('already owns')) {
-        // User already has an active subscription
-        Alert.alert(
-          'Subscription Already Active',
-          'You already have an active subscription. Try restoring purchases instead.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        setError('Failed to complete subscription purchase: ' + error.message);
+      // Ensure we have a user ID
+      if (!userIdToUse) {
+        setError('User ID is missing. Please try again.');
+        return;
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRestorePurchases = async () => {
-    if (!userId) {
+      
+      console.log("Requesting subscription for user:", userIdToUse);
+      
+      // Request subscription purchase
+      const purchaseResult = await AppleSubscriptionService.purchaseSubscription(userIdToUse);
+      
+      if (!purchaseResult.success) {
+        throw new Error(purchaseResult.error || 'Failed to complete subscription purchase');
+      }
+      
+      console.log("Subscription purchased successfully:", purchaseResult);
+      
+      // Update subscription status in Redux
+      await dispatch(checkSubscription(userIdToUse));
+      
+      // Navigate to the main app
       Alert.alert(
-        'Account Required',
-        'Please create an account or sign in to restore purchases',
+        "Subscription Successful",
+        "Thank you for subscribing to CertGames! You now have full access to all features.",
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign In', onPress: () => navigation.navigate('Login') }
+          { 
+            text: "Continue", 
+            onPress: () => navigation.navigate('Home')
+          }
         ]
       );
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
-    
-    try {
-      const result = await AppleSubscriptionService.restorePurchases(userId);
       
-      if (result.success) {
-        // Refresh subscription status
-        const status = await AppleSubscriptionService.checkSubscriptionStatus(userId);
-        setIsSubscriptionActive(status.subscriptionActive);
-        
-        Alert.alert(
-          'Purchases Restored',
-          'Your subscription has been restored successfully!',
-          [{ text: 'Continue', onPress: () => navigation.navigate('Home') }]
-        );
-      } else {
-        Alert.alert(
-          'Restore Failed',
-          result.message || 'No previous purchases found to restore',
-          [{ text: 'OK' }]
-        );
-      }
     } catch (error) {
-      console.error('Error restoring purchases:', error);
-      setError('Failed to restore purchases');
+      console.error('Subscription error:', error);
+      
+      let errorMessage = 'Failed to complete subscription purchase';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Handle user cancellation differently
+      if (error.message && error.message.includes('cancel')) {
+        setError('Subscription purchase was cancelled.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
   };
-
-  const renderBenefits = () => {
-    const benefits = [
-      {
-        icon: 'trophy-outline',
-        title: 'Practice Exams',
-        description: '13,000+ questions covering CompTIA, ISC2, and AWS certifications'
-      },
-      {
-        icon: 'rocket-outline',
-        title: 'Learning Tools',
-        description: 'Access ScenarioSphere, AnalogyHub, GRC Wizard, and XploitCraft'
-      },
-      {
-        icon: 'game-controller-outline',
-        title: 'Gamified Learning',
-        description: 'Earn XP, avatars, unlock achievements, and compete on leaderboards'
-      },
-      {
-        icon: 'headset-outline',
-        title: 'Expert Support',
-        description: 'Get answers or support for your upcoming exam at any time'
+  
+  const handleRestorePurchases = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      if (!userId) {
+        setError('User ID is missing. Please log in again.');
+        return;
       }
-    ];
-
-    return benefits.map((benefit, index) => (
-      <View key={index} style={styles.benefitItem}>
-        <Ionicons name={benefit.icon} size={24} color="#6543CC" style={styles.benefitIcon} />
-        <View style={styles.benefitContent}>
-          <Text style={styles.benefitTitle}>{benefit.title}</Text>
-          <Text style={styles.benefitDescription}>{benefit.description}</Text>
-        </View>
-      </View>
-    ));
+      
+      console.log("Restoring purchases for user:", userId);
+      
+      const restoreResult = await AppleSubscriptionService.restorePurchases(userId);
+      
+      if (!restoreResult.success) {
+        Alert.alert(
+          "Restore Result",
+          restoreResult.message || "No previous subscriptions found to restore."
+        );
+        return;
+      }
+      
+      console.log("Purchases restored successfully:", restoreResult);
+      
+      // Update subscription status in Redux
+      await dispatch(checkSubscription(userId));
+      
+      // Navigate to the main app if subscription is now active
+      const userState = await dispatch(fetchUserData(userId)).unwrap();
+      
+      if (userState.subscriptionActive) {
+        Alert.alert(
+          "Subscription Restored",
+          "Your subscription has been successfully restored!",
+          [
+            { 
+              text: "Continue", 
+              onPress: () => navigation.navigate('Home')
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Restore Completed",
+          "No active subscriptions were found to restore."
+        );
+      }
+      
+    } catch (error) {
+      console.error('Restore purchases error:', error);
+      setError('Failed to restore purchases. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
-
-  if (initializing) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6543CC" />
-        <Text style={styles.loadingText}>Loading subscription information...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  if (isSubscriptionActive) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <LinearGradient
-          colors={['#121212', '#1a1a2e']}
-          style={StyleSheet.absoluteFill}
-        />
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.activeSubscriptionContainer}>
-            <View style={styles.activeIconContainer}>
-              <Ionicons name="checkmark-circle" size={80} color="#2EBB77" />
-            </View>
-            <Text style={styles.activeTitle}>Premium Subscription Active</Text>
-            <Text style={styles.activeDescription}>
-              You have full access to all features and content.
-            </Text>
-            
-            <TouchableOpacity 
-              style={styles.continueButton}
-              onPress={() => navigation.navigate('Home')}
-            >
-              <Text style={styles.continueButtonText}>Continue to App</Text>
-              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-            
-            <View style={styles.managementInfo}>
-              <Text style={styles.managementText}>
-                To manage your subscription, go to App Store → Profile → Subscriptions
-              </Text>
-            </View>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#121212', '#1a1a2e']}
-        style={StyleSheet.absoluteFill}
-      />
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <LinearGradient
-              colors={['#6543CC', '#8A58FC']}
-              style={styles.logoBackground}
-            >
-              <Ionicons name="rocket" size={40} color="#FFFFFF" />
-            </LinearGradient>
-          </View>
-          <Text style={styles.headerTitle}>
-            {renewalParam ? 'Reactivate Your Subscription' : 'Upgrade to Premium'}
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            {renewalParam 
-              ? 'Continue your certification journey with premium access'
-              : 'Unlock all features and boost your certification prep'}
-          </Text>
-        </View>
-        
-        {error ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={20} color="#FF4C8B" />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-        
+  
+  const renderPricingDetails = () => {
+    if (!subscriptionProduct) {
+      return (
         <View style={styles.pricingCard}>
-          <View style={styles.priceHeader}>
-            <View style={styles.badgeContainer}>
-              <Text style={styles.badge}>PREMIUM</Text>
-            </View>
-            <View style={styles.priceContainer}>
-              <Text style={styles.currency}>$</Text>
-              <Text style={styles.price}>9</Text>
-              <View style={styles.priceFraction}>
-                <Text style={styles.priceDecimal}>.99</Text>
-                <Text style={styles.month}>/month</Text>
-              </View>
-            </View>
-          </View>
-          
-          <View style={styles.features}>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#2EBB77" />
-              <Text style={styles.featureText}>Unlimited access to all content</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#2EBB77" />
-              <Text style={styles.featureText}>Cancel anytime</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#2EBB77" />
-              <Text style={styles.featureText}>Sync across web and mobile</Text>
-            </View>
-          </View>
-          
-          <TouchableOpacity
-            style={[styles.subscribeButton, loading && styles.disabledButton]}
-            onPress={handleSubscribe}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.subscribeButtonText}>
-                {renewalParam ? 'Reactivate Subscription' : 'Subscribe Now'}
-              </Text>
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.restoreButton}
-            onPress={handleRestorePurchases}
-            disabled={loading}
-          >
-            <Text style={styles.restoreButtonText}>Restore Purchases</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.benefitsContainer}>
-          <Text style={styles.benefitsTitle}>Subscription Benefits</Text>
-          <View style={styles.benefitsList}>
-            {renderBenefits()}
-          </View>
-        </View>
-        
-        <View style={styles.termsContainer}>
-          <Text style={styles.termsText}>
-            By subscribing, you agree to our Terms and Privacy Policy. Payment will be charged to your Apple ID account. Subscription automatically renews unless it is canceled at least 24 hours before the end of the current period. Manage your subscriptions in App Store Settings.
+          <Text style={[styles.priceTitle, { color: theme.colors.text }]}>
+            Monthly Premium
           </Text>
+          <Text style={[styles.priceValue, { color: theme.colors.text }]}>
+            $9.99
+          </Text>
+          <Text style={[styles.priceDescription, { color: theme.colors.textSecondary }]}>
+            per month
+          </Text>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.pricingCard}>
+        <Text style={[styles.priceTitle, { color: theme.colors.text }]}>
+          {subscriptionProduct.title || "Monthly Premium"}
+        </Text>
+        <Text style={[styles.priceValue, { color: theme.colors.text }]}>
+          {subscriptionProduct.localizedPrice || "$9.99"}
+        </Text>
+        <Text style={[styles.priceDescription, { color: theme.colors.textSecondary }]}>
+          {subscriptionProduct.subscriptionPeriodUnitIOS === 'MONTH' ? 'per month' : 'subscription'}
+        </Text>
+      </View>
+    );
+  };
+  
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <LinearGradient
+        colors={[theme.colors.background, theme.colors.background + '80']}
+        style={styles.gradientBackground}
+      />
+      
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.contentContainer}>
+          <View style={styles.headerContainer}>
+            <Image 
+              source={require('../../../assets/logo.png')} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={[styles.title, { color: theme.colors.text }]}>
+              {isRenewal ? "Reactivate Your Subscription" : "Unlock Full Access"}
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+              {isRenewal 
+                ? "Your subscription has expired. Reactivate to continue your certification journey."
+                : "Get unlimited access to all certification tools and premium features."}
+            </Text>
+          </View>
+          
+          {initialLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+                Loading subscription options...
+              </Text>
+            </View>
+          ) : (
+            <>
+              {error && (
+                <View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle" size={24} color="#FF4C8B" />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+              
+              {renderPricingDetails()}
+              
+              <View style={styles.featuresContainer}>
+                <Text style={[styles.featuresTitle, { color: theme.colors.text }]}>
+                  What You'll Get:
+                </Text>
+                
+                <View style={styles.featureItem}>
+                  <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
+                  <Text style={[styles.featureText, { color: theme.colors.text }]}>
+                    13,000+ practice questions across all certification paths
+                  </Text>
+                </View>
+                
+                <View style={styles.featureItem}>
+                  <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
+                  <Text style={[styles.featureText, { color: theme.colors.text }]}>
+                    Full access to ScenarioSphere, AnalogyHub, and XploitCraft
+                  </Text>
+                </View>
+                
+                <View style={styles.featureItem}>
+                  <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
+                  <Text style={[styles.featureText, { color: theme.colors.text }]}>
+                    Unlock achievements, track progress, and compete on leaderboards
+                  </Text>
+                </View>
+                
+                <View style={styles.featureItem}>
+                  <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
+                  <Text style={[styles.featureText, { color: theme.colors.text }]}>
+                    Access on both mobile app and web platform
+                  </Text>
+                </View>
+              </View>
+              
+              <TouchableOpacity
+                style={[
+                  styles.subscribeButton, 
+                  { backgroundColor: theme.colors.primary },
+                  loading && styles.disabledButton
+                ]}
+                onPress={handleSubscribe}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.buttonText}>
+                    {isRenewal ? "Reactivate Subscription" : "Subscribe Now"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.restoreButton}
+                onPress={handleRestorePurchases}
+                disabled={loading}
+              >
+                <Text style={[styles.restoreText, { color: theme.colors.primary }]}>
+                  Restore Purchases
+                </Text>
+              </TouchableOpacity>
+              
+              <View style={styles.termsContainer}>
+                <Text style={[styles.termsText, { color: theme.colors.textSecondary }]}>
+                  By subscribing, you agree to our {' '}
+                  <Text style={[styles.termsLink, { color: theme.colors.primary }]}>
+                    Terms of Service
+                  </Text>
+                  {' '} and {' '}
+                  <Text style={[styles.termsLink, { color: theme.colors.primary }]}>
+                    Privacy Policy
+                  </Text>
+                  . Subscription will automatically renew unless canceled at least 24 hours before the end of the current period. You can manage your subscription in your iTunes Account Settings.
+                </Text>
+              </View>
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -365,60 +415,55 @@ const SubscriptionScreenIOS = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
   },
-  loadingContainer: {
+  gradientBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  scrollView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#121212',
   },
-  loadingText: {
-    color: '#FFFFFF',
-    marginTop: 20,
-    fontSize: 16,
-  },
-  scrollContainer: {
-    flexGrow: 1,
+  contentContainer: {
     padding: 20,
+    paddingBottom: 40,
   },
-  header: {
+  headerContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 30,
   },
-  logoContainer: {
-    marginBottom: 16,
-  },
-  logoBackground: {
+  logo: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#6543CC',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 10,
+    marginBottom: 20,
   },
-  headerTitle: {
+  title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    marginBottom: 10,
     textAlign: 'center',
-    marginBottom: 8,
   },
-  headerSubtitle: {
+  subtitle: {
     fontSize: 16,
-    color: '#AAAAAA',
     textAlign: 'center',
-    maxWidth: '85%',
+    marginBottom: 10,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 30,
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 76, 139, 0.1)',
-    padding: 12,
+    padding: 15,
     borderRadius: 8,
     marginBottom: 20,
   },
@@ -428,196 +473,80 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pricingCard: {
-    backgroundColor: 'rgba(26, 26, 46, 0.7)',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(101, 67, 204, 0.3)',
-  },
-  priceHeader: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 30,
     alignItems: 'center',
-    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  badgeContainer: {
-    backgroundColor: '#6543CC',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
-    marginBottom: 12,
+  priceTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 5,
   },
-  badge: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  priceValue: {
+    fontSize: 40,
     fontWeight: 'bold',
+    marginVertical: 10,
   },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  currency: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 6,
-  },
-  price: {
-    color: '#FFFFFF',
-    fontSize: 48,
-    fontWeight: 'bold',
-  },
-  priceFraction: {
-    marginTop: 8,
-  },
-  priceDecimal: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  month: {
-    color: '#AAAAAA',
+  priceDescription: {
     fontSize: 16,
   },
-  features: {
-    marginBottom: 24,
+  featuresContainer: {
+    marginBottom: 30,
+  },
+  featuresTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 15,
   },
   featureText: {
-    color: '#FFFFFF',
-    marginLeft: 12,
     fontSize: 16,
+    marginLeft: 10,
+    flex: 1,
   },
   subscribeButton: {
-    backgroundColor: '#6543CC',
     height: 50,
-    borderRadius: 8,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 15,
   },
   disabledButton: {
     opacity: 0.7,
   },
-  subscribeButtonText: {
+  buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   restoreButton: {
-    borderWidth: 1,
-    borderColor: '#6543CC',
-    backgroundColor: 'transparent',
-    height: 44,
-    borderRadius: 8,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 20,
   },
-  restoreButtonText: {
-    color: '#6543CC',
-    fontSize: 14,
+  restoreText: {
+    fontSize: 16,
     fontWeight: '500',
   },
-  benefitsContainer: {
-    marginBottom: 24,
-  },
-  benefitsTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  benefitsList: {
-    backgroundColor: 'rgba(26, 26, 46, 0.7)',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(101, 67, 204, 0.1)',
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    alignItems: 'flex-start',
-  },
-  benefitIcon: {
-    marginRight: 12,
-    marginTop: 4,
-  },
-  benefitContent: {
-    flex: 1,
-  },
-  benefitTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  benefitDescription: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    lineHeight: 20,
-  },
   termsContainer: {
-    marginBottom: 24,
+    marginTop: 10,
   },
   termsText: {
-    color: '#808080',
     fontSize: 12,
-    textAlign: 'center',
     lineHeight: 18,
-  },
-  activeSubscriptionContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  activeIconContainer: {
-    marginBottom: 24,
-  },
-  activeTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 16,
     textAlign: 'center',
   },
-  activeDescription: {
-    fontSize: 16,
-    color: '#AAAAAA',
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  continueButton: {
-    backgroundColor: '#2EBB77',
-    flexDirection: 'row',
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 24,
-    gap: 10,
-  },
-  continueButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  managementInfo: {
-    marginTop: 32,
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 8,
-  },
-  managementText: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
+  termsLink: {
+    fontWeight: '500',
   },
 });
 

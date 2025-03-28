@@ -2,6 +2,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
+import { setOfflineStatus, setServerError } from '../store/slices/networkSlice';
 
 // Depending on your environment:
 const apiClient = axios.create({
@@ -21,6 +22,11 @@ apiClient.interceptors.request.use(
       const netInfoState = await NetInfo.fetch();
       
       if (!netInfoState.isConnected || !netInfoState.isInternetReachable) {
+        // Dispatch offline status to Redux if available
+        if (global.store) {
+          global.store.dispatch(setOfflineStatus(true));
+        }
+        
         // Return a rejected promise with meaningful offline error
         return Promise.reject({
           response: {
@@ -29,9 +35,18 @@ apiClient.interceptors.request.use(
           },
           isOffline: true // Custom flag to identify offline errors
         });
+      } else if (global.store) {
+        // Set online status in Redux
+        global.store.dispatch(setOfflineStatus(false));
       }
       
-      const userId = await SecureStore.getItemAsync('userId');
+      // Get userId from SecureStore
+      let userId;
+      try {
+        userId = await SecureStore.getItemAsync('userId');
+      } catch (secureStoreError) {
+        console.error('SecureStore error:', secureStoreError);
+      }
       
       if (userId) {
         // This is the fallback header your Flask code checks
@@ -40,10 +55,6 @@ apiClient.interceptors.request.use(
 
       // If you do not need or want cookies from server:
       config.withCredentials = false;
-
-      // If you wanted session cookies, you'd do:
-      // config.withCredentials = true;
-      // ...and handle CORS settings for your domain
 
       return config;
     } catch (error) {
@@ -66,6 +77,11 @@ apiClient.interceptors.response.use(
     // Network error (no response received)
     if (!error.response) {
       console.error('Network error - no response:', error);
+      
+      if (global.store) {
+        global.store.dispatch(setServerError(true));
+      }
+      
       return Promise.reject({
         response: {
           status: 0,
@@ -84,6 +100,11 @@ apiClient.interceptors.response.use(
     // Server errors
     if (error.response.status >= 500) {
       console.error('Server error:', error.response.status);
+      
+      if (global.store) {
+        global.store.dispatch(setServerError(true));
+      }
+      
       return Promise.reject({
         response: {
           status: error.response.status,
@@ -106,5 +127,10 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Make Redux store available to the interceptors
+export const injectStore = (store) => {
+  global.store = store;
+};
 
 export default apiClient;

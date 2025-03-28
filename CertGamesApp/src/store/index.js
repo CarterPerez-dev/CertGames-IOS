@@ -19,10 +19,15 @@ export const store = configureStore({
         ignoredActions: [
           'user/fetchUserData/fulfilled',
           'user/claimDailyBonus/fulfilled',
-          'user/setXPAndCoins'  // Add this to support our real-time updates
+          'user/setXPAndCoins',  // Add this to support our real-time updates
+          'user/checkSubscription/fulfilled',
+          'network/setOfflineStatus',
+          'network/setServerError'
         ],
         ignoredPaths: [
           'user.lastDailyClaim',
+          'user.subscriptionStartDate',
+          'user.subscriptionEndDate',
         ],
       },
     }),

@@ -176,7 +176,7 @@ const LoginScreen = () => {
       const redirectUrl = Linking.createURL('oauth-callback');
       
       // Launch web browser with state parameter and mobile-specific endpoint
-      const authUrl = `${API.AUTH.OAUTH_GOOGLE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios`;
+      const authUrl = `${API.AUTH.OAUTH_GOOGLE_MOBILE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios`;
       
       console.log("Opening auth URL:", authUrl);
       

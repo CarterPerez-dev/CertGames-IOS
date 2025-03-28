@@ -1,6 +1,6 @@
 // src/navigation/AppNavigator.js
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Platform, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSelector, useDispatch } from 'react-redux';
@@ -22,6 +22,13 @@ import { fetchUserData } from '../store/slices/userSlice';
 // Import Apple Subscription Service for iOS
 import AppleSubscriptionService from '../api/AppleSubscriptionService';
 
+// Import API client for store injection
+import apiClient, { injectStore } from '../api/apiClient';
+import store from '../store';
+
+// Inject store into apiClient for network status management
+injectStore(store);
+
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
@@ -42,9 +49,9 @@ const DarkTheme = {
 
 const AppNavigator = () => {
   const dispatch = useDispatch();
-  const { userId, status, subscriptionActive } = useSelector((state) => state.user);
+  const { userId, status, subscriptionActive, error } = useSelector((state) => state.user);
   const [appIsReady, setAppIsReady] = useState(false);
-  const [initialRoute, setInitialRoute] = useState(null);
+  const [initError, setInitError] = useState(null);
 
   useEffect(() => {
     async function prepare() {
@@ -54,15 +61,29 @@ const AppNavigator = () => {
         
         if (storedUserId) {
           // Fetch user data
-          await dispatch(fetchUserData(storedUserId));
+          try {
+            console.log("Fetching user data for:", storedUserId);
+            await dispatch(fetchUserData(storedUserId)).unwrap();
+            console.log("User data fetched successfully");
+          } catch (fetchError) {
+            console.error("Error fetching user data:", fetchError);
+            setInitError("Could not fetch user data. Please check your network connection.");
+          }
           
           // Initialize IAP connection for iOS
           if (Platform.OS === 'ios') {
-            await AppleSubscriptionService.initializeConnection();
+            try {
+              await AppleSubscriptionService.initializeConnection();
+              console.log("IAP connection initialized");
+            } catch (iapError) {
+              console.error("Error initializing IAP:", iapError);
+              // Non-fatal error, continue without IAP
+            }
           }
         }
       } catch (e) {
         console.warn('Error preparing app:', e);
+        setInitError("Error initializing app: " + e.message);
       } finally {
         // Tell the application to render
         setAppIsReady(true);
@@ -75,6 +96,29 @@ const AppNavigator = () => {
 
   // Determine which navigator to render based on auth and subscription status
   const renderNavigator = () => {
+    if (initError) {
+      return (
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0C15', padding: 20}}>
+          <Text style={{color: '#FF4C8B', marginBottom: 20, textAlign: 'center'}}>{initError}</Text>
+          <TouchableOpacity 
+            style={{
+              backgroundColor: '#6543CC',
+              paddingVertical: 12,
+              paddingHorizontal: 20,
+              borderRadius: 8
+            }}
+            onPress={() => {
+              setInitError(null);
+              setAppIsReady(false);
+              prepare(); // Re-initialize
+            }}
+          >
+            <Text style={{color: '#FFFFFF', fontWeight: 'bold'}}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
     // If still loading user data, show a loading screen
     if (status === 'loading') {
       return (
@@ -100,7 +144,7 @@ const AppNavigator = () => {
         return (
           <SubscriptionStack.Navigator>
             <SubscriptionStack.Screen 
-              name="Subscription" 
+              name="SubscriptionIOS" 
               component={SubscriptionScreenIOS} 
               initialParams={{ renewal: true, userId: userId }}
               options={{ headerShown: false }}

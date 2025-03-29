@@ -152,43 +152,74 @@ const RegisterScreen = () => {
   
   const handleGoogleSignUp = async () => {
     try {
-      // Create a random state parameter for security
+      // Generate state param
       const randomState = Math.random().toString(36).substring(2, 15);
-      await SecureStore.setItemAsync('oauth_state', randomState);
       
-      console.log('[DEBUG] Generated state parameter:', randomState);
-      
-      // Launch web browser with state parameter and mobile-specific endpoint
+      // Launch auth flow
       const authUrl = `${API.AUTH.OAUTH_GOOGLE_MOBILE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios`;
-      
       console.log("[DEBUG] Opening auth URL:", authUrl);
       
-      // Use Expo's authentication session
-      const result = await WebBrowser.openAuthSessionAsync(
-        authUrl,
-        redirectUrl
-      );
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
       
-      console.log("[DEBUG] Auth result:", JSON.stringify(result));
+      if (result.type !== 'success' || !result.url) {
+        throw new Error('Authentication was cancelled');
+      }
       
-      if (result.type === 'success') {
-        console.log("[DEBUG] Login successful");
-        // Check if result.url exists and try to process it directly
-        if (result.url) {
-          console.log("[DEBUG] Processing result URL directly:", result.url);
-          await handleRedirect({ url: result.url });
-        } else {
-          console.log("[DEBUG] No URL in result, waiting for deep link handler");
-        }
-      } else if (result.type === 'cancel') {
-        console.log("[DEBUG] User cancelled login");
+      console.log("[DEBUG] Auth URL result:", result.url);
+      
+      // Parse the URL to get the code
+      const params = Linking.parse(result.url).queryParams;
+      if (!params.code) {
+        throw new Error('No authorization code received');
+      }
+      
+      // Call our backend with the code
+      const response = await fetch(`${API.AUTH.OAUTH_GOOGLE_CALLBACK_MOBILE}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: params.code,
+          redirect_uri: redirectUrl
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(`Auth failed: ${data.error || 'Unknown error'}`);
+      }
+      
+      console.log("[DEBUG] Auth response:", JSON.stringify(data));
+      
+      if (!data.userId) {
+        throw new Error('No user ID returned');
+      }
+      
+      // Store user ID and navigate
+      await SecureStore.setItemAsync('userId', data.userId);
+      dispatch({ type: 'user/setCurrentUserId', payload: data.userId });
+      
+      if (data.needsUsername) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'CreateUsername', params: { userId: data.userId, provider: 'google' }}]
+        });
+      } else if (!data.hasSubscription) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'SubscriptionIOS', params: { userId: data.userId }}]
+        });
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }]
+        });
       }
     } catch (error) {
       console.error('[DEBUG] Google login error:', error);
-      Alert.alert('Login Failed', 'Google sign-in could not be completed.');
+      Alert.alert('Login Failed', error.message || 'Google sign-in failed');
     }
   };
-  
   
   const handleAppleSignUp = async () => {
     try {
@@ -277,6 +308,7 @@ const RegisterScreen = () => {
       
       const params = Linking.parse(url).queryParams;
       console.log("[DEEP-LINK-DEBUG] Parsed params in RegisterScreen:", JSON.stringify(params));
+      console.log("[DEEP-LINK-DEBUG] userId present:", params.userId ? "YES" : "NO");
       
       // Verify state parameter to prevent CSRF
       const storedState = await SecureStore.getItemAsync('oauth_state');

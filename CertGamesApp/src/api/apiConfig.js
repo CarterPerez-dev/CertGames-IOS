@@ -36,6 +36,8 @@ export const API = {
     OAUTH_APPLE_MOBILE: `${BASE_URL}/oauth/login/apple/mobile`,
     OAUTH_APPLE_CALLBACK: `${BASE_URL}/oauth/auth/apple`,
     OAUTH_GOOGLE_CALLBACK: `${BASE_URL}/oauth/auth/google`,
+    OAUTH_CODE_EXCHANGE: `${BASE_URL}/oauth/exchange-code`,
+    OAUTH_GOOGLE_CALLBACK_MOBILE: `${BASE_URL}/oauth/google-callback-mobile`
   },
   
   

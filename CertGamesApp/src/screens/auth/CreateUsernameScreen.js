@@ -104,10 +104,11 @@ const CreateUsernameScreen = () => {
       
       // Navigate to subscription screen after a brief delay (to show success message)
       setTimeout(() => {
+        // Make sure to explicitly set all flags
         navigation.navigate('SubscriptionIOS', {
           userId: userId,
           isOauthFlow: true,
-          isNewUsername: true, // Added this flag to ensure it's recognized as part of oauth flow
+          isNewUsername: true,
           provider: provider,
           message: `Welcome! You've successfully created your account with ${
             provider.charAt(0).toUpperCase() + provider.slice(1)

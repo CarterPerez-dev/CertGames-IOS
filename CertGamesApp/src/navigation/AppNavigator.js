@@ -239,7 +239,19 @@ const AppNavigator = () => {
             <SubscriptionStack.Screen 
               name="SubscriptionIOS" 
               component={SubscriptionScreenIOS} 
-              initialParams={{ renewal: true, userId: userId }}
+              initialParams={{ 
+                renewal: true, 
+                userId: userId,
+                // Make sure these flags are properly passed
+                isOauthFlow: false,
+                isNewUsername: false
+              }}
+              options={{ headerShown: false }}
+            />
+            {/* Add Auth screens so they can be navigated to */}
+            <SubscriptionStack.Screen
+              name="AuthNavigator"
+              component={AuthNavigator}
               options={{ headerShown: false }}
             />
           </SubscriptionStack.Navigator>

@@ -306,7 +306,7 @@ const SubscriptionScreenIOS = () => {
     return (
       <View style={styles.pricingCard}>
         <Text style={[styles.priceTitle, { color: theme.colors.text }]}>
-          {subscriptionProduct.title || "Monthly Premium"}
+          {subscriptionProduct.title || "Unlimited"}
         </Text>
         <Text style={[styles.priceValue, { color: theme.colors.text }]}>
           {subscriptionProduct.localizedPrice || "$9.99"}
@@ -320,11 +320,22 @@ const SubscriptionScreenIOS = () => {
   
   // Get subscription type - prioritize OAuth/New Username flow over renewal
   const getSubscriptionType = () => {
-    if (isOauthFlow || isNewUsername) {
+    // Add more verbose debugging to understand what's happening
+    console.log("Determining subscription type with flags:", {
+      isOauthFlow,
+      isNewUsername,
+      isRenewal
+    });
+    
+    // Make OAuth flow have strict priority
+    if (isOauthFlow === true || isNewUsername === true) {
+      console.log("Using OAUTH subscription type");
       return "oauth"; // This handles OAuth flows including new username
-    } else if (isRenewal) {
+    } else if (isRenewal === true) {
+      console.log("Using RENEWAL subscription type");
       return "renewal"; // This is for expired subscriptions
     } else {
+      console.log("Using NEW subscription type (default)");
       return "new"; // Standard new subscription
     }
   };
@@ -345,9 +356,14 @@ const SubscriptionScreenIOS = () => {
         onPress={() => {
           console.log("Back button pressed, subscription type:", subscriptionType);
           if (subscriptionType === "renewal") {
-            // For renewal flow, log out when back is pressed
+            // Instead of trying to navigate directly to Login, do a full reset
             dispatch(logout());
-            navigation.navigate('Login');
+            
+            // Reset the entire navigation state to go back to the root Auth navigator
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'AuthNavigator' }],
+            });
           } else {
             // For all other cases, just go back
             navigation.goBack();
@@ -366,15 +382,15 @@ const SubscriptionScreenIOS = () => {
               resizeMode="contain"
             />
             <Text style={[styles.title, { color: theme.colors.text }]}>
-              {subscriptionType === "renewal" ? "Reactivate Your Subscription" : 
-               subscriptionType === "oauth" ? "Complete Your Registration" : 
+              {subscriptionType === "renewal" ? "Unlock Full Access" : 
+               subscriptionType === "oauth" ? "Unlock Full Access" : 
                "Unlock Full Access"}
             </Text>
             <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
               {subscriptionType === "renewal" 
-                ? "Your subscription has expired. Reactivate to continue your certification journey."
+                ? "Get unlimited access to all certification tools and premium features."
                 : subscriptionType === "oauth"
-                  ? "Complete your registration by subscribing to access all features."
+                  ? "Get unlimited access to all certification tools and premium features."
                   : "Get unlimited access to all certification tools and premium features."}
             </Text>
           </View>
@@ -444,7 +460,7 @@ const SubscriptionScreenIOS = () => {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.buttonText}>
-                    {subscriptionType === "renewal" ? "Reactivate Subscription" : "Subscribe Now"}
+                    {subscriptionType === "renewal" ? "Subscribe Now" : "Subscribe Now"}
                   </Text>
                 )}
               </TouchableOpacity>

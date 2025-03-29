@@ -21,7 +21,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import AppleSubscriptionService, { SUBSCRIPTION_PRODUCT_ID } from '../../api/AppleSubscriptionService';
 import apiClient from '../../api/apiClient';
-import { fetchUserData, checkSubscription } from '../../store/slices/userSlice';
+import { fetchUserData, checkSubscription, logout } from '../../store/slices/userSlice';
 import { API } from '../../api/apiConfig';
 
 const SubscriptionScreenIOS = () => {
@@ -315,7 +315,13 @@ const SubscriptionScreenIOS = () => {
       {/* Add back button */}
       <TouchableOpacity 
         style={styles.backButton}
-        onPress={() => navigation.goBack()}
+        onPress={() => {
+          if (route.params?.renewal) {
+            dispatch(logout());
+          } else {
+            navigation.goBack();
+          }
+        }}  
       >
         <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
       </TouchableOpacity>

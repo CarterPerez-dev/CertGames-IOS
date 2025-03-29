@@ -153,7 +153,7 @@ const RegisterScreen = () => {
       console.log('[DEBUG] Redirect URL:', redirectUrl);
       
       // Launch web browser with state parameter and mobile-specific endpoint
-      onst authUrl = `${API.AUTH.OAUTH_GOOGLE_MOBILE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios&client_id=64761236473-3as2ugjri0ql0snujt83fei049dvvr4g.apps.googleusercontent.com`;
+      const authUrl = `${API.AUTH.OAUTH_GOOGLE_MOBILE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios&client_id=64761236473-3as2ugjri0ql0snujt83fei049dvvr4g.apps.googleusercontent.com`;
       
       console.log("[DEBUG] Opening auth URL:", authUrl);
       

@@ -174,28 +174,34 @@ const LoginScreen = () => {
       
       // Create properly formatted redirect URL for mobile
       const redirectUrl = Linking.createURL('oauth-callback');
+      console.log('[DEBUG] Redirect URL:', redirectUrl);
       
       // Launch web browser with state parameter and mobile-specific endpoint
       const authUrl = `${API.AUTH.OAUTH_GOOGLE_MOBILE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios`;
       
-      console.log("Opening auth URL:", authUrl);
+      console.log("[DEBUG] Opening auth URL:", authUrl);
       
       // Use Expo's authentication session
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        redirectUrl
+        redirectUrl,
+        {
+          showInRecents: true,
+          preferEphemeralSession: false // Try this setting for better auth flow
+        }
       );
       
-      console.log("Auth result type:", result.type);
+      console.log("[DEBUG] Auth result type:", result.type);
+      console.log("[DEBUG] Auth result:", JSON.stringify(result, null, 2));
       
       if (result.type === 'success') {
         // The URL parameters will be handled by the Linking event handler
-        console.log("Login successful, waiting for deep link handler");
+        console.log("[DEBUG] Login successful, waiting for deep link handler");
       } else if (result.type === 'cancel') {
-        console.log("User cancelled login");
+        console.log("[DEBUG] User cancelled login");
       }
     } catch (error) {
-      console.error('Google login error:', error);
+      console.error('[DEBUG] Google login error:', error);
       Alert.alert('Login Failed', 'Google sign-in could not be completed.');
     }
   };
@@ -209,10 +215,10 @@ const LoginScreen = () => {
         ],
       });
       
-      console.log("Apple credential received:", credential.identityToken ? "Token received" : "No token");
+      console.log("[DEBUG] Apple credential received:", credential.identityToken ? "Token received" : "No token");
       
-      // Send the credential to your backend - FIXED: remove /mobile since it doesn't exist
-      const response = await fetch(API.AUTH.OAUTH_APPLE, {
+      // Send the credential to your backend - FIXED: use the mobile endpoint
+      const response = await fetch(API.AUTH.OAUTH_APPLE_MOBILE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +227,7 @@ const LoginScreen = () => {
           identityToken: credential.identityToken,
           fullName: credential.fullName,
           email: credential.email,
-          platform: 'ios' // Add platform indicator instead of using URL path
+          platform: 'ios'
         }),
       });
       
@@ -254,13 +260,15 @@ const LoginScreen = () => {
           throw new Error(data.error || 'Apple sign-in failed');
         }
       } else {
-        // Handle non-JSON response
+        // Handle non-JSON response with more detailed logging
         const text = await response.text();
-        console.error("Non-JSON response:", text.substring(0, 100) + "...");
-        throw new Error("Server returned non-JSON response");
+        console.error("[DEBUG] Non-JSON response status:", response.status);
+        console.error("[DEBUG] Response headers:", JSON.stringify(Object.fromEntries([...response.headers]), null, 2));
+        console.error("[DEBUG] Non-JSON response text:", text.substring(0, 300) + "...");
+        throw new Error(`Server returned non-JSON response with status ${response.status}`);
       }
     } catch (error) {
-      console.error('Apple login error:', error);
+      console.error('[DEBUG] Apple login error:', error);
       Alert.alert('Login Failed', error.message || 'Apple sign-in could not be completed.');
     }
   };
@@ -269,15 +277,15 @@ const LoginScreen = () => {
     try {
       // Extract userId and other params from the URL
       const { url } = event;
-      console.log("Received deep link:", url);
+      console.log("[DEBUG] Received deep link:", url);
       
       const params = Linking.parse(url).queryParams;
-      console.log("Parsed params:", params);
+      console.log("[DEBUG] Parsed params:", params);
       
       // Verify state parameter to prevent CSRF
       const storedState = await SecureStore.getItemAsync('oauth_state');
       if (params.state && storedState && params.state !== storedState) {
-        console.error("State mismatch, possible CSRF attack");
+        console.error("[DEBUG] State mismatch, possible CSRF attack");
         Alert.alert('Security Error', 'Authentication failed due to invalid state parameter.');
         return;
       }
@@ -309,7 +317,7 @@ const LoginScreen = () => {
               navigation.navigate('Home');
             }
           } catch (err) {
-            console.error("Error checking subscription:", err);
+            console.error("[DEBUG] Error checking subscription:", err);
             // Default to subscription screen if there's an error
             navigation.navigate('SubscriptionIOS', {
               userId: params.userId
@@ -317,11 +325,11 @@ const LoginScreen = () => {
           }
         }
       } else if (params.error) {
-        console.error("OAuth error:", params.error);
+        console.error("[DEBUG] OAuth error:", params.error);
         Alert.alert('Login Failed', params.error_description || params.error);
       }
     } catch (error) {
-      console.error("Deep link handling error:", error);
+      console.error("[DEBUG] Deep link handling error:", error);
     }
   };
 

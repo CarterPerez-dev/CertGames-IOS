@@ -10,6 +10,8 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import CreateUsernameScreen from '../screens/auth/CreateUsernameScreen';
 import TermsScreen from '../screens/auth/TermsScreen';
+import SubscriptionScreenIOS from '../screens/subscription/SubscriptionScreenIOS';
+
 
 const Stack = createNativeStackNavigator();
 
@@ -47,6 +49,7 @@ const AuthNavigator = () => {
       <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Reset Password' }} />
       <Stack.Screen name="CreateUsername" component={CreateUsernameScreen} options={{ title: 'Choose Username' }} />
+      <Stack.Screen name="SubscriptionIOS" component={SubscriptionScreenIOS} options={{ headerShown: false }} />
       <Stack.Screen name="Terms" component={TermsScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );

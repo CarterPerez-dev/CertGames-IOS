@@ -10,7 +10,8 @@ import {
   Alert,
   Image,
   SafeAreaView,
-  Platform
+  Platform,
+  StatusBar
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -311,6 +312,14 @@ const SubscriptionScreenIOS = () => {
         style={styles.gradientBackground}
       />
       
+      {/* Add back button */}
+      <TouchableOpacity 
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+      
       <ScrollView style={styles.scrollView}>
         <View style={styles.contentContainer}>
           <View style={styles.headerContainer}>
@@ -565,6 +574,19 @@ const styles = StyleSheet.create({
   },
   termsLink: {
     fontWeight: '500',
+  },
+  // Back button styles
+  backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
+    left: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

@@ -28,12 +28,12 @@ export const API = {
     FORGOT_PASSWORD: `${BASE_URL}/password-reset/request-reset`,
     RESET_PASSWORD: `${BASE_URL}/password-reset/reset-password`,
     VERIFY_TOKEN: (token) => `${BASE_URL}/password-reset/verify-token/${token}`,
-
-
     OAUTH_APPLE: `${BASE_URL}/oauth/login/apple`,
     OAUTH_GOOGLE: `${BASE_URL}/oauth/login/google`,
+    
+    // MOBILE IOS ENPOINTS
     OAUTH_GOOGLE_MOBILE: `${BASE_URL}/oauth/login/google/mobile`,
-    OAUTH_APPLE: `${BASE_URL}/oauth/login/apple`,
+    OAUTH_APPLE_MOBILE: `${BASE_URL}/oauth/login/apple/mobile`,
     OAUTH_APPLE_CALLBACK: `${BASE_URL}/oauth/auth/apple`,
     OAUTH_GOOGLE_CALLBACK: `${BASE_URL}/oauth/auth/google`,
   },

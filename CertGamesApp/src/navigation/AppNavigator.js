@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSelector, useDispatch } from 'react-redux';
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Linking from 'expo-linking';
 
 // Import navigators
 import AuthNavigator from './AuthNavigator';
@@ -136,6 +137,21 @@ const AppNavigator = () => {
     prepare();
     return () => debugLog("Cleanup for initial useEffect");
   }, [dispatch]);
+
+  // Add these to debugging in AppNavigator.js
+  useEffect(() => {
+    // Log received deep links for debugging
+    const subscription = Linking.addEventListener('url', url => {
+      debugLog(`Received deep link: ${JSON.stringify(url)}`);
+    });
+    
+    // Log all available URL schemes
+    Linking.getInitialURL().then(url => {
+      debugLog(`Initial URL: ${url}`);
+    });
+    
+    return () => subscription.remove();
+  }, []);
 
   // *** FIX: Memoize subscription status to prevent navigation loops ***
   const memoizedSubscriptionStatus = React.useMemo(() => {

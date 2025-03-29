@@ -1,24 +1,20 @@
-// src/hooks/useUserData.js
+// src/hooks/useUserData.js - FIXED VERSION
 import { useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchUserData } from '../store/slices/userSlice';
 import { fetchShopItems } from '../store/slices/shopSlice';
 import { fetchAchievements } from '../store/slices/achievementsSlice';
 
-/**
- * Custom hook for accessing user data with auto-refresh capabilities
- * This makes it easy to access user data in any component
- * and ensures that data is always up-to-date
- */
 const useUserData = (options = {}) => {
-  console.log("useUserData hook called");
   const { autoFetch = true } = options;
   const dispatch = useDispatch();
   
-  // Get all user-related data from Redux
-  const userData = useSelector(state => state.user || {});
+  // Safely get data from Redux with null checks at every level
+  const userData = useSelector(state => state?.user || {});
+  const shopState = useSelector(state => state?.shop || {});
+  const achievementsState = useSelector(state => state?.achievements || {});
   
-  // Safely destructure userData with fallbacks
+  // Safely destructure with fallbacks
   const { 
     userId = null, 
     username = '', 
@@ -36,59 +32,53 @@ const useUserData = (options = {}) => {
     error = null,
     lastDailyClaim = null,
     subscriptionStatus = null,
-    subscriptionPlatform = null,
-    appleTransactionId = null,
-    subscriptionStartDate = null,
-    subscriptionEndDate = null
-  } = userData || {};
+    subscriptionPlatform = null
+  } = userData;
   
-  console.log("useUserData extracted:", { 
-    userId, 
-    coins: coins || 0, 
-    xp: xp || 0, 
-    lastDailyClaim: lastDailyClaim || null 
-  });
-  
-  // Get shop items (for avatar display)
-  const { items: shopItems = [], status: shopStatus = 'idle' } = useSelector(state => state.shop || { items: [], status: 'idle' });
-  
-  // Get all achievements
-  const { all: allAchievements = [], status: achievementsStatus = 'idle' } = useSelector(state => state.achievements || { all: [], status: 'idle' });
+  // Safe access to shop and achievements
+  const shopItems = shopState?.items || [];
+  const shopStatus = shopState?.status || 'idle';
+  const allAchievements = achievementsState?.all || [];
+  const achievementsStatus = achievementsState?.status || 'idle';
   
   // Auto-fetch data when component mounts if userId is available
   useEffect(() => {
     if (autoFetch && userId) {
-      // Fetch user data if needed
-      if (status === 'idle') {
-        console.log("useUserData auto-fetching user data");
-        dispatch(fetchUserData(userId));
-      }
-      
-      // Fetch shop items if needed
-      if (shopStatus === 'idle') {
-        dispatch(fetchShopItems());
-      }
-      
-      // Fetch achievements if needed
-      if (achievementsStatus === 'idle') {
-        dispatch(fetchAchievements());
+      try {
+        // Fetch user data if needed
+        if (status === 'idle') {
+          dispatch(fetchUserData(userId));
+        }
+        
+        // Fetch shop items if needed
+        if (shopStatus === 'idle') {
+          dispatch(fetchShopItems());
+        }
+        
+        // Fetch achievements if needed
+        if (achievementsStatus === 'idle') {
+          dispatch(fetchAchievements());
+        }
+      } catch (error) {
+        console.error("Error in useUserData effect:", error);
       }
     }
   }, [autoFetch, userId, status, shopStatus, achievementsStatus, dispatch]);
   
-  // Function to manually refresh data
+  // Function to manually refresh data with error handling
   const refreshData = useCallback(() => {
     if (userId) {
-      console.log("useUserData manually refreshing data");
-      dispatch(fetchUserData(userId));
-      dispatch(fetchAchievements());
-      dispatch(fetchShopItems());
-    } else {
-      console.log("useUserData refresh called but no userId");
+      try {
+        dispatch(fetchUserData(userId));
+        dispatch(fetchAchievements());
+        dispatch(fetchShopItems());
+      } catch (error) {
+        console.error("Error refreshing data:", error);
+      }
     }
   }, [userId, dispatch]);
   
-  // Get avatar URL helper
+  // Get avatar URL helper with thorough error handling
   const getAvatarUrl = useCallback(() => {
     if (!currentAvatar || !shopItems || !Array.isArray(shopItems) || shopItems.length === 0) {
       return null;
@@ -103,16 +93,18 @@ const useUserData = (options = {}) => {
       console.error("Error getting avatar URL:", error);
     }
     
-    return null; // Will use the default local asset
+    return null;
   }, [currentAvatar, shopItems]);
   
-  // Get unlocked achievements
+  // Get unlocked achievements with error handling
   const getUnlockedAchievements = useCallback(() => {
-    if (!achievements || !allAchievements) return [];
+    if (!achievements || !allAchievements || !Array.isArray(achievements) || !Array.isArray(allAchievements)) {
+      return [];
+    }
     
     try {
       return allAchievements.filter(achievement => 
-        achievements.includes(achievement.achievementId)
+        achievement && achievements.includes(achievement.achievementId)
       );
     } catch (error) {
       console.error("Error getting unlocked achievements:", error);
@@ -120,10 +112,18 @@ const useUserData = (options = {}) => {
     }
   }, [achievements, allAchievements]);
   
-  // Check if a specific achievement is unlocked
+  // Check if a specific achievement is unlocked with error handling
   const isAchievementUnlocked = useCallback((achievementId) => {
-    if (!achievements || !Array.isArray(achievements)) return false;
-    return achievements.includes(achievementId);
+    if (!achievementId || !achievements || !Array.isArray(achievements)) {
+      return false;
+    }
+    
+    try {
+      return achievements.includes(achievementId);
+    } catch (error) {
+      console.error("Error checking achievement:", error);
+      return false;
+    }
   }, [achievements]);
   
   return {
@@ -143,7 +143,6 @@ const useUserData = (options = {}) => {
     lastDailyClaim: lastDailyClaim || null,
     subscriptionStatus: subscriptionStatus || null,
     subscriptionPlatform: subscriptionPlatform || null,
-    appleTransactionId: appleTransactionId || null,
     
     // Shop items
     shopItems: shopItems || [],

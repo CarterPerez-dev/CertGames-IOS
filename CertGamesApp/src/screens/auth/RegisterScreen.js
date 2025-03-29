@@ -53,7 +53,7 @@ const RegisterScreen = () => {
   const { loading, error } = useSelector((state) => state.user);
   
   // URL for OAuth redirect
-  const redirectUri = Linking.createURL('/oauth-callback');
+  const redirectUrl = 'com.googleusercontent.apps.64761236473-3as2ugjri0ql0snujt83fei049dvvr4g:/oauth2redirect';
 
   // Clear errors when component mounts or unmounts
   useEffect(() => {
@@ -148,39 +148,33 @@ const RegisterScreen = () => {
       const randomState = Math.random().toString(36).substring(2, 15);
       await SecureStore.setItemAsync('oauth_state', randomState);
       
-      // Create properly formatted redirect URL for mobile
-      const redirectUrl = Linking.createURL('oauth-callback');
-      console.log('[DEBUG] Redirect URL:', redirectUrl);
+      // Use the Google-specific URL scheme, not a custom one
+      console.log('[DEBUG] Using Google URL scheme:', redirectUrl);
       
       // Launch web browser with state parameter and mobile-specific endpoint
-      const authUrl = `${API.AUTH.OAUTH_GOOGLE_MOBILE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios&client_id=64761236473-3as2ugjri0ql0snujt83fei049dvvr4g.apps.googleusercontent.com`;
+      const authUrl = `${API.AUTH.OAUTH_GOOGLE_MOBILE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios`;
       
       console.log("[DEBUG] Opening auth URL:", authUrl);
       
       // Use Expo's authentication session
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        redirectUrl,
-        {
-          showInRecents: true,
-          preferEphemeralSession: false // Try this setting for better auth flow
-        }
+        redirectUrl
       );
       
       console.log("[DEBUG] Auth result type:", result.type);
-      console.log("[DEBUG] Auth result:", JSON.stringify(result, null, 2));
       
       if (result.type === 'success') {
-        // The URL parameters will be handled by the Linking event handler
         console.log("[DEBUG] Login successful, waiting for deep link handler");
       } else if (result.type === 'cancel') {
         console.log("[DEBUG] User cancelled login");
       }
     } catch (error) {
       console.error('[DEBUG] Google login error:', error);
-      Alert.alert('Sign Up Failed', 'Google sign-in could not be completed.');
+      Alert.alert('Login Failed', 'Google sign-in could not be completed.');
     }
   };
+  
   
   const handleAppleSignUp = async () => {
     try {

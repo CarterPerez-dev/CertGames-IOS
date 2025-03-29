@@ -47,10 +47,25 @@ export const fetchUserData = async (userId) => {
       return response.data;
     } catch (error) {
       console.error('Fetch user error:', error.response?.data || error.message);
+      
+      // Check if this is a "User not found" error
+      if (error.response?.data?.error === "User not found") {
+        // Clear stored userId since it's invalid
+        await SecureStore.deleteItemAsync('userId');
+        
+        // Return a special error object that our components can check for
+        throw {
+          isUserNotFound: true,
+          message: "User account not found. Please log in again."
+        };
+      }
+      
+      // For other errors, just rethrow
       throw error;
     }
   });
 };
+
 
 export const logoutUser = async () => {
   try {

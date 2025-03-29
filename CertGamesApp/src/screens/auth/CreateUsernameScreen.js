@@ -1,3 +1,4 @@
+// src/screens/auth/CreateUsernameScreen.js
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -19,6 +20,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { fetchUserData } from '../../store/slices/userSlice';
 import * as SecureStore from 'expo-secure-store';
+// Add these imports for the API client
+import apiClient from '../../api/apiClient';
+import { API } from '../../api/apiConfig';
 
 const CreateUsernameScreen = () => {
   const [username, setUsername] = useState('');
@@ -82,22 +86,12 @@ const CreateUsernameScreen = () => {
     
     try {
       // Update username via API
-      const response = await fetch('/api/test/user/change-username', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: userId,
-          newUsername: username,
-        }),
+      const response = await apiClient.post(API.USER.CHANGE_USERNAME, {
+        userId: userId,
+        newUsername: username.trim()
       });
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to set username');
-      }
+      const data = response.data;
       
       // Success! Mark as submitted
       setSubmitted(true);
@@ -108,9 +102,13 @@ const CreateUsernameScreen = () => {
       // Fetch the updated user data
       await dispatch(fetchUserData(userId));
       
-      // Navigate to profile page after a brief delay (to show success message)
+      // Navigate to subscription screen after a brief delay (to show success message)
       setTimeout(() => {
-        navigation.navigate('Home', {
+        navigation.navigate('SubscriptionIOS', {
+          userId: userId,
+          isOauthFlow: true,
+          isNewUsername: true, // Added this flag to ensure it's recognized as part of oauth flow
+          provider: provider,
           message: `Welcome! You've successfully created your account with ${
             provider.charAt(0).toUpperCase() + provider.slice(1)
           }`

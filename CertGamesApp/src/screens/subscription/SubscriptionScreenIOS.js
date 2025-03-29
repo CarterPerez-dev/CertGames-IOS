@@ -40,8 +40,21 @@ const SubscriptionScreenIOS = () => {
   // Get parameters from route
   const registrationData = route.params?.registrationData;
   const isOauthFlow = route.params?.isOauthFlow || false;
+  const isNewUsername = route.params?.isNewUsername || false;
   const userId = route.params?.userId || useSelector(state => state.user.userId);
   const isRenewal = route.params?.renewal || false;
+  
+  // This helps with debugging to understand what's going on
+  useEffect(() => {
+    console.log("SubscriptionScreen params:", {
+      registrationData: registrationData ? "present" : "not present",
+      isOauthFlow,
+      isNewUsername,
+      userId,
+      isRenewal,
+      message: route.params?.message || "no message"
+    });
+  }, []);
   
   useEffect(() => {
     // Initialize IAP connection and fetch subscription product
@@ -305,6 +318,20 @@ const SubscriptionScreenIOS = () => {
     );
   };
   
+  // Get subscription type - prioritize OAuth/New Username flow over renewal
+  const getSubscriptionType = () => {
+    if (isOauthFlow || isNewUsername) {
+      return "oauth"; // This handles OAuth flows including new username
+    } else if (isRenewal) {
+      return "renewal"; // This is for expired subscriptions
+    } else {
+      return "new"; // Standard new subscription
+    }
+  };
+  
+  const subscriptionType = getSubscriptionType();
+  console.log("Subscription type:", subscriptionType);
+  
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <LinearGradient
@@ -316,12 +343,16 @@ const SubscriptionScreenIOS = () => {
       <TouchableOpacity 
         style={styles.backButton}
         onPress={() => {
-          if (route.params?.renewal) {
+          console.log("Back button pressed, subscription type:", subscriptionType);
+          if (subscriptionType === "renewal") {
+            // For renewal flow, log out when back is pressed
             dispatch(logout());
+            navigation.navigate('Login');
           } else {
+            // For all other cases, just go back
             navigation.goBack();
           }
-        }}  
+        }}
       >
         <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
       </TouchableOpacity>
@@ -335,12 +366,16 @@ const SubscriptionScreenIOS = () => {
               resizeMode="contain"
             />
             <Text style={[styles.title, { color: theme.colors.text }]}>
-              {isRenewal ? "Reactivate Your Subscription" : "Unlock Full Access"}
+              {subscriptionType === "renewal" ? "Reactivate Your Subscription" : 
+               subscriptionType === "oauth" ? "Complete Your Registration" : 
+               "Unlock Full Access"}
             </Text>
             <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-              {isRenewal 
+              {subscriptionType === "renewal" 
                 ? "Your subscription has expired. Reactivate to continue your certification journey."
-                : "Get unlimited access to all certification tools and premium features."}
+                : subscriptionType === "oauth"
+                  ? "Complete your registration by subscribing to access all features."
+                  : "Get unlimited access to all certification tools and premium features."}
             </Text>
           </View>
           
@@ -409,7 +444,7 @@ const SubscriptionScreenIOS = () => {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.buttonText}>
-                    {isRenewal ? "Reactivate Subscription" : "Subscribe Now"}
+                    {subscriptionType === "renewal" ? "Reactivate Subscription" : "Subscribe Now"}
                   </Text>
                 )}
               </TouchableOpacity>

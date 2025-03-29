@@ -61,9 +61,17 @@ const RegisterScreen = () => {
     checkAppleAuthAvailability();
     
     // Set up deep linking handler for OAuth redirects
+    console.log("[DEEP-LINK-DEBUG] Setting up deep link handler in RegisterScreen");
+    
+    // Test if the handler is working
+    Linking.getInitialURL().then(url => {
+      console.log("[DEEP-LINK-DEBUG] Initial URL in RegisterScreen:", url);
+    });
+    
     const subscription = Linking.addEventListener('url', handleRedirect);
     
     return () => {
+      console.log("[DEEP-LINK-DEBUG] Removing deep link handler in RegisterScreen");
       subscription.remove();
       dispatch(clearAuthErrors());
     };
@@ -148,8 +156,7 @@ const RegisterScreen = () => {
       const randomState = Math.random().toString(36).substring(2, 15);
       await SecureStore.setItemAsync('oauth_state', randomState);
       
-      // Use the Google-specific URL scheme, not a custom one
-      console.log('[DEBUG] Using Google URL scheme:', redirectUrl);
+      console.log('[DEBUG] Generated state parameter:', randomState);
       
       // Launch web browser with state parameter and mobile-specific endpoint
       const authUrl = `${API.AUTH.OAUTH_GOOGLE_MOBILE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios`;
@@ -162,10 +169,17 @@ const RegisterScreen = () => {
         redirectUrl
       );
       
-      console.log("[DEBUG] Auth result type:", result.type);
+      console.log("[DEBUG] Auth result:", JSON.stringify(result));
       
       if (result.type === 'success') {
-        console.log("[DEBUG] Login successful, waiting for deep link handler");
+        console.log("[DEBUG] Login successful");
+        // Check if result.url exists and try to process it directly
+        if (result.url) {
+          console.log("[DEBUG] Processing result URL directly:", result.url);
+          await handleRedirect({ url: result.url });
+        } else {
+          console.log("[DEBUG] No URL in result, waiting for deep link handler");
+        }
       } else if (result.type === 'cancel') {
         console.log("[DEBUG] User cancelled login");
       }
@@ -213,17 +227,29 @@ const RegisterScreen = () => {
           
           // If the user needs to set a username (new user), navigate to that screen
           if (data.needsUsername) {
-            navigation.navigate('CreateUsername', { 
-              userId: data.userId, 
-              provider: 'apple' 
+            navigation.reset({
+              index: 0,
+              routes: [{ 
+                name: 'CreateUsername', 
+                params: { userId: data.userId, provider: 'apple' }
+              }]
             });
           } else {
             // Check subscription status and navigate accordingly
             const subscriptionStatus = await AppleSubscriptionService.checkSubscriptionStatus(data.userId);
             if (subscriptionStatus.subscriptionActive) {
-              navigation.navigate('Home');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' }]
+              });
             } else {
-              navigation.navigate('SubscriptionIOS');
+              navigation.reset({
+                index: 0,
+                routes: [{ 
+                  name: 'SubscriptionIOS',
+                  params: { userId: data.userId }
+                }]
+              });
             }
           }
         } else {
@@ -247,15 +273,15 @@ const RegisterScreen = () => {
     try {
       // Extract userId and other params from the URL
       const { url } = event;
-      console.log("Received deep link:", url);
+      console.log("[DEEP-LINK-DEBUG] Received deep link in RegisterScreen:", url);
       
       const params = Linking.parse(url).queryParams;
-      console.log("Parsed params:", params);
+      console.log("[DEEP-LINK-DEBUG] Parsed params in RegisterScreen:", JSON.stringify(params));
       
       // Verify state parameter to prevent CSRF
       const storedState = await SecureStore.getItemAsync('oauth_state');
       if (params.state && storedState && params.state !== storedState) {
-        console.error("State mismatch, possible CSRF attack");
+        console.error("[DEEP-LINK-DEBUG] State mismatch, possible CSRF attack");
         Alert.alert('Security Error', 'Authentication failed due to invalid state parameter.');
         return;
       }
@@ -268,38 +294,44 @@ const RegisterScreen = () => {
         await SecureStore.setItemAsync('userId', params.userId);
         dispatch({ type: 'user/setCurrentUserId', payload: params.userId });
         
-        // If the user needs to set a username, navigate to that screen
+        console.log("[DEEP-LINK-DEBUG] Stored userId:", params.userId);
+        console.log("[DEEP-LINK-DEBUG] Navigation params:", {
+          needsUsername: params.needsUsername,
+          isNewUser: params.isNewUser,
+          hasSubscription: params.hasSubscription
+        });
+        
+        // Navigate using reset to ensure the navigation state is completely replaced
         if (params.needsUsername === 'true') {
-          navigation.navigate('CreateUsername', { 
-            userId: params.userId, 
-            provider: params.provider || 'google'
+          navigation.reset({
+            index: 0,
+            routes: [{ 
+              name: 'CreateUsername',
+              params: { userId: params.userId, provider: params.provider || 'google' }
+            }]
+          });
+        } else if (params.isNewUser === 'true' || params.hasSubscription === 'false') {
+          navigation.reset({
+            index: 0,
+            routes: [{ 
+              name: 'SubscriptionIOS',
+              params: { userId: params.userId }
+            }]
           });
         } else {
-          // Check subscription status and navigate accordingly
-          try {
-            // For new users without subscription, go to subscription page
-            if (params.isNewUser === 'true' || params.hasSubscription === 'false') {
-              navigation.navigate('SubscriptionIOS', {
-                userId: params.userId
-              });
-            } else {
-              // User already has subscription or has been registered previously
-              navigation.navigate('Home');
-            }
-          } catch (err) {
-            console.error("Error checking subscription:", err);
-            // Default to subscription screen if there's an error
-            navigation.navigate('SubscriptionIOS', {
-              userId: params.userId
-            });
-          }
+          // Reset navigation to Home
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Home' }]
+          });
         }
       } else if (params.error) {
-        console.error("OAuth error:", params.error);
+        console.error("[DEEP-LINK-DEBUG] OAuth error:", params.error);
         Alert.alert('Login Failed', params.error_description || params.error);
       }
     } catch (error) {
-      console.error("Deep link handling error:", error);
+      console.error("[DEEP-LINK-DEBUG] Error handling deep link:", error);
+      console.error("[DEEP-LINK-DEBUG] Error stack:", error.stack);
     }
   };
 

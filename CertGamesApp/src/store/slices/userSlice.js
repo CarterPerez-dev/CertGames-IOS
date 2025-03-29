@@ -169,17 +169,18 @@ const userSlice = createSlice({
     setUser: (state, action) => {
       const userData = action.payload;
       state.userId = userData.user_id || userData._id;
-      state.username = userData.username;
+      state.username = userData.username || '';
       state.email = userData.email || '';
       state.xp = userData.xp || 0;
       state.level = userData.level || 1;
       state.coins = userData.coins || 0;
       state.achievements = userData.achievements || [];
       state.xpBoost = userData.xpBoost || 1.0;
-      state.currentAvatar = userData.currentAvatar;
-      state.nameColor = userData.nameColor;
+      state.currentAvatar = userData.currentAvatar || null;
+      state.nameColor = userData.nameColor || null;
       state.purchasedItems = userData.purchasedItems || [];
       state.subscriptionActive = userData.subscriptionActive || false;
+      state.lastDailyClaim = userData.lastDailyClaim || null;
     },
     
     logout: (state) => {
@@ -239,18 +240,19 @@ const userSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.userId = action.payload.user_id;
-        state.username = action.payload.username;
+        state.userId = action.payload.user_id || null;
+        state.username = action.payload.username || '';
         state.email = action.payload.email || '';
         state.coins = action.payload.coins || 0;
         state.xp = action.payload.xp || 0;
         state.level = action.payload.level || 1;
         state.achievements = action.payload.achievements || [];
         state.xpBoost = action.payload.xpBoost || 1.0;
-        state.currentAvatar = action.payload.currentAvatar;
-        state.nameColor = action.payload.nameColor;
+        state.currentAvatar = action.payload.currentAvatar || null;
+        state.nameColor = action.payload.nameColor || null;
         state.purchasedItems = action.payload.purchasedItems || [];
         state.subscriptionActive = action.payload.subscriptionActive || false;
+        state.lastDailyClaim = action.payload.lastDailyClaim || null;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = 'failed';
@@ -264,22 +266,24 @@ const userSlice = createSlice({
       .addCase(fetchUserData.fulfilled, (state, action) => {
         state.status = 'succeeded';
         const userData = action.payload;
-        state.userId = userData._id;
-        state.username = userData.username;
+        state.userId = userData._id || null;
+        state.username = userData.username || '';
         state.email = userData.email || '';
         state.xp = userData.xp || 0;
         state.level = userData.level || 1;
         state.coins = userData.coins || 0;
         state.achievements = userData.achievements || [];
         state.xpBoost = userData.xpBoost || 1.0;
-        state.currentAvatar = userData.currentAvatar;
-        state.nameColor = userData.nameColor;
+        state.currentAvatar = userData.currentAvatar || null;
+        state.nameColor = userData.nameColor || null;
         state.purchasedItems = userData.purchasedItems || [];
         state.subscriptionActive = userData.subscriptionActive === true;
-        state.subscriptionStatus = userData.subscriptionStatus;
-        state.subscriptionPlatform = userData.subscriptionPlatform;
-        state.lastDailyClaim = userData.lastDailyClaim;
-        state.appleTransactionId = userData.appleTransactionId;
+        state.subscriptionStatus = userData.subscriptionStatus || null;
+        state.subscriptionPlatform = userData.subscriptionPlatform || null;
+        state.lastDailyClaim = userData.lastDailyClaim || null;
+        state.appleTransactionId = userData.appleTransactionId || null;
+        state.subscriptionStartDate = userData.subscriptionStartDate || null;
+        state.subscriptionEndDate = userData.subscriptionEndDate || null;
       })
       .addCase(fetchUserData.rejected, (state, action) => {
         state.status = 'failed';
@@ -289,12 +293,12 @@ const userSlice = createSlice({
       // DAILY BONUS
       .addCase(claimDailyBonus.fulfilled, (state, action) => {
         if (action.payload.success) {
-          state.coins = action.payload.newCoins;
-          state.xp = action.payload.newXP;
-          state.lastDailyClaim = action.payload.newLastDailyClaim;
+          state.coins = action.payload.newCoins || state.coins;
+          state.xp = action.payload.newXP || state.xp;
+          state.lastDailyClaim = action.payload.newLastDailyClaim || state.lastDailyClaim;
           
           // Recalculate level based on new XP
-          const newLevel = calculateLevelFromXP(action.payload.newXP);
+          const newLevel = calculateLevelFromXP(action.payload.newXP || state.xp);
           if (newLevel !== state.level) {
             state.level = newLevel;
           }
@@ -314,10 +318,10 @@ const userSlice = createSlice({
       // APPLE SUBSCRIPTION VERIFICATION
       .addCase(verifyAppleSubscription.fulfilled, (state, action) => {
         if (action.payload.success) {
-          state.subscriptionActive = action.payload.subscriptionActive;
-          state.subscriptionStatus = action.payload.subscriptionStatus;
+          state.subscriptionActive = action.payload.subscriptionActive || false;
+          state.subscriptionStatus = action.payload.subscriptionStatus || null;
           state.subscriptionPlatform = 'apple';
-          state.appleTransactionId = action.payload.transaction_id;
+          state.appleTransactionId = action.payload.transaction_id || null;
         }
       })
       
@@ -332,9 +336,9 @@ const userSlice = createSlice({
       
       // CHECK SUBSCRIPTION STATUS
       .addCase(checkSubscription.fulfilled, (state, action) => {
-        state.subscriptionActive = action.payload.subscriptionActive;
-        state.subscriptionStatus = action.payload.subscriptionStatus;
-        state.subscriptionPlatform = action.payload.subscriptionPlatform;
+        state.subscriptionActive = action.payload.subscriptionActive || false;
+        state.subscriptionStatus = action.payload.subscriptionStatus || null;
+        state.subscriptionPlatform = action.payload.subscriptionPlatform || null;
         state.status = 'idle';
       });
   },

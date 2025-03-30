@@ -179,7 +179,8 @@ const RegisterScreen = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: params.code,
-          redirect_uri: redirectUrl
+          redirect_uri: redirectUrl,
+          platform: 'ios'  // IMPORTANT: Added platform parameter
         }),
       });
       
@@ -220,6 +221,7 @@ const RegisterScreen = () => {
       Alert.alert('Login Failed', error.message || 'Google sign-in failed');
     }
   };
+  
   
   const handleAppleSignUp = async () => {
     try {

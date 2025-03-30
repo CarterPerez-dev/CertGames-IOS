@@ -203,7 +203,8 @@ const LoginScreen = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: params.code,
-          redirect_uri: redirectUrl
+          redirect_uri: redirectUrl,
+          platform: 'ios'  // IMPORTANT: Added platform parameter
         }),
       });
       

@@ -152,14 +152,10 @@ const RegisterScreen = () => {
   };
   
   // Replace the handleGoogleSignUp function in RegisterScreen.js with this implementation
-  import GoogleAuthService from '../../api/GoogleAuthService';
-  
-  // Add this import alongside your other imports
-  
+
   const handleGoogleSignUp = async () => {
     try {
-      // Show loading indicator if needed
-      setLoading(true);
+
       
       // Call the sign in method from our service
       const result = await GoogleAuthService.signIn();

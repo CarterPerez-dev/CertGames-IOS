@@ -26,6 +26,7 @@ import * as Linking from 'expo-linking';
 import { API } from '../../api/apiConfig';
 import { useNavigation } from '@react-navigation/native';
 import AppleSubscriptionService from '../../api/AppleSubscriptionService';
+import GoogleAuthService from '../../api/GoogleAuthService';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -177,7 +178,6 @@ const LoginScreen = () => {
   const handleGoogleLogin = async () => {
     try {
       // Show loading indicator if needed
-      setLoading(true);
       
       // Call the sign in method from our service
       const result = await GoogleAuthService.signIn();

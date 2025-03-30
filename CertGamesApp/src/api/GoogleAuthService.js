@@ -37,7 +37,7 @@ class GoogleAuthService {
       if (!this.initialized) {
         await this.initialize();
       }
-
+  
       // Check if Play Services are available (Android only)
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       
@@ -75,14 +75,21 @@ class GoogleAuthService {
   
   async verifyWithBackend(userInfo, accessToken) {
     try {
-      // Instead of using your existing OAuth callback, 
-      // create a new endpoint for this verification approach
+      // Fix: Access data correctly from the Google Sign-In response structure
+      const userData = userInfo.data.user;
+      
+      console.log('[GoogleAuthService] Sending user data to backend:', {
+        email: userData.email,
+        name: userData.name,
+        id: userData.id
+      });
+      
       const response = await apiClient.post(API.AUTH.VERIFY_GOOGLE_TOKEN, {
         token: accessToken,
         userData: {
-          email: userInfo.user.email,
-          name: userInfo.user.name,
-          id: userInfo.user.id
+          email: userData.email,
+          name: userData.name,
+          id: userData.id
         },
         platform: 'ios'
       });
@@ -93,6 +100,7 @@ class GoogleAuthService {
       throw error;
     }
   }
+  
   
   async signOut() {
     try {

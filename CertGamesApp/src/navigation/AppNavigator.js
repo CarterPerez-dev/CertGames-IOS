@@ -12,6 +12,7 @@ import * as Linking from 'expo-linking';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import SubscriptionScreenIOS from '../screens/subscription/SubscriptionScreenIOS';
+import CreateUsernameScreen from '../screens/auth/CreateUsernameScreen';
 
 
 // Import the notification overlay
@@ -69,7 +70,7 @@ const AppNavigator = () => {
   }, []);
   
   // Extract Redux state with debug logging
-  const { userId, status, subscriptionActive, error } = useSelector((state) => {
+  const { userId, status, subscriptionActive, error, needsUsername, oauth_provider } = useSelector((state) => {
     const userData = state.user;
     debugLog(`Redux state: userId=${userData.userId?.substring(0,8) || 'null'}, status=${userData.status}, subscriptionActive=${userData.subscriptionActive}`);
     return userData;
@@ -138,7 +139,7 @@ const AppNavigator = () => {
       debugLog("Setting appIsReady to true");
       setAppIsReady(true);
       
-      // NEW: Mark initial load as complete
+      // NEW: Mark initial load as complete !!!CRITICAL!!!!
       setInitialLoadComplete(true);
       
       await SplashScreen.hideAsync();
@@ -166,7 +167,7 @@ const AppNavigator = () => {
     return () => subscription.remove();
   }, []);
 
-  // *** FIX: Memoize subscription status to prevent navigation loops ***
+  // *** FIX: Memoize subscription status to prevent navigation loops *** !!!!IMPORTANT!!!CRITICAL!!!!
   const memoizedSubscriptionStatus = React.useMemo(() => {
     debugLog(`Creating memoized subscription status: ${subscriptionActive}`);
     return subscriptionActive;
@@ -187,14 +188,16 @@ const AppNavigator = () => {
     debugLog(`Redux status changed to: ${status}`);
   }, [status]);
 
-  // Determine which navigator to render based on auth and subscription status
+  // Determine which navigator to render based on auth and subscription status !!!CRITICAL!!!IMPORTANT!!!
   const renderNavigator = useCallback(() => {
     debugLog(`renderNavigator called with: 
       userId = ${userId?.substring(0,8) || 'null'}, 
       status = ${status}, 
       subscriptionActive = ${subscriptionActive},
+      needsUsername = ${needsUsername},
       memoizedStatus = ${memoizedSubscriptionStatus},
       initialLoadComplete = ${initialLoadComplete}`);
+      
 
     if (initError) {
       debugLog("Showing error screen due to init error");
@@ -221,7 +224,7 @@ const AppNavigator = () => {
       );
     }
     
-    // FIXED: Only show loading during initial app load, not during data refreshes
+    // !!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!Only show loading during initial app load, not during data refreshes- !!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!
     if (status === 'loading' && !initialLoadComplete) {
       debugLog("Showing loading screen for initial load only");
       return (
@@ -232,13 +235,39 @@ const AppNavigator = () => {
       );
     }
     
-    // If not logged in, show auth screens
+    // If not logged in, show auth screens !!!IMPORTANT!!!
     if (!userId) {
       debugLog("Showing AuthNavigator - user not logged in");
       return <AuthNavigator />;
     }
     
-    // *** FIX: Use memoized subscription status instead of actual state ***
+    
+    // IMPORTANT- Makes sure username is set so it can skip createusername screen for existing ouath users
+    if (needsUsername) {
+      const UsernameStack = createNativeStackNavigator();
+      
+      return (
+        <UsernameStack.Navigator>
+          <UsernameStack.Screen 
+            name="CreateUsername" 
+            component={CreateUsernameScreen} 
+            initialParams={{ 
+              userId: userId,
+              provider: oauth_provider || 'oauth' 
+            }}
+            options={{ headerShown: false }}
+          />
+          {/* Add this screen to enable navigation */}
+          <UsernameStack.Screen 
+            name="SubscriptionIOS" 
+            component={SubscriptionScreenIOS} 
+            options={{ headerShown: false }}
+          />
+        </UsernameStack.Navigator>
+      );
+    }
+
+    // *** FIX: Use memoized subscription status instead of actual state ***  !!!CRITICAL!!!
     // If no subscription, direct to subscription screen
     if (!memoizedSubscriptionStatus) {
       debugLog("Showing subscription screen - no active subscription");
@@ -261,7 +290,7 @@ const AppNavigator = () => {
               }}
               options={{ headerShown: false }}
             />
-            {/* Add Auth screens so they can be navigated to */}
+            {/* Add Auth screens so they can be navigated to-- CRITICAL!!!*/}
             <SubscriptionStack.Screen
               name="AuthNavigator"
               component={AuthNavigator}
@@ -286,7 +315,7 @@ const AppNavigator = () => {
     // User is logged in and has active subscription
     debugLog("Showing MainNavigator - user logged in and has active subscription");
     return <MainNavigator />;
-  }, [userId, status, memoizedSubscriptionStatus, initError, initialLoadComplete]); // Added initialLoadComplete to deps
+  }, [userId, status, memoizedSubscriptionStatus, initError, initialLoadComplete, needsUsername]); // Added initialLoadComplete to deps
 
   if (!appIsReady) {
     debugLog("App not ready yet, returning null");

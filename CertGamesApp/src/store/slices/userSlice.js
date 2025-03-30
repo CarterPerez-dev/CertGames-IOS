@@ -117,6 +117,7 @@ const initialState = {
   level: 1,
   coins: 0,
   achievements: [],
+  needsUsername: false,
   xpBoost: 1.0,
   currentAvatar: null,
   nameColor: null,
@@ -171,6 +172,7 @@ const userSlice = createSlice({
       state.userId = userData.user_id || userData._id;
       state.username = userData.username || '';
       state.email = userData.email || '';
+      state.needsUsername = userData.needsUsername || userData.needs_username || false;
       state.xp = userData.xp || 0;
       state.level = userData.level || 1;
       state.coins = userData.coins || 0;
@@ -243,6 +245,7 @@ const userSlice = createSlice({
         state.userId = action.payload.user_id || null;
         state.username = action.payload.username || '';
         state.email = action.payload.email || '';
+        state.needsUsername = action.payload.needsUsername || action.payload.needs_username || false;
         state.coins = action.payload.coins || 0;
         state.xp = action.payload.xp || 0;
         state.level = action.payload.level || 1;
@@ -269,6 +272,7 @@ const userSlice = createSlice({
         state.userId = userData._id || null;
         state.username = userData.username || '';
         state.email = userData.email || '';
+        state.needsUsername = userData.needsUsername || userData.needs_username || false;
         state.xp = userData.xp || 0;
         state.level = userData.level || 1;
         state.coins = userData.coins || 0;

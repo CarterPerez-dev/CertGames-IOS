@@ -18,7 +18,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { fetchUserData } from '../../store/slices/userSlice';
+import { fetchUserData, logout } from '../../store/slices/userSlice';
 import * as SecureStore from 'expo-secure-store';
 // Add these imports for the API client
 import apiClient from '../../api/apiClient';
@@ -71,6 +71,37 @@ const CreateUsernameScreen = () => {
     }
     
     return null; // No errors
+  };
+
+  const handleBackPress = () => {
+    console.log("Back button pressed in CreateUsernameScreen");
+    
+    // Since this screen is often reached after OAuth and there might not be
+    // any screen to go back to, we should handle this differently
+    Alert.alert(
+      "Cancel Setup",
+      "Are you sure you want to cancel the username setup?",
+      [
+        {
+          text: "Stay",
+          style: "cancel"
+        },
+        {
+          text: "Cancel Setup",
+          style: "destructive",
+          onPress: () => {
+            // Log the user out
+            dispatch(logout());
+            
+            // Reset the navigation stack to AuthNavigator, similar to renewal users
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Register' }],
+            });
+          }
+        }
+      ]
+    );
   };
   
   const handleSubmit = async () => {
@@ -125,6 +156,15 @@ const CreateUsernameScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Back button - with updated handler for OAuth flow */}
+      <TouchableOpacity 
+        style={styles.backButton}
+        onPress={handleBackPress}
+      >
+        <Ionicons name="arrow-back" size={22} color="#AAAAAA" />
+        <Text style={styles.backButtonText}>Back</Text>
+      </TouchableOpacity>
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -267,6 +307,20 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
+  },
+  // Back button styles - Added to match subscription screen
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginLeft: 15,
+    marginBottom: 10,
+    zIndex: 10,
+  },
+  backButtonText: {
+    color: '#AAAAAA',
+    marginLeft: 8,
+    fontSize: 16,
   },
   card: {
     backgroundColor: '#171a23',

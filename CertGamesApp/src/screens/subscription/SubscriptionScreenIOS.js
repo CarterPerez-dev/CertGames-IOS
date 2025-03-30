@@ -6,23 +6,25 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  SafeAreaView,
   ActivityIndicator,
   Alert,
-  Image,
-  SafeAreaView,
   Platform,
-  StatusBar
+  Animated,
+  Easing,
+  Dimensions
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../../context/ThemeContext';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import AppleSubscriptionService, { SUBSCRIPTION_PRODUCT_ID } from '../../api/AppleSubscriptionService';
 import apiClient from '../../api/apiClient';
 import { fetchUserData, checkSubscription, logout } from '../../store/slices/userSlice';
 import { API } from '../../api/apiConfig';
+
+const { width } = Dimensions.get('window');
 
 const SubscriptionScreenIOS = () => {
   const [loading, setLoading] = useState(false);
@@ -30,18 +32,30 @@ const SubscriptionScreenIOS = () => {
   const [subscriptionProduct, setSubscriptionProduct] = useState(null);
   const [error, setError] = useState(null);
   const [registrationCompleted, setRegistrationCompleted] = useState(false);
-  const [purchaseInProgress, setPurchaseInProgress] = useState(false); // Added to prevent multiple purchase attempts
+  const [purchaseInProgress, setPurchaseInProgress] = useState(false);
+  
+  // Animation states
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const benefitAnimations = React.useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0)
+  ]).current;
   
   const dispatch = useDispatch();
   const navigation = useNavigation();
   const route = useRoute();
-  const { theme } = useTheme();
   
-  // Get parameters from route
+  // Get params from navigation
   const registrationData = route.params?.registrationData;
+  const userId = route.params?.userId || useSelector(state => state.user.userId);
   const isOauthFlow = route.params?.isOauthFlow || false;
   const isNewUsername = route.params?.isNewUsername || false;
-  const userId = route.params?.userId || useSelector(state => state.user.userId);
+  const message = route.params?.message;
   const isRenewal = route.params?.renewal || false;
   
   // This helps with debugging to understand what's going on
@@ -94,6 +108,49 @@ const SubscriptionScreenIOS = () => {
     };
     
     initializeSubscription();
+    
+    // Start animations when component mounts
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true
+      })
+    ]).start();
+    
+    // Start pulsing animation for the CTA button
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.01,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true
+        })
+      ])
+    ).start();
+    
+    // Staggered animations for benefits
+    Animated.stagger(150, 
+      benefitAnimations.map(anim => 
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true
+        })
+      )
+    ).start();
   }, []);
   
   const registerNewUser = async () => {
@@ -286,38 +343,6 @@ const SubscriptionScreenIOS = () => {
     }
   };
   
-  const renderPricingDetails = () => {
-    if (!subscriptionProduct) {
-      return (
-        <View style={styles.pricingCard}>
-          <Text style={[styles.priceTitle, { color: theme.colors.text }]}>
-            Monthly Premium
-          </Text>
-          <Text style={[styles.priceValue, { color: theme.colors.text }]}>
-            $9.99
-          </Text>
-          <Text style={[styles.priceDescription, { color: theme.colors.textSecondary }]}>
-            per month
-          </Text>
-        </View>
-      );
-    }
-    
-    return (
-      <View style={styles.pricingCard}>
-        <Text style={[styles.priceTitle, { color: theme.colors.text }]}>
-          {subscriptionProduct.title || "Unlimited"}
-        </Text>
-        <Text style={[styles.priceValue, { color: theme.colors.text }]}>
-          {subscriptionProduct.localizedPrice || "$9.99"}
-        </Text>
-        <Text style={[styles.priceDescription, { color: theme.colors.textSecondary }]}>
-          {subscriptionProduct.subscriptionPeriodUnitIOS === 'MONTH' ? 'per month' : 'subscription'}
-        </Text>
-      </View>
-    );
-  };
-  
   // Get subscription type - prioritize OAuth/New Username flow over renewal
   const getSubscriptionType = () => {
     // Add more verbose debugging to understand what's happening
@@ -342,15 +367,66 @@ const SubscriptionScreenIOS = () => {
   
   const subscriptionType = getSubscriptionType();
   console.log("Subscription type:", subscriptionType);
-  
+
+  // Features list
+  const benefits = [
+    {
+      icon: 'game-controller-outline',
+      title: '13,0000+ Practice Questions',
+      description: '13,0000+ practice questions across 12 different certfications'
+    },
+    {
+      icon: 'analytics-outline',
+      title: 'ScenarioSphere & AnalogyHub',
+      description: 'Full access to our advanced learning tools designed for certification success'
+    },
+    {
+      icon: 'finger-print-outline',
+      title: 'XploitCraft',
+      description: 'Hands-on Cybersecurity and Pentesting Simulations'
+    },
+    {
+      icon: 'library-outline',
+      title: 'Resource Hub',
+      description: 'Curated study materials, reference guides, and industry standards'
+    },
+    {
+      icon: 'ribbon-outline',
+      title: 'Game System',
+      description: 'Track your progress with our gamified learning approach'
+    }
+  ];
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={[theme.colors.background, theme.colors.background + '80']}
+        colors={['#0b0c15', '#121225']}
         style={styles.gradientBackground}
-      />
+      >
+        <View style={styles.gridOverlay} />
+      </LinearGradient>
       
-      {/* Add back button */}
+      {/* Animated glow effects */}
+      <View style={[styles.glowEffect, { top: '15%', left: '30%' }]} />
+      <View style={[styles.glowEffect, { top: '60%', right: '20%', width: 200, height: 200 }]} />
+      
+      {/* Floating particles */}
+      {[...Array(8)].map((_, index) => (
+        <View 
+          key={index} 
+          style={[
+            styles.particle, 
+            { 
+              top: `${10 + index * 10}%`, 
+              left: `${index * 12}%`,
+              width: 2 + index % 3,
+              height: 2 + index % 3
+            }
+          ]} 
+        />
+      ))}
+      
+      {/* Back button - IMPORTANT: Preserving original functionality */}
       <TouchableOpacity 
         style={styles.backButton}
         onPress={() => {
@@ -370,127 +446,184 @@ const SubscriptionScreenIOS = () => {
           }
         }}
       >
-        <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        <Ionicons name="arrow-back" size={22} color="#AAAAAA" />
+        <Text style={styles.backButtonText}>Back</Text>
       </TouchableOpacity>
       
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.contentContainer}>
-          <View style={styles.headerContainer}>
-            <Image 
-              source={require('../../../assets/logo.png')} 
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={[styles.title, { color: theme.colors.text }]}>
-              {subscriptionType === "renewal" ? "Unlock Full Access" : 
-               subscriptionType === "oauth" ? "Unlock Full Access" : 
-               "Unlock Full Access"}
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-              {subscriptionType === "renewal" 
-                ? "Get unlimited access to all certification tools and premium features."
-                : subscriptionType === "oauth"
-                  ? "Get unlimited access to all certification tools and premium features."
-                  : "Get unlimited access to all certification tools and premium features."}
-            </Text>
-          </View>
-          
-          {initialLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-                Loading subscription options...
-              </Text>
+      <ScrollView 
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View 
+          style={[
+            styles.card,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }]
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={['rgba(30, 30, 50, 0.8)', 'rgba(23, 26, 35, 0.95)']}
+            style={styles.cardGradient}
+          >
+            <View style={styles.cardAccent} />
+            
+            <View style={styles.header}>
+              <LinearGradient
+                colors={['#6543CC', '#8A58FC']}
+                style={styles.logoContainer}
+              >
+                <Ionicons name="rocket" size={30} color="#FFFFFF" />
+              </LinearGradient>
+              <Text style={styles.headerTitle}>Cert Games</Text>
+              <Text style={styles.subtitle}>Unlock your full certification potential</Text>
             </View>
-          ) : (
-            <>
-              {error && (
-                <View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle" size={24} color="#FF4C8B" />
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              )}
-              
-              {renderPricingDetails()}
-              
-              <View style={styles.featuresContainer}>
-                <Text style={[styles.featuresTitle, { color: theme.colors.text }]}>
-                  What You'll Get:
-                </Text>
-                
-                <View style={styles.featureItem}>
-                  <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
-                  <Text style={[styles.featureText, { color: theme.colors.text }]}>
-                    13,000+ practice questions across all certification paths
-                  </Text>
-                </View>
-                
-                <View style={styles.featureItem}>
-                  <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
-                  <Text style={[styles.featureText, { color: theme.colors.text }]}>
-                    Full access to ScenarioSphere, AnalogyHub, and XploitCraft
-                  </Text>
-                </View>
-                
-                <View style={styles.featureItem}>
-                  <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
-                  <Text style={[styles.featureText, { color: theme.colors.text }]}>
-                    Unlock achievements, track progress, and compete on leaderboards
-                  </Text>
-                </View>
-                
-                <View style={styles.featureItem}>
-                  <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
-                  <Text style={[styles.featureText, { color: theme.colors.text }]}>
-                    Access on both mobile app and web platform
-                  </Text>
-                </View>
+            
+            {message && (
+              <View style={styles.messageContainer}>
+                <Ionicons name="checkmark-circle" size={20} color="#2ebb77" />
+                <Text style={styles.messageText}>{message}</Text>
               </View>
-              
-              <TouchableOpacity
-                style={[
-                  styles.subscribeButton, 
-                  { backgroundColor: theme.colors.primary },
-                  (loading || purchaseInProgress) && styles.disabledButton
-                ]}
-                onPress={handleSubscribe}
-                disabled={loading || purchaseInProgress}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.buttonText}>
-                    {subscriptionType === "renewal" ? "Subscribe Now" : "Subscribe Now"}
-                  </Text>
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.restoreButton}
-                onPress={handleRestorePurchases}
-                disabled={loading || purchaseInProgress}
-              >
-                <Text style={[styles.restoreText, { color: theme.colors.primary }]}>
-                  Restore Purchases
-                </Text>
-              </TouchableOpacity>
-              
-              <View style={styles.termsContainer}>
-                <Text style={[styles.termsText, { color: theme.colors.textSecondary }]}>
-                  By subscribing, you agree to our {' '}
-                  <Text style={[styles.termsLink, { color: theme.colors.primary }]}>
-                    Terms of Service
-                  </Text>
-                  {' '} and {' '}
-                  <Text style={[styles.termsLink, { color: theme.colors.primary }]}>
-                    Privacy Policy
-                  </Text>
-                  . Subscription will automatically renew unless canceled at least 24 hours before the end of the current period. You can manage your subscription in your iTunes Account Settings.
+            )}
+            
+            {error && (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={20} color="#FF4C8B" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+            
+            {initialLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#6543CC" />
+                <Text style={styles.loadingText}>
+                  Loading subscription options...
                 </Text>
               </View>
-            </>
-          )}
-        </View>
+            ) : (
+              <View style={styles.pricingContainer}>
+                <View style={styles.priceBox}>
+                  <View style={styles.priceHeader}>
+                    <Text style={styles.priceType}>Unlimited Access</Text>
+                  </View>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.dollarSign}>$</Text>
+                    <Text style={styles.price}>9</Text>
+                    <View style={styles.priceDetails}>
+                      <Text style={styles.priceCents}>.99</Text>
+                      <Text style={styles.pricePeriod}>/month</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.priceBilled}>Billed monthly, cancel anytime</Text>
+                </View>
+                
+                {/* Subscribe Button */}
+                <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                  <TouchableOpacity 
+                    style={styles.subscribeButton}
+                    onPress={handleSubscribe}
+                    disabled={loading || purchaseInProgress}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={['#6543CC', '#8A58FC']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.buttonGradient}
+                    >
+                      {loading ? (
+                        <View style={styles.buttonContent}>
+                          <ActivityIndicator color="#FFFFFF" />
+                          <Text style={styles.buttonText}>Processing...</Text>
+                        </View>
+                      ) : (
+                        <View style={styles.buttonContent}>
+                          <Text style={styles.buttonText}>Subscribe Now</Text>
+                          <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
+            )}
+            
+            <View style={styles.benefitsContainer}>
+              <View style={styles.benefitsHeader}>
+                <LinearGradient
+                  colors={['rgba(101, 67, 204, 0.1)', 'rgba(255, 76, 139, 0.1)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.benefitsHeaderGradient}
+                >
+                  <Ionicons name="diamond" size={20} color="#FF4C8B" style={styles.benefitsIcon} />
+                  <Text style={styles.benefitsTitle}>Unlock All Features</Text>
+                </LinearGradient>
+              </View>
+              
+              <View style={styles.benefitsList}>
+                {benefits.map((benefit, index) => (
+                  <Animated.View 
+                    key={index} 
+                    style={[
+                      styles.benefitItem,
+                      {
+                        opacity: benefitAnimations[Math.min(index, benefitAnimations.length - 1)],
+                        transform: [{ 
+                          translateX: benefitAnimations[Math.min(index, benefitAnimations.length - 1)].interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [20, 0]
+                          })
+                        }]
+                      }
+                    ]}
+                  >
+                    <View style={styles.benefitIconContainer}>
+                      <LinearGradient
+                        colors={index % 2 === 0 ? ['#6543CC', '#8A58FC'] : ['#FF4C8B', '#FF7950']}
+                        style={styles.benefitIconGradient}
+                      >
+                        <Ionicons name={benefit.icon} size={22} color="#FFFFFF" />
+                      </LinearGradient>
+                    </View>
+                    <View style={styles.benefitContent}>
+                      <Text style={styles.benefitTitle}>{benefit.title}</Text>
+                      <Text style={styles.benefitDescription}>{benefit.description}</Text>
+                    </View>
+                  </Animated.View>
+                ))}
+              </View>
+              
+              <View style={styles.guaranteeContainer}>
+                <Ionicons name="shield-checkmark" size={22} color="#2ebb77" />
+                <Text style={styles.guaranteeText}>24/7 Active Support & Mentor</Text>
+              </View>
+            </View>
+            
+            {/* Restore Purchases Button - IMPORTANT: Preserving original functionality */}
+            <TouchableOpacity
+              style={styles.restoreButton}
+              onPress={handleRestorePurchases}
+              disabled={loading || purchaseInProgress}
+            >
+              <Text style={styles.restoreText}>
+                Restore Purchases
+              </Text>
+            </TouchableOpacity>
+            
+            <View style={styles.testimonialsContainer}>
+              <View style={styles.testimonialBadge}>
+                <Ionicons name="star" size={14} color="#FFD700" />
+                <Text style={styles.testimonialBadgeText}>User Success</Text>
+              </View>
+              <Text style={styles.testimonialText}>
+                "As someone with ADHD, traditional studying was a nightmare. The gamified elements kept me focused, and I surprised myself by completing all three certs in under 4 months!"
+              </Text>
+              <Text style={styles.testimonialAuthor}>— Connor B, SOC Intern.</Text>
+            </View>
+          </LinearGradient>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -499,152 +632,378 @@ const SubscriptionScreenIOS = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0B0C15',
   },
   gradientBackground: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  gridOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    opacity: 0.2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(101, 67, 204, 0.1)',
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    width: '100%',
+    height: '100%',
+    borderRightWidth: 40,
+    borderBottomWidth: 40,
+  },
+  glowEffect: {
+    position: 'absolute',
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: 'rgba(101, 67, 204, 0.15)',
+    shadowColor: '#6543CC',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 100,
+    elevation: 20,
+  },
+  particle: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#6543CC',
+    opacity: 0.6,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginLeft: 15,
+    marginBottom: 10,
+    zIndex: 10,
+  },
+  backButtonText: {
+    color: '#AAAAAA',
+    marginLeft: 8,
+    fontSize: 16,
+  },
+  contentContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 40,
+  },
+  card: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  cardGradient: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  cardAccent: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    height: 4,
+    backgroundColor: '#8A58FC',
   },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  headerContainer: {
+  header: {
     alignItems: 'center',
-    marginBottom: 30,
+    padding: 25,
+    paddingBottom: 15,
   },
-  logo: {
+  logoContainer: {
     width: 80,
     height: 80,
-    marginBottom: 20,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    shadowColor: '#6543CC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 10,
   },
-  title: {
+  headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textShadowColor: 'rgba(101, 67, 204, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 10,
   },
   subtitle: {
     fontSize: 16,
+    color: '#AAAAAA',
     textAlign: 'center',
-    marginBottom: 10,
   },
-  loadingContainer: {
+  messageContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 30,
+    backgroundColor: 'rgba(46, 187, 119, 0.1)',
+    padding: 12,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2ebb77',
   },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
+  messageText: {
+    color: '#2ebb77',
+    marginLeft: 10,
+    flex: 1,
+    fontSize: 14,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 76, 139, 0.1)',
-    padding: 15,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 12,
+    marginHorizontal: 20,
     marginBottom: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF4C8B',
   },
   errorText: {
     color: '#FF4C8B',
     marginLeft: 10,
     flex: 1,
+    fontSize: 14,
   },
-  pricingCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 30,
+  loadingContainer: {
+    padding: 30,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  priceTitle: {
+  loadingText: {
+    color: '#AAAAAA',
+    marginTop: 15,
+    fontSize: 16,
+  },
+  pricingContainer: {
+    padding: 20,
+  },
+  priceBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 20,
+  },
+  priceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  priceType: {
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
+  },
+  popularBadge: {
+    backgroundColor: '#6543CC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  popularText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     marginBottom: 5,
   },
-  priceValue: {
-    fontSize: 40,
+  dollarSign: {
+    color: '#FFFFFF',
+    fontSize: 24,
     fontWeight: 'bold',
-    marginVertical: 10,
+    marginTop: 8,
   },
-  priceDescription: {
-    fontSize: 16,
-  },
-  featuresContainer: {
-    marginBottom: 30,
-  },
-  featuresTitle: {
-    fontSize: 20,
+  price: {
+    color: '#FFFFFF',
+    fontSize: 48,
     fontWeight: 'bold',
-    marginBottom: 15,
+    lineHeight: 55,
   },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
+  priceDetails: {
+    marginTop: 10,
   },
-  featureText: {
-    fontSize: 16,
-    marginLeft: 10,
-    flex: 1,
+  priceCents: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  pricePeriod: {
+    color: '#AAAAAA',
+    fontSize: 14,
+  },
+  priceBilled: {
+    color: '#AAAAAA',
+    fontSize: 14,
   },
   subscribeButton: {
-    height: 50,
-    borderRadius: 25,
+    height: 56,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#6543CC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+    marginVertical: 5,
+  },
+  buttonGradient: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
   },
-  disabledButton: {
-    opacity: 0.7,
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
+  benefitsContainer: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  benefitsHeader: {
+    marginBottom: 20,
+  },
+  benefitsHeaderGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+  },
+  benefitsIcon: {
+    marginRight: 10,
+  },
+  benefitsTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  benefitsList: {
+    marginBottom: 20,
+  },
+  benefitItem: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  benefitIconContainer: {
+    marginTop: 2,
+  },
+  benefitIconGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  benefitContent: {
+    flex: 1,
+  },
+  benefitTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  benefitDescription: {
+    color: '#AAAAAA',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  guaranteeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(46, 187, 119, 0.1)',
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  guaranteeText: {
+    color: '#2ebb77',
+    marginLeft: 10,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   restoreButton: {
     height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginHorizontal: 20,
+    marginBottom: 10,
   },
   restoreText: {
+    color: '#6543CC',
     fontSize: 16,
     fontWeight: '500',
   },
-  termsContainer: {
-    marginTop: 10,
-  },
-  termsText: {
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  termsLink: {
-    fontWeight: '500',
-  },
-  // Back button styles
-  backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
-    left: 20,
-    zIndex: 10,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  testimonialsContainer: {
+    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
-    justifyContent: 'center',
   },
+  testimonialBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  testimonialBadgeText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 5,
+  },
+  testimonialText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: 10,
+    lineHeight: 24,
+  },
+  testimonialAuthor: {
+    color: '#AAAAAA',
+    fontSize: 14,
+    fontWeight: '500',
+  }
 });
 
 export default SubscriptionScreenIOS;

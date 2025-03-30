@@ -176,63 +176,37 @@ const LoginScreen = () => {
   
   const handleGoogleLogin = async () => {
     try {
-      // Generate state param
-      const randomState = Math.random().toString(36).substring(2, 15);
+      // Show loading indicator if needed
+      setLoading(true);
       
-      // Launch auth flow
-      const authUrl = `${API.AUTH.OAUTH_GOOGLE_MOBILE}?redirect_uri=${encodeURIComponent(redirectUrl)}&state=${randomState}&platform=ios`;
-      console.log("[DEBUG] Opening auth URL:", authUrl);
+      // Call the sign in method from our service
+      const result = await GoogleAuthService.signIn();
+      console.log("[DEBUG] Google sign in result:", result);
       
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
-      
-      if (result.type !== 'success' || !result.url) {
-        throw new Error('Authentication was cancelled');
+      if (!result.success) {
+        throw new Error(result.error || 'Sign in failed');
       }
       
-      console.log("[DEBUG] Auth URL result:", result.url);
+      // Store user ID
+      await SecureStore.setItemAsync('userId', result.userId);
+      dispatch({ type: 'user/setCurrentUserId', payload: result.userId });
       
-      // Parse the URL to get the code
-      const params = Linking.parse(result.url).queryParams;
-      if (!params.code) {
-        throw new Error('No authorization code received');
-      }
-      
-      // Call our backend with the code
-      const response = await fetch(`${API.AUTH.OAUTH_GOOGLE_CALLBACK_MOBILE}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: params.code,
-          redirect_uri: redirectUrl,
-          platform: 'ios'  // IMPORTANT: Added platform parameter
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(`Auth failed: ${data.error || 'Unknown error'}`);
-      }
-      
-      console.log("[DEBUG] Auth response:", JSON.stringify(data));
-      
-      if (!data.userId) {
-        throw new Error('No user ID returned');
-      }
-      
-      // Store user ID and navigate
-      await SecureStore.setItemAsync('userId', data.userId);
-      dispatch({ type: 'user/setCurrentUserId', payload: data.userId });
-      
-      if (data.needsUsername) {
+      // Handle navigation based on result
+      if (result.needsUsername) {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'CreateUsername', params: { userId: data.userId, provider: 'google' }}]
+          routes: [{ 
+            name: 'CreateUsername', 
+            params: { userId: result.userId, provider: 'google' }
+          }]
         });
-      } else if (!data.hasSubscription) {
+      } else if (!result.hasSubscription) {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'SubscriptionIOS', params: { userId: data.userId }}]
+          routes: [{ 
+            name: 'SubscriptionIOS', 
+            params: { userId: result.userId }
+          }]
         });
       } else {
         navigation.reset({
@@ -243,9 +217,10 @@ const LoginScreen = () => {
     } catch (error) {
       console.error('[DEBUG] Google login error:', error);
       Alert.alert('Login Failed', error.message || 'Google sign-in failed');
+    } finally {
+      setLoading(false);
     }
   };
-  
   
   const handleAppleLogin = async () => {
     try {

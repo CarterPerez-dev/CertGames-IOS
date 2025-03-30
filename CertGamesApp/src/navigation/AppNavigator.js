@@ -23,6 +23,9 @@ import { fetchUserData } from '../store/slices/userSlice';
 // Import Apple Subscription Service for iOS
 import AppleSubscriptionService from '../api/AppleSubscriptionService';
 
+// Import Google Auth Service
+import GoogleAuthService from '../api/GoogleAuthService';
+
 // Import API client for store injection
 import apiClient, { injectStore } from '../api/apiClient';
 import store from '../store';
@@ -81,6 +84,15 @@ const AppNavigator = () => {
   const prepare = async () => {
     debugLog("Starting prepare() function");
     try {
+      // Initialize Google Auth Service
+      try {
+        await GoogleAuthService.initialize();
+        debugLog("Google Auth Service initialized");
+      } catch (googleAuthError) {
+        debugLog(`Error initializing Google Auth Service: ${googleAuthError.message}`);
+        // Non-blocking error, continue app initialization
+      }
+      
       // Check if user is already logged in
       const storedUserId = await SecureStore.getItemAsync('userId');
       debugLog(`Found stored userId: ${storedUserId?.substring(0,8) || 'null'}`);

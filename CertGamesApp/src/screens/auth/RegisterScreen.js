@@ -17,7 +17,8 @@ import {
   Easing
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { registerUser, clearAuthErrors } from '../../store/slices/userSlice';
+// Added fetchUserData to imports to match LoginScreen behavior
+import { registerUser, clearAuthErrors, fetchUserData } from '../../store/slices/userSlice';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -191,6 +192,7 @@ const RegisterScreen = () => {
     });
   };
   
+  // UPDATED: Modified to match LoginScreen's handleGoogleLogin behavior
   const handleGoogleSignUp = async () => {
     try {
       // Call the sign in method from our service
@@ -201,8 +203,10 @@ const RegisterScreen = () => {
         throw new Error(result.error || 'Sign up failed');
       }
       
-      // Store user ID
+      // STEP 1: Store user ID
       await SecureStore.setItemAsync('userId', result.userId);
+      
+      // STEP 2: Update Redux state
       dispatch({ type: 'user/setCurrentUserId', payload: result.userId });
       
       // Handle navigation based on result
@@ -223,10 +227,13 @@ const RegisterScreen = () => {
           }]
         });
       } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' }]
-        });
+        // CHANGED: For users with active subscriptions, let AppNavigator handle the navigation
+        // instead of directly resetting to Home
+        
+        // Update Redux with complete user data
+        await dispatch(fetchUserData(result.userId));
+        
+        // AppNavigator will automatically switch to MainNavigator
       }
     } catch (error) {
       console.error('[DEBUG] Google sign up error:', error);
@@ -234,6 +241,7 @@ const RegisterScreen = () => {
     }
   };
   
+  // UPDATED: Modified to match LoginScreen's handleAppleLogin behavior
   const handleAppleSignUp = async () => {
     try {
       const credential = await AppleAuthentication.signInAsync({
@@ -265,11 +273,13 @@ const RegisterScreen = () => {
         const data = await response.json();
         
         if (response.ok) {
-          // Handle success, user ID would be in data.userId
+          // STEP 1: Update SecureStore with userId
           await SecureStore.setItemAsync('userId', data.userId);
+          
+          // STEP 2: Update Redux state with the userId
           dispatch({ type: 'user/setCurrentUserId', payload: data.userId });
           
-          // If the user needs to set a username (new user), navigate to that screen
+          // Special case: If user needs username, still navigate directly to that screen
           if (data.needsUsername) {
             navigation.reset({
               index: 0,
@@ -279,14 +289,11 @@ const RegisterScreen = () => {
               }]
             });
           } else {
-            // Check subscription status and navigate accordingly
+            // Check subscription status
             const subscriptionStatus = await AppleSubscriptionService.checkSubscriptionStatus(data.userId);
-            if (subscriptionStatus.subscriptionActive) {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }]
-              });
-            } else {
+            
+            // Special case: If no subscription, navigate to subscription screen
+            if (!subscriptionStatus.subscriptionActive) {
               navigation.reset({
                 index: 0,
                 routes: [{ 
@@ -294,6 +301,14 @@ const RegisterScreen = () => {
                   params: { userId: data.userId }
                 }]
               });
+            } else {
+              // CHANGED: For users with active subscriptions, let AppNavigator handle it
+              // instead of directly navigating to Home
+              
+              // Update Redux with complete user data
+              await dispatch(fetchUserData(data.userId));
+              
+              // AppNavigator will automatically switch to MainNavigator
             }
           }
         } else {
@@ -313,6 +328,7 @@ const RegisterScreen = () => {
     }
   };
   
+  // UPDATED: Modified to match LoginScreen's handleRedirect behavior
   const handleRedirect = async (event) => {
     try {
       // Extract userId and other params from the URL
@@ -335,16 +351,11 @@ const RegisterScreen = () => {
       await SecureStore.deleteItemAsync('oauth_state');
       
       if (params.userId) {
-        // Store user ID and set in Redux
+        // STEP 1: Store user ID
         await SecureStore.setItemAsync('userId', params.userId);
-        dispatch({ type: 'user/setCurrentUserId', payload: params.userId });
         
-        console.log("[DEEP-LINK-DEBUG] Stored userId:", params.userId);
-        console.log("[DEEP-LINK-DEBUG] Navigation params:", {
-          needsUsername: params.needsUsername,
-          isNewUser: params.isNewUser,
-          hasSubscription: params.hasSubscription
-        });
+        // STEP 2: Update Redux state
+        dispatch({ type: 'user/setCurrentUserId', payload: params.userId });
         
         // Navigate using reset to ensure the navigation state is completely replaced
         if (params.needsUsername === 'true') {
@@ -364,11 +375,16 @@ const RegisterScreen = () => {
             }]
           });
         } else {
-          // Reset navigation to Home
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Home' }]
-          });
+          // CHANGED: For existing users with subscriptions, let AppNavigator handle it
+          // instead of directly navigating to Home
+          await dispatch(fetchUserData(params.userId));
+          
+          // ADDED: Show feedback while AppNavigator switches (matching LoginScreen)
+          Alert.alert(
+            "Login Successful", 
+            "You're now being redirected to the app...",
+            [{ text: "OK", style: "default" }]
+          );
         }
       } else if (params.error) {
         console.error("[DEEP-LINK-DEBUG] OAuth error:", params.error);

@@ -431,18 +431,28 @@ const SubscriptionScreenIOS = () => {
         style={styles.backButton}
         onPress={() => {
           console.log("Back button pressed, subscription type:", subscriptionType);
+          
           if (subscriptionType === "renewal") {
-            // Instead of trying to navigate directly to Login, do a full reset
+            // Existing code for renewal
             dispatch(logout());
-            
-            // Reset the entire navigation state to go back to the root Auth navigator
             navigation.reset({
               index: 0,
               routes: [{ name: 'AuthNavigator' }],
             });
-          } else {
-            // For all other cases, just go back
-            navigation.goBack();
+          } 
+          else if (subscriptionType === "oauth" || isOauthFlow || isNewUsername) {
+            // For OAuth flow that just created username
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'AuthNavigator' }],
+            });
+          }
+          else {
+            dispatch(logout());
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Register' }],
+            });
           }
         }}
       >

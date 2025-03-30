@@ -23,7 +23,7 @@ import * as SecureStore from 'expo-secure-store';
 // Add these imports for the API client
 import apiClient from '../../api/apiClient';
 import { API } from '../../api/apiConfig';
-import AuthNavigator from '../../navigation/AuthNavigator';
+
 
 const CreateUsernameScreen = () => {
   const [username, setUsername] = useState('');

@@ -188,7 +188,8 @@ const RegisterScreen = () => {
     // Navigate to subscription screen with registration data
     navigation.navigate('SubscriptionIOS', { 
       registrationData, 
-      isOauthFlow: false 
+      isOauthFlow: false ,
+      isNewUsername: needsUsername === false && isNewUser === false
     });
   };
   

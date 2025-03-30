@@ -272,7 +272,7 @@ const userSlice = createSlice({
         state.userId = userData._id || null;
         state.username = userData.username || '';
         state.email = userData.email || '';
-        state.needsUsername = userData.needsUsername || userData.needs_username || false;
+        state.needsUsername = action.payload.needs_username === true;
         state.xp = userData.xp || 0;
         state.level = userData.level || 1;
         state.coins = userData.coins || 0;

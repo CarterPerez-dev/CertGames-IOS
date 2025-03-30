@@ -544,7 +544,7 @@ const RegisterScreen = () => {
                     ]}
                   >
                     <View style={styles.requirementsHeader}>
-                      <Text style={styles.requirementsTitle}>Password Requirements</Text>
+                      <Text style={styles.requirementsTitle}>Requirements</Text>
                       {passwordIsValid() ? (
                         <View style={styles.validBadge}>
                           <Ionicons name="checkmark" size={12} color="#2ebb77" />
@@ -571,7 +571,7 @@ const RegisterScreen = () => {
                             passwordValidation.hasMinimumLength ? styles.validRequirement : styles.invalidRequirement
                           ]}
                         >
-                          At least 6 characters long
+                          6-69 characters
                         </Text>
                       </View>
                       
@@ -587,7 +587,7 @@ const RegisterScreen = () => {
                             passwordValidation.hasUpperCase ? styles.validRequirement : styles.invalidRequirement
                           ]}
                         >
-                          At least one uppercase letter
+                          Uppercase letter
                         </Text>
                       </View>
                       
@@ -603,7 +603,7 @@ const RegisterScreen = () => {
                             passwordValidation.hasLowerCase ? styles.validRequirement : styles.invalidRequirement
                           ]}
                         >
-                          At least one lowercase letter
+                          Lowercase letter
                         </Text>
                       </View>
                       
@@ -619,7 +619,7 @@ const RegisterScreen = () => {
                             passwordValidation.hasNumber ? styles.validRequirement : styles.invalidRequirement
                           ]}
                         >
-                          At least one number
+                          Number
                         </Text>
                       </View>
                       
@@ -635,7 +635,7 @@ const RegisterScreen = () => {
                             passwordValidation.hasSpecialChar ? styles.validRequirement : styles.invalidRequirement
                           ]}
                         >
-                          At least one special character
+                          Special character
                         </Text>
                       </View>
                     </View>
@@ -981,7 +981,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 1,
   },
   requirementsTitle: {
     fontSize: 14,

@@ -439,7 +439,7 @@ const LoginScreen = () => {
                     <Ionicons name="person-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Enter your username or email"
+                      placeholder="Username or Email"
                       placeholderTextColor="#AAAAAA"
                       value={usernameOrEmail}
                       onChangeText={setUsernameOrEmail}

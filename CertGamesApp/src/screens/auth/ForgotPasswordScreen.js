@@ -1,3 +1,4 @@
+// src/screens/auth/ForgotPasswordScreen.js
 import React, { useState } from 'react';
 import {
   View,
@@ -8,8 +9,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
-  Image,
   ScrollView,
   SafeAreaView
 } from 'react-native';
@@ -53,114 +52,156 @@ const ForgotPasswordScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Background elements */}
           <LinearGradient
-            colors={['#121212', '#1a1a2e']}
+            colors={['#0b0c15', '#121225']}
             style={styles.gradientBackground}
-          />
-          
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={22} color="#AAAAAA" />
-            <Text style={styles.backButtonText}>Back to Login</Text>
-          </TouchableOpacity>
+            <View style={styles.gridOverlay} />
+          </LinearGradient>
           
-          <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <LinearGradient
-                colors={['#6543CC', '#8A58FC']}
-                style={styles.logoBackground}
-              >
-                <Ionicons name="key" size={30} color="#FFFFFF" />
-              </LinearGradient>
-            </View>
-            <Text style={styles.headerTitle}>Reset Password</Text>
-            <Text style={styles.subtitle}>
-              Enter your email address to receive a password reset link
-            </Text>
-          </View>
+          <View style={styles.glowEffect} />
           
-          {sent ? (
-            <View style={styles.successMessage}>
-              <View style={styles.successIcon}>
-                <Ionicons name="checkmark" size={40} color="#FFFFFF" />
-              </View>
-              <Text style={styles.successTitle}>Reset Link Sent!</Text>
-              <Text style={styles.successText}>
-                We've sent instructions to reset your password to <Text style={styles.emailHighlight}>{email}</Text>. 
-                Please check your inbox and follow the link to complete the process.
-              </Text>
-              <Text style={styles.noteText}>
-                If you don't see the email, please check your spam folder.
-              </Text>
+          {/* Floating particles */}
+          {[...Array(5)].map((_, index) => (
+            <View 
+              key={index} 
+              style={[
+                styles.particle, 
+                { 
+                  top: `${10 + index * 20}%`, 
+                  left: `${index * 25}%`,
+                  width: 2 + index % 3,
+                  height: 2 + index % 3
+                }
+              ]} 
+            />
+          ))}
+          
+          <View style={styles.cardContainer}>
+            <LinearGradient
+              colors={['rgba(30, 30, 50, 0.8)', 'rgba(23, 26, 35, 0.95)']}
+              style={styles.card}
+            >
+              <View style={styles.cardAccent} />
               
               <TouchableOpacity 
-                style={styles.backToLoginButton}
-                onPress={() => navigation.navigate('Login')}
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
               >
-                <Text style={styles.backToLoginText}>Back to Login</Text>
+                <Ionicons name="arrow-back" size={22} color="#AAAAAA" />
+                <Text style={styles.backButtonText}>Back to Login</Text>
               </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              {error && (
-                <View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle" size={20} color="#FF4C8B" />
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              )}
               
-              <View style={styles.form}>
-                <View style={styles.inputContainer}>
-                  <Ionicons name="mail-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your registered email"
-                    placeholderTextColor="#AAAAAA"
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    returnKeyType="done"
-                    editable={!loading}
-                  />
-                </View>
-                
-                <TouchableOpacity 
-                  style={[styles.resetButton, loading && styles.disabledButton]}
-                  onPress={handleSubmit}
-                  disabled={loading}
+              <View style={styles.header}>
+                <LinearGradient
+                  colors={['#6543CC', '#8A58FC']}
+                  style={styles.logoContainer}
                 >
-                  {loading ? (
-                    <View style={styles.buttonContent}>
-                      <ActivityIndicator color="#FFFFFF" />
-                      <Text style={styles.buttonText}>Sending...</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.buttonContent}>
-                      <Text style={styles.buttonText}>Send Reset Link</Text>
-                      <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                  <Ionicons name="key" size={28} color="#FFFFFF" />
+                </LinearGradient>
+                <Text style={styles.headerTitle}>Reset Password</Text>
+                <Text style={styles.subtitle}>
+                  Enter your email address to receive a password reset link
+                </Text>
+              </View>
+              
+              {sent ? (
+                <View style={styles.successMessage}>
+                  <View style={styles.successIcon}>
+                    <Ionicons name="checkmark" size={40} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.successTitle}>Reset Link Sent!</Text>
+                  <Text style={styles.successText}>
+                    We've sent instructions to reset your password to <Text style={styles.emailHighlight}>{email}</Text>. 
+                    Please check your inbox and follow the link to complete the process.
+                  </Text>
+                  <Text style={styles.noteText}>
+                    If you don't see the email, please check your spam folder.
+                  </Text>
+                  
+                  <TouchableOpacity 
+                    style={styles.backToLoginButton}
+                    onPress={() => navigation.navigate('Login')}
+                  >
+                    <Text style={styles.backToLoginText}>Back to Login</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  {error && (
+                    <View style={styles.errorContainer}>
+                      <Ionicons name="alert-circle" size={20} color="#FF4C8B" />
+                      <Text style={styles.errorText}>{error}</Text>
                     </View>
                   )}
+                  
+                  <View style={styles.form}>
+                    <View style={styles.inputWrap}>
+                      <Text style={styles.inputLabel}>Email Address</Text>
+                      <View style={styles.inputContainer}>
+                        <Ionicons name="mail-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter your email"
+                          placeholderTextColor="#AAAAAA"
+                          value={email}
+                          onChangeText={setEmail}
+                          autoCapitalize="none"
+                          keyboardType="email-address"
+                          returnKeyType="done"
+                          editable={!loading}
+                        />
+                      </View>
+                    </View>
+                    
+                    <TouchableOpacity 
+                      style={styles.resetButton}
+                      onPress={handleSubmit}
+                      disabled={loading}
+                      activeOpacity={0.8}
+                    >
+                      <LinearGradient
+                        colors={['#6543CC', '#8A58FC']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.buttonGradient}
+                      >
+                        {loading ? (
+                          <View style={styles.buttonContent}>
+                            <ActivityIndicator color="#FFFFFF" />
+                            <Text style={styles.buttonText}>Sending...</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.buttonContent}>
+                            <Text style={styles.buttonText}>Send Reset Link</Text>
+                            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                          </View>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+              
+              <View style={styles.linksContainer}>
+                <Text style={styles.linkText}>Remember your password?</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                  <Text style={styles.linkButton}>Sign In</Text>
                 </TouchableOpacity>
               </View>
-            </>
-          )}
-          
-          <View style={styles.linksContainer}>
-            <Text style={styles.linkText}>Remember your password?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.linkButton}>Sign In</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.registerContainer}>
-            <Text style={styles.linkText}>Don't have an account?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.linkButton}>Create Account</Text>
-            </TouchableOpacity>
+              
+              <View style={styles.registerContainer}>
+                <Text style={styles.linkText}>Don't have an account?</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                  <Text style={styles.linkButton}>Create Account</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -171,14 +212,15 @@ const ForgotPasswordScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#0B0C15',
   },
   keyboardView: {
     flex: 1,
   },
   scrollContainer: {
     flexGrow: 1,
-    padding: 20,
+    paddingVertical: 20,
+    justifyContent: 'center',
   },
   gradientBackground: {
     position: 'absolute',
@@ -186,6 +228,68 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
+  },
+  gridOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    opacity: 0.2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(101, 67, 204, 0.1)',
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    width: '100%',
+    height: '100%',
+    borderRightWidth: 40,
+    borderBottomWidth: 40,
+  },
+  glowEffect: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(101, 67, 204, 0.15)',
+    top: '30%',
+    alignSelf: 'center',
+    shadowColor: '#6543CC',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 100,
+    elevation: 20,
+  },
+  particle: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#6543CC',
+    opacity: 0.6,
+  },
+  cardContainer: {
+    paddingHorizontal: 20,
+  },
+  card: {
+    borderRadius: 16,
+    padding: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  cardAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: '#8A58FC',
   },
   backButton: {
     flexDirection: 'row',
@@ -199,17 +303,15 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 25,
   },
   logoContainer: {
-    marginBottom: 20,
-  },
-  logoBackground: {
     width: 70,
     height: 70,
     borderRadius: 35,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 15,
     shadowColor: '#6543CC',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
@@ -220,7 +322,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 10,
+    marginBottom: 8,
+    textShadowColor: 'rgba(101, 67, 204, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 10,
   },
   subtitle: {
     fontSize: 16,
@@ -232,45 +337,66 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 76, 139, 0.1)',
-    padding: 10,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 12,
     marginBottom: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF4C8B',
   },
   errorText: {
     color: '#FF4C8B',
     marginLeft: 10,
     flex: 1,
+    fontSize: 14,
   },
   form: {
     width: '100%',
+  },
+  inputWrap: {
     marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    marginLeft: 4,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2A2A2A',
-    borderRadius: 8,
-    marginBottom: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 12,
     height: 50,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 5,
   },
   inputIcon: {
-    marginHorizontal: 15,
+    marginHorizontal: 12,
   },
   input: {
     flex: 1,
     height: 50,
     color: '#FFFFFF',
     paddingRight: 15,
+    fontSize: 16,
   },
   resetButton: {
-    backgroundColor: '#6543CC',
-    height: 50,
-    borderRadius: 8,
+    height: 52,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#6543CC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  buttonGradient: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#4F4F4F',
   },
   buttonContent: {
     flexDirection: 'row',
@@ -300,6 +426,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+    shadowColor: 'rgba(46, 187, 119, 0.5)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
   },
   successTitle: {
     fontSize: 22,
@@ -325,12 +456,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   backToLoginButton: {
-    backgroundColor: 'rgba(101, 67, 204, 0.2)',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#6543CC',
+    backgroundColor: 'rgba(101, 67, 204, 0.1)',
   },
   backToLoginText: {
     color: '#6543CC',

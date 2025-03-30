@@ -242,7 +242,31 @@ const AppNavigator = () => {
     }
     
     
-   
+    // IMPORTANT- Makes sure username is set so it can skip createusername screen for existing ouath users
+    if (needsUsername) {
+      const UsernameStack = createNativeStackNavigator();
+      
+      return (
+        <UsernameStack.Navigator>
+          <UsernameStack.Screen 
+            name="CreateUsername" 
+            component={CreateUsernameScreen} 
+            initialParams={{ 
+              userId: userId,
+              provider: oauth_provider || 'oauth' 
+            }}
+            options={{ headerShown: false }}
+          />
+          {/* Add this screen to enable navigation */}
+          <UsernameStack.Screen 
+            name="SubscriptionIOS" 
+            component={SubscriptionScreenIOS} 
+            options={{ headerShown: false }}
+          />
+        </UsernameStack.Navigator>
+      );
+    }
+
     // *** FIX: Use memoized subscription status instead of actual state ***  !!!CRITICAL!!!
     // If no subscription, direct to subscription screen
     if (!memoizedSubscriptionStatus) {

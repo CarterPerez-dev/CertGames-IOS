@@ -132,13 +132,15 @@ const CreateUsernameScreen = () => {
       await SecureStore.setItemAsync('userId', userId);
       
       // Fetch the updated user data
-      await dispatch(fetchUserData(userId));
+      const userDataAction = await dispatch(fetchUserData(userId));
       
       
       console.log("User data after username update:", {
         needsUsername: userDataAction.payload?.needsUsername || userDataAction.payload?.needs_username,
         fullUserData: userDataAction.payload      
-
+       });
+       
+       
       // Navigate to subscription screen after a brief delay (to show success message)
       setTimeout(() => {
         // Make sure to explicitly set all flags

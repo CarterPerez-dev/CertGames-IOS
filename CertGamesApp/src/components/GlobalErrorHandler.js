@@ -1,8 +1,8 @@
-// src/components/GlobalErrorHandler.js
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native'; 
 import { clearErrors } from '../store/slices/networkSlice';
 import { useTheme } from '../context/ThemeContext';
 
@@ -10,12 +10,14 @@ const GlobalErrorHandler = () => {
   const { isOffline = false, serverError = false } = useSelector(state => state.network || {});
   const dispatch = useDispatch();
   const { theme } = useTheme();
+
   
   if (!isOffline && !serverError) return null;
   
   const retry = () => {
     dispatch(clearErrors());
-    // Optionally trigger a refresh of key data
+    // Refresh all important data
+    dispatch(refreshAppData());
   };
   
   return (
@@ -26,7 +28,7 @@ const GlobalErrorHandler = () => {
       <View style={styles.content}>
         <Ionicons 
           name={isOffline ? "cloud-offline" : "server-outline"} 
-          size={24} 
+          size={29} 
           color="#FFFFFF" 
         />
         <Text style={styles.message}>
@@ -48,7 +50,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    padding: 15,
+    padding: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

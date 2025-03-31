@@ -33,6 +33,7 @@ import { setXPAndCoins } from '../../store/slices/userSlice';
 
 import FormattedQuestion from '../../components/FormattedQuestion';
 
+
 const { width, height } = Dimensions.get('window');
 
 // Helper functions

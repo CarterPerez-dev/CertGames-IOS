@@ -1,5 +1,4 @@
 // src/screens/profile/ProfileScreen.js
-// src/screens/profile/ProfileScreen.js
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -31,6 +30,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 // Import useUserData hook for real-time data
 import useUserData from '../../hooks/useUserData';
+import useXpProgress from '../../hooks/useXpProgress';
 
 // Import profile service to handle API calls
 import { changeUsername, changeEmail, changePassword } from '../../api/profileService';
@@ -225,11 +225,8 @@ const ProfileScreen = ({ navigation }) => {
   }, [level, levelUpAnimAnim]);
   
   // Calculate XP percentage for progress bar
-  const calculateXpPercentage = () => {
-    return Math.min((xp % 1000) / 10, 100);
-  };
-  
-  const xpPercentage = calculateXpPercentage();
+  const { xpPercentage, remainingXp } = useXpProgress(xp, level);
+
   
   // Get avatar URL
   const avatarUrl = getAvatarUrl();
@@ -596,8 +593,8 @@ const ProfileScreen = ({ navigation }) => {
                   </Animated.View>
                   
                   <View style={styles.levelProgress}>
-                    <Text style={[styles.levelProgressText, { color: theme.colors.buttonText + 'E6', fontFamily: 'ShareTechMono' }]}>
-                      NEXT LVL: {1000 - (xp % 1000)} XP
+                    <Text style={[styles.levelProgressText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                      NEXT LVL: {remainingXp} XP
                     </Text>
                     <Animated.View 
                       style={[styles.progressBarContainer, { 

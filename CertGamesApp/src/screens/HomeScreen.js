@@ -19,6 +19,7 @@ import { fetchUserData, claimDailyBonus } from '../store/slices/userSlice';
 import { useTheme } from '../context/ThemeContext'; 
 import { LinearGradient } from 'expo-linear-gradient';
 import useUserData from '../hooks/useUserData';
+import useXpProgress from '../hooks/useXpProgress';
 
 const { width } = Dimensions.get('window');
 
@@ -246,7 +247,7 @@ const HomeScreen = ({ navigation }) => {
   };
 
   // Calculate XP percentage for progress bar
-  const xpPercentage = Math.min((xp % 1000) / 10, 100);
+  const { xpPercentage, remainingXp } = useXpProgress(xp, level);
 
   // Render level up animation
   const renderLevelUpAnimation = () => {
@@ -373,7 +374,7 @@ const HomeScreen = ({ navigation }) => {
                     </Animated.View>
                     <View style={styles.levelProgress}>
                       <Text style={[styles.levelProgressText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
-                        NEXT LVL: {1000 - (xp % 1000)} XP
+                        NEXT LVL: {remainingXp} XP
                       </Text>
                       <Animated.View 
                         style={[styles.progressBarContainer, { 

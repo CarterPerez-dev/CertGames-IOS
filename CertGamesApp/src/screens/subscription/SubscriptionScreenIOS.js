@@ -484,7 +484,7 @@ const SubscriptionScreenIOS = () => {
                 colors={['#6543CC', '#8A58FC']}
                 style={styles.logoContainer}
               >
-                <Ionicons name="rocket" size={30} color="#FFFFFF" />
+                <Ionicons name="game-controller-outline" size={50} color="#FFFFFF" />
               </LinearGradient>
               <Text style={styles.headerTitle}>Cert Games</Text>
               <Text style={styles.subtitle}>Unlock your full certification potential</Text>

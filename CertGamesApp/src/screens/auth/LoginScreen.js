@@ -420,7 +420,7 @@ const LoginScreen = () => {
                   colors={['#6543CC', '#8A58FC']}
                   style={styles.logoContainer}
                 >
-                  <Ionicons name="person" size={28} color="#FFFFFF" />
+                  <Ionicons name="shield-half-outline" size={40} color="#FFFFFF" />
                 </LinearGradient>
                 <Text style={styles.headerTitle}>Welcome Back</Text>
                 <Text style={styles.subtitle}>Sign in to continue your journey</Text>
@@ -547,7 +547,7 @@ const LoginScreen = () => {
                   onPress={handleGoogleLogin}
                   disabled={loading}
                 >
-                  <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+                  <Ionicons name="logo-google" size={20} color="#EA4335" />
                   <Text style={styles.socialButtonText}>Google</Text>
                 </TouchableOpacity>
                 
@@ -558,7 +558,7 @@ const LoginScreen = () => {
                     disabled={loading}
                   >
                     <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
-                    <Text style={styles.socialButtonText}>Apple</Text>
+                    <Text style={styles.socialButtonAppleText}>Apple</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -840,7 +840,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   socialButtonText: {
-    color: '#FFFFFF',
+    color: '#4285F4',
+    fontWeight: 'bold',
+  },
+  socialButtonAppleText: {
+    color: '#979797',
     fontWeight: 'bold',
   },
   registerContainer: {

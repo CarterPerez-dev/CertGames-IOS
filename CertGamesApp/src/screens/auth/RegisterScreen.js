@@ -189,7 +189,7 @@ const RegisterScreen = () => {
     navigation.navigate('SubscriptionIOS', { 
       registrationData, 
       isOauthFlow: false ,
-      isNewUsername: needsUsername === false && isNewUser === false
+      isNewUsername: false
     });
   };
   
@@ -484,7 +484,7 @@ const RegisterScreen = () => {
                   </View>
                   
                   <View style={styles.inputHint}>
-                    <Ionicons name="information-circle-outline" size={16} color="#AAAAAA" />
+                    <Ionicons name="information-circle-outline" size={16} color="#00cc00" />
                     <Text style={styles.hintText}>3-30 characters, letters, numbers, dots, underscores, dashes</Text>
                   </View>
                 </View>
@@ -775,7 +775,7 @@ const RegisterScreen = () => {
                   onPress={handleGoogleSignUp}
                   disabled={loading}
                 >
-                  <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+                  <Ionicons name="logo-google" size={20} color="#EA4335" />
                   <Text style={styles.socialButtonText}>Google</Text>
                 </TouchableOpacity>
                 
@@ -786,7 +786,7 @@ const RegisterScreen = () => {
                     disabled={loading}
                   >
                     <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
-                    <Text style={styles.socialButtonText}>Apple</Text>
+                    <Text style={styles.socialButtonAppleText}>Apple</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1170,7 +1170,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   socialButtonText: {
-    color: '#FFFFFF',
+    color: '#4285F4',
+    fontWeight: 'bold',
+  },
+  socialButtonAppleText: {
+    color: '#979797',
     fontWeight: 'bold',
   },
   loginContainer: {

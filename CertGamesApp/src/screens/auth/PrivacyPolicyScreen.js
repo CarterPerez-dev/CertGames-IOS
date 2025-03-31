@@ -54,7 +54,7 @@ const PrivacyPolicyScreen = () => {
           <Ionicons name="shield-checkmark-outline" size={30} color="#6543CC" style={styles.headerIcon} />
           <Text style={styles.headerTitle}>Privacy Policy</Text>
         </View>
-        <Text style={styles.headerDate}>Last updated: March 15, 2025</Text>
+        <Text style={styles.headerDate}>Last updated: March 30, 2025</Text>
       </View>
       
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -104,7 +104,7 @@ const PrivacyPolicyScreen = () => {
             </Text>
             <View style={styles.list}>
               <Text style={styles.listItem}>• <Text style={styles.bold}>Personal Information:</Text> This includes your name, email address, and username when you register for an account.</Text>
-              <Text style={styles.listItem}>• <Text style={styles.bold}>Authentication Information:</Text> When you sign in using Google or Apple authentication services, we receive basic profile information such as your name and email address.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Authentication Information:</Text> When you sign in using Google or Ouath, we receive basic profile information such as your name and email address.</Text>
               <Text style={styles.listItem}>• <Text style={styles.bold}>Usage Data:</Text> Information about how you interact with our app, including tests taken, scores, achievements, and usage patterns.</Text>
               <Text style={styles.listItem}>• <Text style={styles.bold}>Payment Information:</Text> When you purchase a subscription, payment information is processed by our payment provider. We do not store complete payment details on our servers.</Text>
               <Text style={styles.listItem}>• <Text style={styles.bold}>Device Information:</Text> We may collect information about your device, including your IP address, browser type, operating system, and other technical details.</Text>
@@ -235,7 +235,7 @@ const PrivacyPolicyScreen = () => {
           <View style={styles.section} id="children">
             <Text style={styles.sectionTitle}>9. Children's Privacy</Text>
             <Text style={styles.paragraph}>
-              Our services are not intended for children under 13, and we do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe that your child has provided us with personal information, please contact us so that we can take appropriate steps.
+              Our services are not intended for children under 4 years of age and we do not knowingly collect personal information from children under 4 years of age. If you are a parent or guardian and believe that your child has provided us with personal information, please contact us so that we can take appropriate steps.
             </Text>
           </View>
           

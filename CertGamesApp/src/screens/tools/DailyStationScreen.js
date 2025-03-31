@@ -581,7 +581,9 @@ const DailyStationScreen = () => {
                               borderLeftColor: theme.colors.primary
                             }]}>
                               <Text style={[globalStyles.text, { fontWeight: '600' }, styles.explanationTitle]}>Explanation:</Text>
-                              <FormattedQuestion questionText={questionData.explanation || (submitResult && submitResult.explanation)} />
+                              <Text style={[globalStyles.text, styles.explanationText]}>
+                                {questionData.explanation || (submitResult && submitResult.explanation)}
+                              </Text>
                             </View>
                           )}
                           

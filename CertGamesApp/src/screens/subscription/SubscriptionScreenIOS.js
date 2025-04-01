@@ -246,24 +246,25 @@ const SubscriptionScreenIOS = () => {
         const userState = await dispatch(fetchUserData(userIdToUse)).unwrap();
         
         // Navigate to the main app
-        Alert.alert(
-          "Subscription Successful",
-          "Thank you for subscribing to CertGames! You now have full access to all features.",
-          [{ 
-            text: "Continue", 
-            onPress: async () => {
-              console.log("Attempting navigation after subscription purchase");
-              // Reset entire navigation stack to avoid navigation issues
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }]
-              });
-            }
-          }]
-        );
-      } catch (error) {
-        console.error('Subscription error:', error);
-        setError('Failed to complete subscription purchase: ' + (error.message || ''));
+        if (userState.subscriptionActive) {
+          Alert.alert(
+            "Subscription Successful",
+            "Thank you for subscribing to CertGames! You now have full access to all features.",
+            [{ 
+              text: "Continue", 
+              onPress: () => {
+                // Still use reset to clear navigation stack
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Home' }]
+                });
+              }
+            }]
+          );
+        } else {
+          // Handle case where subscription verification failed
+          setError("Subscription was purchased but not activated. Please try restoring purchases.");
+        }
       } finally {
         setLoading(false);
         setPurchaseInProgress(false);

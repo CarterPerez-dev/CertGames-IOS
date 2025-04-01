@@ -239,28 +239,49 @@ const SubscriptionScreenIOS = () => {
           return;
         }
         
+        if (result.alreadySubscribed) {
+          Alert.alert(
+            "Already Subscribed",
+            "You already have an active subscription.",
+            [{ text: "OK" }]
+          );
+          return;
+        }        
+        
         // Update subscription status in Redux
-        await dispatch(checkSubscription(userIdToUse));
+        await dispatch(checkSubscription(userId));
         
         // FIXED: Properly wait for subscription status to update in Redux
-        const userState = await dispatch(fetchUserData(userIdToUse)).unwrap();
+        const userState = await dispatch(fetchUserData(userId)).unwrap();
         
         // Navigate to the main app
         if (userState.subscriptionActive) {
+          const navigationTimer = setTimeout(() => {
+            // This will trigger if the alert is dismissed without using the Continue button
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' }]
+            });
+          }, 5000); // 5 second timeout
+        
+          // Show success alert with navigation in the button press
           Alert.alert(
             "Subscription Successful",
             "Thank you for subscribing to CertGames! You now have full access to all features.",
             [{ 
               text: "Continue", 
               onPress: () => {
-                // Still use reset to clear navigation stack
+                // Clear the timer when the button is pressed
+                clearTimeout(navigationTimer);
+                // Navigate to Home screen
                 navigation.reset({
                   index: 0,
                   routes: [{ name: 'Home' }]
                 });
               }
-            }]
+            }]         
           );
+          
         } else {
           // Handle case where subscription verification failed
           setError("Subscription was purchased but not activated. Please try restoring purchases.");
@@ -329,6 +350,16 @@ const SubscriptionScreenIOS = () => {
       // FIXED: Properly wait for user data to update with new subscription status
       await dispatch(fetchUserData(userIdToUse));
       
+      
+      const navigationTimer = setTimeout(() => {
+        // Fallback navigation if alert is dismissed without clicking Continue
+        console.log("Navigation fallback timer triggered");
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }]
+        });
+      }, 5000); // 5 seconds timeout
+
       // FIXED: Improved navigation handling
       Alert.alert(
         "Subscription Successful",
@@ -336,6 +367,8 @@ const SubscriptionScreenIOS = () => {
         [{ 
           text: "Continue", 
           onPress: async () => {
+            // clear timer
+            clearTimeout(navigationTimer);
             console.log("Attempting navigation after subscription purchase");
             // Reset entire navigation stack to ensure proper navigation
             navigation.reset({

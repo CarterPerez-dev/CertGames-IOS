@@ -77,8 +77,17 @@ class AppleSubscriptionService {
       
       // ENHANCED DEBUGGING
       console.log("===== SUBSCRIPTION PURCHASE ATTEMPT =====");
-      console.log("User ID:", userId);
+      console.log("User ID:", userId);     
       
+      const subscriptionStatus = await this.checkSubscriptionStatus(userId);
+         
+      if (subscriptionStatus.subscriptionActive) {
+        return {
+          success: true,
+          alreadySubscribed: true,
+          message: "You already have an active subscription."
+        };
+      }        
       // Ensure connection is initialized
       const connectionResult = await this.initializeConnection();
       console.log("Connection initialized:", connectionResult);

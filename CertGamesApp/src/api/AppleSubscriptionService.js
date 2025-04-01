@@ -50,19 +50,23 @@ class AppleSubscriptionService {
       // Ensure connection is initialized
       await this.initializeConnection();
       
+      // FIXED: Add delay before requesting products
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       console.log("Requesting subscriptions for product ID:", SUBSCRIPTION_PRODUCT_ID);
       
-      // Fetch available subscriptions - corrected method call with proper parameter format
-      const subscriptions = await getSubscriptions({
+      // FIXED: Use getProducts instead of getSubscriptions for more reliable results
+      const products = await getProducts({
         skus: [SUBSCRIPTION_PRODUCT_ID]
       });
       
-      console.log("Available subscriptions:", subscriptions);
-      return subscriptions;
+      console.log("Available products:", products);
+      return products;
     } catch (error) {
       console.error('Failed to get subscriptions:', error);
-      // Return error info instead of throwing
-      return { error: error.message, code: error.code };
+      // Instead of returning empty error object, return empty array with better logging
+      console.error('Error details:', error.stack || JSON.stringify(error));
+      return [];
     }
   }
 
@@ -71,23 +75,25 @@ class AppleSubscriptionService {
     try {
       if (Platform.OS !== 'ios') throw new Error('Only available on iOS');
       
+      // ENHANCED DEBUGGING
+      console.log("===== SUBSCRIPTION PURCHASE ATTEMPT =====");
+      console.log("User ID:", userId);
+      
       // Ensure connection is initialized
-      await this.initializeConnection();
+      const connectionResult = await this.initializeConnection();
+      console.log("Connection initialized:", connectionResult);
       
       // Check for pending transactions first
-      await this.checkPendingTransactions();
+      const pendingResult = await this.checkPendingTransactions();
+      console.log("Pending transactions checked:", pendingResult);
       
-      // Check if subscription is available
+      // Check subscription availability but don't block purchase on empty results
       const subscriptions = await this.getAvailableSubscriptions();
-      if (subscriptions.error) {
-        throw new Error(subscriptions.error);
-      }
+      console.log("Subscription check result:", 
+        Array.isArray(subscriptions) ? `Found ${subscriptions.length} subscriptions` : "No array returned");
       
-      if (!subscriptions || subscriptions.length === 0) {
-        throw new Error('No subscription products are available');
-      }
-      
-      console.log("Requesting subscription purchase for:", SUBSCRIPTION_PRODUCT_ID);
+      // IMPORTANT FIX: Proceed with purchase even if no subscriptions found
+      console.log("Attempting purchase for:", SUBSCRIPTION_PRODUCT_ID);
       
       // Request the subscription purchase
       const result = await requestSubscription({

@@ -240,11 +240,11 @@ const SubscriptionScreenIOS = () => {
         }
         
         if (result.alreadySubscribed) {
-          Alert.alert(
-            "Already Subscribed",
-            "You already have an active subscription.",
-            [{ text: "OK" }]
-          );
+          // User already has subscription - navigate directly to Home
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Home' }]
+          });
           return;
         }        
         
@@ -252,39 +252,27 @@ const SubscriptionScreenIOS = () => {
         await dispatch(checkSubscription(userId));
         
         // FIXED: Properly wait for subscription status to update in Redux
-        const userState = await dispatch(fetchUserData(userId)).unwrap();
+        await dispatch(fetchUserData(userId)).unwrap();
         
-        // Navigate to the main app
-        if (userState.subscriptionActive) {
-          const navigationTimer = setTimeout(() => {
-            // This will trigger if the alert is dismissed without using the Continue button
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Home' }]
-            });
-          }, 5000); // 5 second timeout
+        // Navigate directly to the main app without alert
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }]
+        });
         
-          // Show success alert with navigation in the button press
-          Alert.alert(
-            "Subscription Successful",
-            "Thank you for subscribing to CertGames! You now have full access to all features.",
-            [{ 
-              text: "Continue", 
-              onPress: () => {
-                // Clear the timer when the button is pressed
-                clearTimeout(navigationTimer);
-                // Navigate to Home screen
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Home' }]
-                });
-              }
-            }]         
-          );
-          
+      } catch (error) {
+        console.error('Subscription error:', error);
+        
+        let errorMessage = 'Failed to complete subscription purchase';
+        if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        // Handle user cancellation differently
+        if (error.message && error.message.includes('cancel')) {
+          setError('Subscription purchase was cancelled.');
         } else {
-          // Handle case where subscription verification failed
-          setError("Subscription was purchased but not activated. Please try restoring purchases.");
+          setError(errorMessage);
         }
       } finally {
         setLoading(false);
@@ -350,34 +338,12 @@ const SubscriptionScreenIOS = () => {
       // FIXED: Properly wait for user data to update with new subscription status
       await dispatch(fetchUserData(userIdToUse));
       
-      
-      const navigationTimer = setTimeout(() => {
-        // Fallback navigation if alert is dismissed without clicking Continue
-        console.log("Navigation fallback timer triggered");
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' }]
-        });
-      }, 5000); // 5 seconds timeout
-
-      // FIXED: Improved navigation handling
-      Alert.alert(
-        "Subscription Successful",
-        "Thank you for subscribing to CertGames! You now have full access to all features.",
-        [{ 
-          text: "Continue", 
-          onPress: async () => {
-            // clear timer
-            clearTimeout(navigationTimer);
-            console.log("Attempting navigation after subscription purchase");
-            // Reset entire navigation stack to ensure proper navigation
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Home' }]
-            });
-          }
-        }]
-      );
+      // Navigate directly to home without alert
+      console.log("Navigating to Home screen after successful purchase");
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }]
+      });
       
     } catch (error) {
       console.error('Subscription error:', error);
@@ -421,10 +387,8 @@ const SubscriptionScreenIOS = () => {
       const restoreResult = await AppleSubscriptionService.restorePurchases(userId);
       
       if (!restoreResult.success) {
-        Alert.alert(
-          "Restore Result",
-          restoreResult.message || "No previous subscriptions found to restore."
-        );
+        // No alerts - just set error message
+        setError(restoreResult.message || "No previous subscriptions found to restore.");
         return;
       }
       
@@ -433,25 +397,14 @@ const SubscriptionScreenIOS = () => {
       // Update subscription status in Redux
       await dispatch(checkSubscription(userId));
       
-      // Navigate to the main app if subscription is now active
+      // Fetch updated user data
       const userState = await dispatch(fetchUserData(userId)).unwrap();
       
       if (userState.subscriptionActive) {
-        Alert.alert(
-          "Subscription Restored",
-          "Your subscription has been successfully restored!",
-          [
-            { 
-              text: "Continue", 
-              onPress: () => navigation.navigate('Home')
-            }
-          ]
-        );
+        // Navigate directly to Home without alert
+        navigation.navigate('Home');
       } else {
-        Alert.alert(
-          "Restore Completed",
-          "No active subscriptions were found to restore."
-        );
+        setError("No active subscriptions were found to restore.");
       }
       
     } catch (error) {

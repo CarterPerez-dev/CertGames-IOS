@@ -8,7 +8,8 @@ import {
   finishTransaction,
   clearTransactionIOS,
   validateReceiptIos,
-  getPurchaseHistory
+  getPurchaseHistory,
+  getPendingPurchases
 } from 'react-native-iap';
 import { Platform } from 'react-native';
 import axios from 'axios';
@@ -65,13 +66,16 @@ class AppleSubscriptionService {
     }
   }
 
-  // Purchase a subscription
+  // Purchase a subscription - IMPROVED ERROR HANDLING
   async purchaseSubscription(userId) {
     try {
       if (Platform.OS !== 'ios') throw new Error('Only available on iOS');
       
       // Ensure connection is initialized
       await this.initializeConnection();
+      
+      // Check for pending transactions first
+      await this.checkPendingTransactions();
       
       // Check if subscription is available
       const subscriptions = await this.getAvailableSubscriptions();
@@ -93,8 +97,13 @@ class AppleSubscriptionService {
       
       console.log("Purchase result:", result);
       
+      // IMPROVED ERROR HANDLING
+      if (!result) {
+        return { success: false, error: 'No purchase result returned' };
+      }
+      
       // Validate receipt with Apple and our backend
-      if (result && result.transactionReceipt) {
+      if (result.transactionReceipt) {
         await this.verifyReceiptWithBackend(userId, result.transactionReceipt);
         
         // Finish the transaction
@@ -103,12 +112,15 @@ class AppleSubscriptionService {
             transactionId: result.transactionId,
             isConsumable: false
           });
+          console.log("Finished transaction:", result.transactionId);
+        } else {
+          console.log("No transactionId found in result to finish");
         }
         
         return {
           success: true,
-          transactionId: result.transactionId,
-          productId: result.productId
+          transactionId: result.transactionId || 'unknown',
+          productId: result.productId || SUBSCRIPTION_PRODUCT_ID
         };
       }
       
@@ -116,6 +128,33 @@ class AppleSubscriptionService {
     } catch (error) {
       console.error('Failed to purchase subscription:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  // ADDED: Check for pending transactions and finish them
+  async checkPendingTransactions() {
+    try {
+      if (Platform.OS !== 'ios') return false;
+      
+      const pending = await getPendingPurchases();
+      if (pending && pending.length > 0) {
+        console.log("Found pending transactions:", pending.length);
+        
+        // Finish each pending transaction
+        for (const purchase of pending) {
+          if (purchase.transactionId) {
+            await finishTransaction({
+              transactionId: purchase.transactionId,
+              isConsumable: false
+            });
+            console.log("Finished pending transaction:", purchase.transactionId);
+          }
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error("Error checking pending transactions:", error);
+      return false;
     }
   }
 

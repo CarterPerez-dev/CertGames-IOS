@@ -58,7 +58,7 @@ const SubscriptionScreenIOS = () => {
   const message = route.params?.message;
   const isRenewal = route.params?.renewal || false;
   
-  // This helps with debugging to understand what's going on
+  // Debug logging
   useEffect(() => {
     console.log("SubscriptionScreen params:", {
       registrationData: registrationData ? "present" : "not present",
@@ -81,6 +81,9 @@ const SubscriptionScreenIOS = () => {
         if (!connectionInitialized) {
           throw new Error('Failed to initialize App Store connection');
         }
+        
+        // Check for and finish any pending transactions
+        await AppleSubscriptionService.checkPendingTransactions();
         
         console.log("Fetching available subscriptions...");
         
@@ -201,6 +204,7 @@ const SubscriptionScreenIOS = () => {
     }
   };
   
+  // IMPROVED ERROR HANDLING FOR SUBSCRIPTION
   const handleSubscribe = async () => {
     // Prevent concurrent purchase attempts
     if (purchaseInProgress) {
@@ -214,6 +218,9 @@ const SubscriptionScreenIOS = () => {
       setLoading(true);
       setPurchaseInProgress(true); // Set flag to prevent multiple attempts
       setError(null);
+      
+      // Check for pending transactions first
+      await AppleSubscriptionService.checkPendingTransactions();
       
       // Check if this is a new registration
       if (registrationData && !registrationCompleted) {
@@ -235,11 +242,23 @@ const SubscriptionScreenIOS = () => {
       
       console.log("Requesting subscription for user:", userIdToUse);
       
-      // Request subscription purchase
+      // Request subscription purchase with improved error handling
       const purchaseResult = await AppleSubscriptionService.purchaseSubscription(userIdToUse);
       
-      if (!purchaseResult.success) {
-        throw new Error(purchaseResult.error || 'Failed to complete subscription purchase');
+      console.log("Purchase result:", purchaseResult);
+      
+      // Better handling of purchase results
+      if (!purchaseResult || !purchaseResult.success) {
+        const errorMessage = purchaseResult?.error || 'Failed to complete subscription purchase';
+        console.error('Purchase failed:', errorMessage);
+        
+        // Show appropriate error message
+        if (errorMessage.includes('cancel')) {
+          setError('Subscription purchase was cancelled.');
+        } else {
+          setError(errorMessage);
+        }
+        return;
       }
       
       console.log("Subscription purchased successfully:", purchaseResult);

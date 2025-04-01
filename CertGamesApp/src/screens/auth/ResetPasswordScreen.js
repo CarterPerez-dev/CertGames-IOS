@@ -18,6 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { requestPasswordReset } from '../../api/passwordResetService';
 
+const { width, height } = Dimensions.get('window');
+
 const ForgotPasswordScreen = () => {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);

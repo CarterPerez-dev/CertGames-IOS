@@ -34,6 +34,7 @@ import useXpProgress from '../../hooks/useXpProgress';
 
 // Import profile service to handle API calls
 import { changeUsername, changeEmail, changePassword } from '../../api/profileService';
+import apiClient from '../../api/apiClient';
 
 const { width, height } = Dimensions.get('window');
 
@@ -57,6 +58,7 @@ const ProfileScreen = ({ navigation }) => {
     nameColor,
     purchasedItems,
     subscriptionActive,
+    oauth_provider,
     shopItems,
     getAvatarUrl,
     refreshData,
@@ -109,6 +111,9 @@ const ProfileScreen = ({ navigation }) => {
   // Local state for UI updates
   const [refreshing, setRefreshing] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+
+  // Delete account state
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -408,6 +413,67 @@ const ProfileScreen = ({ navigation }) => {
     } finally {
       setPasswordLoading(false);
     }
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    if (Platform.OS === 'ios') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+    
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone. If you have an active subscription, please cancel it in the App Store subscription management.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete Account',
+          onPress: async () => {
+            try {
+              setDeleteAccountLoading(true);
+              const response = await apiClient.delete(`/api/test/user/${userId}`);
+              
+              if (response.status === 200 || response.status === 204) {
+                // Account deleted successfully
+                await SecureStore.deleteItemAsync('userId');
+                dispatch(logout());
+                
+                // Since we're logging out, we don't need to show a success message
+                // as the user will be redirected to the login screen
+              } else {
+                const data = await response.json();
+                showStatusMessage(data.error || 'Failed to delete account', 'error');
+              }
+            } catch (error) {
+              console.error('Error deleting account:', error);
+              showStatusMessage('Failed to delete account. Please try again.', 'error');
+              if (Platform.OS === 'ios') {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              }
+            } finally {
+              setDeleteAccountLoading(false);
+            }
+          },
+          style: 'destructive'
+        }
+      ]
+    );
+  };
+  
+  // Handle OAuth user trying to change password
+  const handleOAuthPasswordChange = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+    
+    Alert.alert(
+      'Password Change Not Available',
+      'Password change is not available for accounts created using social login. Please manage your account security through your social provider.',
+      [{ text: 'OK' }]
+    );
   };
   
   // Navigate to Achievements screen
@@ -1298,7 +1364,24 @@ const ProfileScreen = ({ navigation }) => {
                   </Text>
                 </View>
                 
-                {showChangePassword ? (
+                {oauth_provider ? (
+                  <TouchableOpacity 
+                    style={[
+                      styles.changeButton,
+                      { 
+                        backgroundColor: theme.colors.surface, 
+                        borderColor: theme.colors.primary + '30',
+                        opacity: 0.7 
+                      }
+                    ]}
+                    onPress={handleOAuthPasswordChange}
+                  >
+                    <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
+                    <Text style={[styles.changeButtonText, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
+                      MANAGED BY {oauth_provider.toUpperCase()} ACCOUNT
+                    </Text>
+                  </TouchableOpacity>
+                ) : showChangePassword ? (
                   <View style={styles.changeForm}>
                     <View style={styles.passwordInputContainer}>
                       <TextInput
@@ -1446,6 +1529,27 @@ const ProfileScreen = ({ navigation }) => {
                 )}
               </View>
             </View>
+            
+            {/* Delete Account Button */}
+            <TouchableOpacity 
+              style={[
+                styles.deleteAccountButton,
+                { backgroundColor: theme.colors.error }
+              ]} 
+              onPress={handleDeleteAccount}
+              disabled={deleteAccountLoading}
+            >
+              {deleteAccountLoading ? (
+                <ActivityIndicator color={theme.colors.buttonText} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="trash" size={20} color={theme.colors.buttonText} />
+                  <Text style={[styles.deleteAccountButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
+                    DELETE ACCOUNT
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
             
             <View style={[styles.securityInfoPanel, { 
               backgroundColor: theme.colors.surface,
@@ -2002,6 +2106,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   supportButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
+    letterSpacing: 0.5,
+  },
+  
+  // Delete Account Button
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginVertical: 16,
+  },
+  deleteAccountButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 10,

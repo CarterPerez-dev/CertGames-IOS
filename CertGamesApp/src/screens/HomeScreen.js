@@ -755,6 +755,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 1,
+    flexShrink: 1,
   },
   userStatusIndicator: {
     flexDirection: 'row',

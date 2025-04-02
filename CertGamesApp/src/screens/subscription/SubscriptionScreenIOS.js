@@ -276,12 +276,46 @@ const SubscriptionScreenIOS = () => {
         return;
       }
       
-      // NEW: Add specific handling for past_due subscriptions
-      if (subscriptionStatus === 'past_due') {
-        console.log("Renewing expired subscription for user:", userIdToUse);
-      } else {
-        console.log("Requesting new subscription for user:", userIdToUse);
+      // Get updated user data to check current subscription status
+      const initialUserData = await dispatch(fetchUserData(userIdToUse)).unwrap();
+      const isPastDue = initialUserData?.subscriptionStatus === 'past_due';
+      
+      // For past_due subscriptions, try restore flow first
+      if (isPastDue) {
+        console.log("Past due subscription detected, trying restore flow");
+        try {
+          const restoreResult = await AppleSubscriptionService.restorePurchases(userIdToUse);
+          console.log("Restore result:", restoreResult);
+          
+          if (restoreResult.success) {
+            console.log("Subscription restored successfully");
+            
+            // Add delay to allow server sync
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Check if restoration worked
+            await dispatch(checkSubscription(userIdToUse));
+            const updatedData = await dispatch(fetchUserData(userIdToUse)).unwrap();
+            
+            if (updatedData.subscriptionActive) {
+              console.log("Subscription active after restore, navigating to Home");
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' }]
+              });
+              return;
+            }
+            // If restore didn't activate subscription, continue to regular purchase flow
+            console.log("Restore didn't activate subscription, falling back to purchase flow");
+          }
+        } catch (restoreError) {
+          console.log("Restore attempt failed:", restoreError);
+          // Continue to regular purchase flow
+        }
       }
+      
+      // Regular purchase flow
+      console.log("Requesting new subscription for user:", userIdToUse);
       
       // Request subscription purchase with improved error handling
       const purchaseResult = await AppleSubscriptionService.purchaseSubscription(userIdToUse);
@@ -368,7 +402,6 @@ const SubscriptionScreenIOS = () => {
       setPurchaseInProgress(false);
     }
   };
-  
   
   const handleRestorePurchases = async () => {
     // Prevent concurrent operations

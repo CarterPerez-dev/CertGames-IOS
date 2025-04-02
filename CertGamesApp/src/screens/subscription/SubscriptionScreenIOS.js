@@ -276,7 +276,12 @@ const SubscriptionScreenIOS = () => {
         return;
       }
       
-      console.log("Requesting subscription for user:", userIdToUse);
+      // NEW: Add specific handling for past_due subscriptions
+      if (subscriptionStatus === 'past_due') {
+        console.log("Renewing expired subscription for user:", userIdToUse);
+      } else {
+        console.log("Requesting new subscription for user:", userIdToUse);
+      }
       
       // Request subscription purchase with improved error handling
       const purchaseResult = await AppleSubscriptionService.purchaseSubscription(userIdToUse);
@@ -363,8 +368,6 @@ const SubscriptionScreenIOS = () => {
       setPurchaseInProgress(false);
     }
   };
-  
-  
   
   
   const handleRestorePurchases = async () => {

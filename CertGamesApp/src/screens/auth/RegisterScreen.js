@@ -473,7 +473,7 @@ const RegisterScreen = () => {
                     <Ionicons name="person-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Unique Username"
+                      placeholder="Unique Username update"
                       placeholderTextColor="#AAAAAA"
                       value={username}
                       onChangeText={setUsername}

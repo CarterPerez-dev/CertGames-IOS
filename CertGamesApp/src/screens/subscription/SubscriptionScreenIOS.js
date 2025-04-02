@@ -206,7 +206,7 @@ const SubscriptionScreenIOS = () => {
     }
   };
   
-  // IMPROVED ERROR HANDLING FOR SUBSCRIPTION
+  // IMPROVED ERROR HANDLING FOR SUBSCRIPTION - UPDATED WITH FIX
   const handleSubscribe = async () => {
     // Prevent concurrent purchase attempts
     if (purchaseInProgress) {
@@ -248,20 +248,38 @@ const SubscriptionScreenIOS = () => {
           return;
         }        
         
-        // Update subscription status in Redux
+        // IMPORTANT FIX: First update subscription status in Redux
         await dispatch(checkSubscription(userId));
         
-        // FIXED: Properly wait for subscription status to update in Redux
-        await dispatch(fetchUserData(userId)).unwrap();
+        // CRITICAL FIX: Wait for user data to fully update in Redux
+        const userData = await dispatch(fetchUserData(userId)).unwrap();
         
-        // UPDATED: Add delay to allow Apple's purchase confirmation alert to be shown and dismissed
-        setTimeout(() => {
-          console.log("Navigating to Home screen after delay");
+        console.log(`Subscription status after update: ${userData.subscriptionActive}`);
+        
+        // Verify that subscription is actually active before navigating
+        if (userData.subscriptionActive) {
+          console.log("Subscription active, navigating to Home screen");
+          // IMPORTANT: Use direct navigation instead of setTimeout
           navigation.reset({
             index: 0,
             routes: [{ name: 'Home' }]
           });
-        }, 1500); // 1.5 second delay to allow Apple's system UI time to complete
+          console.log("Navigation reset to Home attempted");
+        } else {
+          // Handle edge case where subscription didn't activate
+          console.log("Subscription not showing as active yet, checking again...");
+          // Try one more time after a short delay
+          setTimeout(async () => {
+            await dispatch(checkSubscription(userId));
+            const refreshedUserData = await dispatch(fetchUserData(userId)).unwrap();
+            console.log(`Re-checked subscription status: ${refreshedUserData.subscriptionActive}`);
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' }]
+            });
+            console.log("Delayed navigation reset to Home attempted");
+          }, 2000);
+        }
         
       } catch (error) {
         console.error('Subscription error:', error);
@@ -335,21 +353,38 @@ const SubscriptionScreenIOS = () => {
       
       console.log("Subscription purchased successfully:", purchaseResult);
       
-      // Update subscription status in Redux
+      // IMPORTANT FIX: First update subscription status in Redux
       await dispatch(checkSubscription(userIdToUse));
       
-      // FIXED: Properly wait for user data to update with new subscription status
-      await dispatch(fetchUserData(userIdToUse));
+      // CRITICAL FIX: Wait for user data to fully update in Redux
+      const userData = await dispatch(fetchUserData(userIdToUse)).unwrap();
       
-      // UPDATED: Add delay to allow Apple's purchase confirmation alert to be shown and dismissed
-      setTimeout(() => {
-        console.log("Navigating to Home screen after delay");
-        // Navigate directly to home without alert
+      console.log(`Subscription status after update: ${userData.subscriptionActive}`);
+      
+      // Verify that subscription is actually active before navigating
+      if (userData.subscriptionActive) {
+        console.log("Subscription active, navigating to Home screen");
+        // IMPORTANT: Use direct navigation instead of setTimeout
         navigation.reset({
           index: 0,
           routes: [{ name: 'Home' }]
         });
-      }, 1500); // 1.5 second delay to allow Apple's system UI time to complete
+        console.log("Navigation reset to Home attempted");
+      } else {
+        // Handle edge case where subscription didn't activate
+        console.log("Subscription not showing as active yet, checking again...");
+        // Try one more time after a short delay
+        setTimeout(async () => {
+          await dispatch(checkSubscription(userIdToUse));
+          const refreshedUserData = await dispatch(fetchUserData(userIdToUse)).unwrap();
+          console.log(`Re-checked subscription status: ${refreshedUserData.subscriptionActive}`);
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Home' }]
+          });
+          console.log("Delayed navigation reset to Home attempted");
+        }, 2000);
+      }
       
     } catch (error) {
       console.error('Subscription error:', error);
@@ -404,17 +439,18 @@ const SubscriptionScreenIOS = () => {
       await dispatch(checkSubscription(userId));
       
       // Fetch updated user data
-      const userState = await dispatch(fetchUserData(userId)).unwrap();
+      const userData = await dispatch(fetchUserData(userId)).unwrap();
       
-      if (userState.subscriptionActive) {
-        // UPDATED: Add delay to allow Apple's restore confirmation alert to be shown and dismissed
-        setTimeout(() => {
-          console.log("Navigating to Home screen after restore and delay");
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Home' }]
-          });
-        }, 1500); // 1.5 second delay
+      console.log(`Subscription status after restore: ${userData.subscriptionActive}`);
+      
+      if (userData.subscriptionActive) {
+        console.log("Subscription restored and active, navigating to Home");
+        // IMPORTANT FIX: Use direct navigation instead of setTimeout
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }]
+        });
+        console.log("Navigation reset to Home attempted after restore");
       } else {
         setError("No active subscriptions were found to restore.");
       }

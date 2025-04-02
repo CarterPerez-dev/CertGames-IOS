@@ -322,7 +322,7 @@ const userSlice = createSlice({
       // APPLE SUBSCRIPTION VERIFICATION
       .addCase(verifyAppleSubscription.fulfilled, (state, action) => {
         if (action.payload.success) {
-          state.subscriptionActive = action.payload.subscriptionActive || false;
+          state.subscriptionActive = Boolean(action.payload.subscriptionActive);
           state.subscriptionStatus = action.payload.subscriptionStatus || null;
           state.subscriptionPlatform = 'apple';
           state.appleTransactionId = action.payload.transaction_id || null;
@@ -340,7 +340,7 @@ const userSlice = createSlice({
       
       // CHECK SUBSCRIPTION STATUS
       .addCase(checkSubscription.fulfilled, (state, action) => {
-        state.subscriptionActive = action.payload.subscriptionActive || false;
+        state.subscriptionActive = Boolean(action.payload.subscriptionActive);
         state.subscriptionStatus = action.payload.subscriptionStatus || null;
         state.subscriptionPlatform = action.payload.subscriptionPlatform || null;
         state.status = 'idle';

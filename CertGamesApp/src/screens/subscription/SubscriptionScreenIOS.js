@@ -254,11 +254,14 @@ const SubscriptionScreenIOS = () => {
         // FIXED: Properly wait for subscription status to update in Redux
         await dispatch(fetchUserData(userId)).unwrap();
         
-        // Navigate directly to the main app without alert
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' }]
-        });
+        // UPDATED: Add delay to allow Apple's purchase confirmation alert to be shown and dismissed
+        setTimeout(() => {
+          console.log("Navigating to Home screen after delay");
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Home' }]
+          });
+        }, 1500); // 1.5 second delay to allow Apple's system UI time to complete
         
       } catch (error) {
         console.error('Subscription error:', error);
@@ -338,12 +341,15 @@ const SubscriptionScreenIOS = () => {
       // FIXED: Properly wait for user data to update with new subscription status
       await dispatch(fetchUserData(userIdToUse));
       
-      // Navigate directly to home without alert
-      console.log("Navigating to Home screen after successful purchase");
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }]
-      });
+      // UPDATED: Add delay to allow Apple's purchase confirmation alert to be shown and dismissed
+      setTimeout(() => {
+        console.log("Navigating to Home screen after delay");
+        // Navigate directly to home without alert
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }]
+        });
+      }, 1500); // 1.5 second delay to allow Apple's system UI time to complete
       
     } catch (error) {
       console.error('Subscription error:', error);
@@ -401,8 +407,14 @@ const SubscriptionScreenIOS = () => {
       const userState = await dispatch(fetchUserData(userId)).unwrap();
       
       if (userState.subscriptionActive) {
-        // Navigate directly to Home without alert
-        navigation.navigate('Home');
+        // UPDATED: Add delay to allow Apple's restore confirmation alert to be shown and dismissed
+        setTimeout(() => {
+          console.log("Navigating to Home screen after restore and delay");
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Home' }]
+          });
+        }, 1500); // 1.5 second delay
       } else {
         setError("No active subscriptions were found to restore.");
       }

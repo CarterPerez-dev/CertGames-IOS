@@ -229,6 +229,10 @@ const ProfileScreen = ({ navigation }) => {
     prevLevelRef.current = level;
   }, [level, levelUpAnimAnim]);
   
+  
+  
+
+
   // Calculate XP percentage for progress bar
   const { xpPercentage, remainingXp } = useXpProgress(xp, level);
 
@@ -1089,39 +1093,117 @@ const ProfileScreen = ({ navigation }) => {
               shadowColor: theme.colors.shadow,
             }]}>
               {/* Change Username */}
-              <View style={[styles.settingsSection, { borderBottomColor: theme.colors.border }]}>
+
+              
+              {/* Change Password */}
+              <View style={styles.settingsSection}>
                 <View style={styles.settingHeader}>
                   <View style={styles.settingLabelContainer}>
-                    <Ionicons name="at" size={18} color={theme.colors.primary} />
+                    <Ionicons name="lock-closed" size={18} color={theme.colors.primary} />
                     <Text style={[styles.settingLabel, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
-                      USERNAME
+                      PASSWORD
                     </Text>
                   </View>
                   
                   <Text style={[styles.settingValue, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                    {username}
+                    ••••••••••
                   </Text>
                 </View>
                 
-                {showChangeUsername ? (
+                {(!oauth_provider && showChangePassword) ? (
                   <View style={styles.changeForm}>
-                    <TextInput
-                      style={[
-                        styles.settingInput,
-                        { 
-                          backgroundColor: theme.colors.inputBackground, 
-                          color: theme.colors.text,
-                          borderColor: theme.colors.border,
-                          fontFamily: 'ShareTechMono'
-                        }
-                      ]}
-                      placeholder="New username"
-                      placeholderTextColor={theme.colors.placeholder}
-                      value={newUsername}
-                      onChangeText={setNewUsername}
-                      autoCapitalize="none"
-                      editable={!usernameLoading}
-                    />
+                    <View style={styles.passwordInputContainer}>
+                      <TextInput
+                        style={[
+                          styles.settingInput,
+                          { 
+                            backgroundColor: theme.colors.inputBackground, 
+                            color: theme.colors.text,
+                            borderColor: theme.colors.border,
+                            fontFamily: 'ShareTechMono'
+                          }
+                        ]}
+                        placeholder="Current password"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={oldPassword}
+                        onChangeText={setOldPassword}
+                        secureTextEntry={!showOldPassword}
+                        autoCapitalize="none"
+                        editable={!passwordLoading}
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeIcon}
+                        onPress={() => setShowOldPassword(!showOldPassword)}
+                      >
+                        <Ionicons
+                          name={showOldPassword ? "eye-off" : "eye"}
+                          size={20}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.passwordInputContainer}>
+                      <TextInput
+                        style={[
+                          styles.settingInput,
+                          { 
+                            backgroundColor: theme.colors.inputBackground, 
+                            color: theme.colors.text,
+                            borderColor: theme.colors.border,
+                            fontFamily: 'ShareTechMono'
+                          }
+                        ]}
+                        placeholder="New password"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        secureTextEntry={!showNewPassword}
+                        autoCapitalize="none"
+                        editable={!passwordLoading}
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeIcon}
+                        onPress={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        <Ionicons
+                          name={showNewPassword ? "eye-off" : "eye"}
+                          size={20}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.passwordInputContainer}>
+                      <TextInput
+                        style={[
+                          styles.settingInput,
+                          { 
+                            backgroundColor: theme.colors.inputBackground, 
+                            color: theme.colors.text,
+                            borderColor: theme.colors.border,
+                            fontFamily: 'ShareTechMono'
+                          }
+                        ]}
+                        placeholder="Confirm new password"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showConfirmPassword}
+                        autoCapitalize="none"
+                        editable={!passwordLoading}
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeIcon}
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        <Ionicons
+                          name={showConfirmPassword ? "eye-off" : "eye"}
+                          size={20}
+                          color={theme.colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </View>
                     
                     <View style={styles.formActions}>
                       <TouchableOpacity 
@@ -1129,14 +1211,14 @@ const ProfileScreen = ({ navigation }) => {
                           styles.actionButton,
                           { backgroundColor: theme.colors.primary }
                         ]}
-                        onPress={handleChangeUsername}
-                        disabled={usernameLoading}
+                        onPress={handleChangePassword}
+                        disabled={passwordLoading}
                       >
-                        {usernameLoading ? (
+                        {passwordLoading ? (
                           <ActivityIndicator color={theme.colors.buttonText} size="small" />
                         ) : (
                           <Text style={[styles.actionButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
-                            SAVE
+                            UPDATE
                           </Text>
                         )}
                       </TouchableOpacity>
@@ -1147,10 +1229,12 @@ const ProfileScreen = ({ navigation }) => {
                           { borderColor: theme.colors.border }
                         ]}
                         onPress={() => {
-                          setShowChangeUsername(false);
-                          setNewUsername('');
+                          setShowChangePassword(false);
+                          setOldPassword('');
+                          setNewPassword('');
+                          setConfirmPassword('');
                         }}
-                        disabled={usernameLoading}
+                        disabled={passwordLoading}
                       >
                         <Text style={[styles.cancelButtonText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
                           CANCEL
@@ -1162,17 +1246,33 @@ const ProfileScreen = ({ navigation }) => {
                   <TouchableOpacity 
                     style={[
                       styles.changeButton,
-                      { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + '60' }
+                      { 
+                        backgroundColor: theme.colors.surface, 
+                        borderColor: theme.colors.primary + (oauth_provider ? '30' : '60'),
+                        opacity: oauth_provider ? 0.7 : 1
+                      }
                     ]}
-                    onPress={() => setShowChangeUsername(true)}
+                    onPress={() => {
+                      if (oauth_provider) {
+                        handleOAuthPasswordChange();
+                      } else {
+                        setShowChangePassword(true);
+                      }
+                    }}
                   >
-                    <Ionicons name="create" size={16} color={theme.colors.primary} />
+                    <Ionicons 
+                      name={oauth_provider ? "information-circle" : "create"} 
+                      size={16} 
+                      color={theme.colors.primary} 
+                    />
                     <Text style={[styles.changeButtonText, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
-                      CHANGE USERNAME
+                      {oauth_provider ? `MANAGED BY ${oauth_provider.toUpperCase()} ACCOUNT` : 'CHANGE PASSWORD'}
                     </Text>
                   </TouchableOpacity>
                 )}
               </View>
+              
+              
               
               {/* Change Email */}
               <View style={[styles.settingsSection, { borderBottomColor: theme.colors.border }]}>
@@ -1364,24 +1464,7 @@ const ProfileScreen = ({ navigation }) => {
                   </Text>
                 </View>
                 
-                {oauth_provider ? (
-                  <TouchableOpacity 
-                    style={[
-                      styles.changeButton,
-                      { 
-                        backgroundColor: theme.colors.surface, 
-                        borderColor: theme.colors.primary + '30',
-                        opacity: 0.7 
-                      }
-                    ]}
-                    onPress={handleOAuthPasswordChange}
-                  >
-                    <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
-                    <Text style={[styles.changeButtonText, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
-                      MANAGED BY {oauth_provider.toUpperCase()} ACCOUNT
-                    </Text>
-                  </TouchableOpacity>
-                ) : showChangePassword ? (
+                {showChangePassword && !oauth_provider ? (
                   <View style={styles.changeForm}>
                     <View style={styles.passwordInputContainer}>
                       <TextInput
@@ -1517,13 +1600,30 @@ const ProfileScreen = ({ navigation }) => {
                   <TouchableOpacity 
                     style={[
                       styles.changeButton,
-                      { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + '60' }
+                      { 
+                        backgroundColor: theme.colors.surface, 
+                        borderColor: theme.colors.primary + (oauth_provider ? '30' : '60'),
+                        opacity: oauth_provider ? 0.7 : 1
+                      }
                     ]}
-                    onPress={() => setShowChangePassword(true)}
+                    onPress={() => {
+                      if (oauth_provider) {
+                        handleOAuthPasswordChange();
+                        return;
+                      }
+                        setShowChangePassword(true);
+                    }}
                   >
-                    <Ionicons name="create" size={16} color={theme.colors.primary} />
+                    <Ionicons 
+                      name={oauth_provider ? "information-circle" : "create"} 
+                      size={16} 
+                      color={theme.colors.primary} 
+                    />
                     <Text style={[styles.changeButtonText, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
-                      CHANGE PASSWORD
+                      {oauth_provider 
+                        ? `MANAGED BY ${oauth_provider.toUpperCase()} ACCOUNT` 
+                        : 'CHANGE PASSWORD'
+                      }
                     </Text>
                   </TouchableOpacity>
                 )}

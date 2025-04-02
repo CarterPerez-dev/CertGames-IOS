@@ -70,7 +70,7 @@ class AppleSubscriptionService {
     }
   }
 
-  // Purchase a subscription - IMPROVED ERROR HANDLING
+  // Purchase a subscription - SIMPLIFIED for all users (new and expired)
   async purchaseSubscription(userId) {
     try {
       if (Platform.OS !== 'ios') throw new Error('Only available on iOS');
@@ -79,15 +79,12 @@ class AppleSubscriptionService {
       console.log("===== SUBSCRIPTION PURCHASE ATTEMPT =====");
       console.log("User ID:", userId);     
       
+      // Check current status but don't block purchase regardless of status
       const subscriptionStatus = await this.checkSubscriptionStatus(userId);
          
-      if (subscriptionStatus.subscriptionActive) {
-        return {
-          success: true,
-          alreadySubscribed: true,
-          message: "You already have an active subscription."
-        };
-      }        
+      // REMOVED: Block for already subscribed users
+      // Always allow purchase attempts regardless of current subscription status
+      
       // Ensure connection is initialized
       const connectionResult = await this.initializeConnection();
       console.log("Connection initialized:", connectionResult);
@@ -197,160 +194,44 @@ class AppleSubscriptionService {
     }
   }
 
-  // Check subscription status
+  // Check subscription status - simplified without cached/local validation
   async checkSubscriptionStatus(userId) {
     try {
       console.log("Checking subscription status for userId:", userId);
       
-      // First try to get cached subscription status
-      let cachedSubscriptionStatus = null;
-      try {
-        const cachedStatusString = await SecureStore.getItemAsync(`subscription_status_${userId}`);
-        if (cachedStatusString) {
-          cachedSubscriptionStatus = JSON.parse(cachedStatusString);
-          console.log("Found cached subscription status:", cachedSubscriptionStatus);
-          
-          // Check if cache is fresh (less than 1 hour old)
-          const cacheTime = cachedSubscriptionStatus.timestamp || 0;
-          const now = Date.now();
-          const cacheAge = now - cacheTime;
-          const CACHE_MAX_AGE = 60 * 60 * 1000; // 1 hour in milliseconds
-          
-          if (cacheAge > CACHE_MAX_AGE) {
-            console.log("Cached subscription status is stale, will try to refresh");
-            // Continue to backend check, but don't return immediately
-          } else if (cachedSubscriptionStatus.subscriptionActive) {
-            console.log("Using fresh cached subscription status (active subscription)");
-            // Return immediately if cache is fresh and indicates active subscription
-            return cachedSubscriptionStatus;
-          }
-        }
-      } catch (cacheError) {
-        console.error("Error reading cached subscription status:", cacheError);
-        // Continue without cache
-      }
+      // Get the status directly from the backend
+      const response = await axios.get(
+        `${API.SUBSCRIPTION.CHECK_STATUS}?userId=${userId}`
+      );
       
-      // Then try to get the status from the backend
-      let backendStatus;
-      let backendAvailable = true;
+      console.log("Backend subscription status:", response.data);
+      
+      // Cache the backend status for future use
       try {
-        const response = await axios.get(
-          `${API.SUBSCRIPTION.CHECK_STATUS}?userId=${userId}`
+        await SecureStore.setItemAsync(
+          `subscription_status_${userId}`,
+          JSON.stringify({
+            ...response.data,
+            timestamp: Date.now()
+          })
         );
-        backendStatus = response.data;
-        console.log("Backend subscription status:", backendStatus);
-        
-        // Cache the backend status for future use
-        try {
-          await SecureStore.setItemAsync(
-            `subscription_status_${userId}`,
-            JSON.stringify({
-              ...backendStatus,
-              timestamp: Date.now()
-            })
-          );
-        } catch (cacheSetError) {
-          console.error("Error saving subscription status to cache:", cacheSetError);
-        }
-      } catch (error) {
-        console.warn('Backend subscription check failed:', error.message);
-        console.log('Falling back to local receipt check');
-        backendStatus = cachedSubscriptionStatus || { subscriptionActive: false };
-        backendAvailable = false;
-        
-        // If it's a 404, we should alert developers during testing
-        if (error.response && error.response.status === 404) {
-          console.error('❌ API ENDPOINT NOT FOUND: Please check that your backend routes match the API config');
-        }
+      } catch (cacheSetError) {
+        console.error("Error saving subscription status to cache:", cacheSetError);
       }
       
-      // If backend confirms active subscription or we're offline but have a cached active status, return that
-      if (backendStatus.subscriptionActive) {
-        return backendStatus;
-      }
+      return response.data;
       
-      // If backend is unavailable and we have cached status, rely on that more heavily
-      if (!backendAvailable && cachedSubscriptionStatus && cachedSubscriptionStatus.subscriptionActive) {
-        console.log("Backend unavailable but cached status indicates active subscription");
-        return cachedSubscriptionStatus;
-      }
-      
-      // If backend says no subscription or is unavailable, check local receipts as fallback
-      if (Platform.OS === 'ios') {
-        try {
-          console.log("Checking local App Store receipts");
-          const purchases = await getAvailablePurchases();
-          console.log(`Found ${purchases.length} local purchases`);
-          
-          // Filter for our subscription product
-          const activeSubscriptions = purchases.filter(
-            purchase => purchase.productId === SUBSCRIPTION_PRODUCT_ID
-          );
-          
-          if (activeSubscriptions.length > 0) {
-            console.log("Found active subscription in local receipts");
-            
-            // We found an active subscription receipt on the device
-            const localActiveStatus = { 
-              subscriptionActive: true, 
-              subscriptionStatus: 'active',
-              subscriptionPlatform: 'apple',
-              source: 'local_receipt'
-            };
-            
-            // Cache this status
-            try {
-              await SecureStore.setItemAsync(
-                `subscription_status_${userId}`,
-                JSON.stringify({
-                  ...localActiveStatus,
-                  timestamp: Date.now()
-                })
-              );
-            } catch (cacheError) {
-              console.error("Error caching local receipt status:", cacheError);
-            }
-            
-            // If backend is available, try to sync this receipt
-            if (backendAvailable) {
-              // We found an active subscription receipt on the device
-              // Verify with backend to reconcile any discrepancy
-              const latestPurchase = activeSubscriptions[0];
-              
-              try {
-                await this.verifyReceiptWithBackend(userId, latestPurchase.transactionReceipt);
-                
-                // Check status again after verification
-                const refreshedStatus = await this.getSubscriptionStatusFromBackend(userId);
-                return refreshedStatus;
-              } catch (verifyError) {
-                console.error("Error verifying receipt with backend:", verifyError);
-                // Still return active based on local receipt
-                return localActiveStatus;
-              }
-            } else {
-              // Backend unavailable, trust the local receipt
-              return localActiveStatus;
-            }
-          } else {
-            console.log("No active subscriptions found in local receipts");
-          }
-        } catch (purchasesError) {
-          console.error("Error checking local purchases:", purchasesError);
-        }
-      }
-      
-      // If we get here, no active subscription was found
-      return backendStatus;
     } catch (error) {
       console.error('Failed to check subscription status:', error);
+      // SIMPLIFIED: Return simple inactive status on error
       return { 
         subscriptionActive: false, 
-        error: error.message,
-        errorCode: error.code
+        subscriptionStatus: 'unknown',
+        error: error.message
       };
     }
   }
+  
   // Get subscription status from backend
   async getSubscriptionStatusFromBackend(userId) {
     try {
@@ -364,43 +245,7 @@ class AppleSubscriptionService {
     }
   }
 
-  // Restore purchases
-  async restorePurchases(userId) {
-    try {
-      if (Platform.OS !== 'ios') throw new Error('Only available on iOS');
-      
-      // Ensure connection is initialized
-      await this.initializeConnection();
-      
-      // Get available purchases (past and current)
-      const purchases = await getAvailablePurchases();
-      
-      // Filter for our subscription product
-      const subscriptionPurchases = purchases.filter(
-        purchase => purchase.productId === SUBSCRIPTION_PRODUCT_ID
-      );
-      
-      if (subscriptionPurchases.length > 0) {
-        // Found previous purchases, verify with backend
-        const latestPurchase = subscriptionPurchases[0];
-        await this.verifyReceiptWithBackend(userId, latestPurchase.transactionReceipt);
-        
-        return {
-          success: true,
-          message: 'Subscription restored successfully',
-          purchase: latestPurchase
-        };
-      }
-      
-      return {
-        success: false,
-        message: 'No previous subscriptions found to restore'
-      };
-    } catch (error) {
-      console.error('Failed to restore purchases:', error);
-      return { success: false, error: error.message };
-    }
-  }
+  // REMOVED: restorePurchases method
 
   // Clean up transaction history
   async clearTransactions() {

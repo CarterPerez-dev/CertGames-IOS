@@ -206,6 +206,7 @@ const SubscriptionScreenIOS = () => {
     }
   };
   
+  // SIMPLIFIED: handleSubscribe function that works for all users (new, expired, etc.)
   const handleSubscribe = async () => {
     // Prevent concurrent purchase attempts
     if (purchaseInProgress) {
@@ -276,46 +277,8 @@ const SubscriptionScreenIOS = () => {
         return;
       }
       
-      // Get updated user data to check current subscription status
-      const initialUserData = await dispatch(fetchUserData(userIdToUse)).unwrap();
-      const isPastDue = initialUserData?.subscriptionStatus === 'past_due';
-      
-      // For past_due subscriptions, try restore flow first
-      if (isPastDue) {
-        console.log("Past due subscription detected, trying restore flow");
-        try {
-          const restoreResult = await AppleSubscriptionService.restorePurchases(userIdToUse);
-          console.log("Restore result:", restoreResult);
-          
-          if (restoreResult.success) {
-            console.log("Subscription restored successfully");
-            
-            // Add delay to allow server sync
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Check if restoration worked
-            await dispatch(checkSubscription(userIdToUse));
-            const updatedData = await dispatch(fetchUserData(userIdToUse)).unwrap();
-            
-            if (updatedData.subscriptionActive) {
-              console.log("Subscription active after restore, navigating to Home");
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }]
-              });
-              return;
-            }
-            // If restore didn't activate subscription, continue to regular purchase flow
-            console.log("Restore didn't activate subscription, falling back to purchase flow");
-          }
-        } catch (restoreError) {
-          console.log("Restore attempt failed:", restoreError);
-          // Continue to regular purchase flow
-        }
-      }
-      
-      // Regular purchase flow
-      console.log("Requesting new subscription for user:", userIdToUse);
+      // SIMPLIFIED: Always attempt to purchase subscription regardless of current status
+      console.log("Requesting subscription purchase for user:", userIdToUse);
       
       // Request subscription purchase with improved error handling
       const purchaseResult = await AppleSubscriptionService.purchaseSubscription(userIdToUse);
@@ -336,15 +299,6 @@ const SubscriptionScreenIOS = () => {
         
         setPurchaseInProgress(false);
         setLoading(false);
-        return;
-      }
-      
-      if (purchaseResult.alreadySubscribed) {
-        // User already has subscription - navigate directly to Home
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' }]
-        });
         return;
       }
       
@@ -403,66 +357,7 @@ const SubscriptionScreenIOS = () => {
     }
   };
   
-  const handleRestorePurchases = async () => {
-    // Prevent concurrent operations
-    if (purchaseInProgress || loading) {
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setPurchaseInProgress(true);
-      setError(null);
-      
-      if (!userId) {
-        setError('User ID is missing. Please log in again.');
-        return;
-      }
-      
-      console.log("Restoring purchases for user:", userId);
-      
-      const restoreResult = await AppleSubscriptionService.restorePurchases(userId);
-      
-      if (!restoreResult.success) {
-        setError(restoreResult.message || "No previous subscriptions found to restore.");
-        return;
-      }
-      
-      console.log("Purchases restored successfully:", restoreResult);
-      
-      // Add delay to allow server sync
-      console.log("Waiting for backend sync...");
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Update subscription status in Redux
-      console.log("Checking subscription status...");
-      await dispatch(checkSubscription(userId));
-      
-      // Fetch updated user data
-      console.log("Fetching updated user data...");
-      const userData = await dispatch(fetchUserData(userId)).unwrap();
-      
-      console.log(`Subscription status after restore: ${userData.subscriptionActive}`);
-      
-      // Verify status before navigating
-      if (userData.subscriptionActive) {
-        console.log("Subscription restored and active, navigating to Home");
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' }]
-        });
-      } else {
-        setError("No active subscriptions were found to restore.");
-      }
-    } catch (error) {
-      console.error('Restore purchases error:', error);
-      setError('Failed to restore purchases. Please try again.');
-    } finally {
-      setLoading(false);
-      setPurchaseInProgress(false);
-    }
-  };
-  
+  // REMOVED: handleRestorePurchases method
   
   // Get subscription type - prioritize OAuth/New Username flow over renewal
   const getSubscriptionType = () => {
@@ -732,16 +627,7 @@ const SubscriptionScreenIOS = () => {
               </View>
             </View>
             
-            {/* Restore Purchases Button - IMPORTANT: Preserving original functionality */}
-            <TouchableOpacity
-              style={styles.restoreButton}
-              onPress={handleRestorePurchases}
-              disabled={loading || purchaseInProgress}
-            >
-              <Text style={styles.restoreText}>
-                Restore Purchases
-              </Text>
-            </TouchableOpacity>
+            {/* REMOVED: Restore Purchases Button */}
             
             <View style={styles.testimonialsContainer}>
               <View style={styles.testimonialBadge}>
@@ -1088,18 +974,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  restoreButton: {
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 10,
-  },
-  restoreText: {
-    color: '#6543CC',
-    fontSize: 16,
-    fontWeight: '500',
-  },
+  // REMOVED: restoreButton styles
   testimonialsContainer: {
     padding: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.15)',

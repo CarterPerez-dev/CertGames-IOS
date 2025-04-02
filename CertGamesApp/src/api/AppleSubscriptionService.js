@@ -367,52 +367,41 @@ class AppleSubscriptionService {
   // Restore purchases
   async restorePurchases(userId) {
     try {
+      if (Platform.OS !== 'ios') throw new Error('Only available on iOS');
+      
       // Ensure connection is initialized
       await this.initializeConnection();
       
-      // Get available purchases
+      // Get available purchases (past and current)
       const purchases = await getAvailablePurchases();
-      console.log(`Found ${purchases.length} previous purchases to restore`);
       
+      // Filter for our subscription product
       const subscriptionPurchases = purchases.filter(
         purchase => purchase.productId === SUBSCRIPTION_PRODUCT_ID
       );
       
       if (subscriptionPurchases.length > 0) {
-        // Use the dedicated restore endpoint
+        // Found previous purchases, verify with backend
         const latestPurchase = subscriptionPurchases[0];
-        console.log("Found subscription to restore:", latestPurchase.transactionId);
+        await this.verifyReceiptWithBackend(userId, latestPurchase.transactionReceipt);
         
-        try {
-          const response = await apiClient.post(API.SUBSCRIPTION.RESTORE_PURCHASES, {
-            userId: userId,
-            receiptData: latestPurchase.transactionReceipt
-          });
-          
-          console.log("Restore response:", response.data);
-          return {
-            success: true,
-            message: 'Subscription restored successfully',
-            purchase: latestPurchase
-          };
-        } catch (apiError) {
-          console.error("API error during restore:", apiError);
-          return { success: false, error: apiError.message };
-        }
-      } else {
-        console.log("No previous purchases found to restore");
         return {
-          success: false,
-          message: 'No previous subscriptions found to restore'
+          success: true,
+          message: 'Subscription restored successfully',
+          purchase: latestPurchase
         };
       }
+      
+      return {
+        success: false,
+        message: 'No previous subscriptions found to restore'
+      };
     } catch (error) {
       console.error('Failed to restore purchases:', error);
       return { success: false, error: error.message };
     }
   }
-  
-  
+
   // Clean up transaction history
   async clearTransactions() {
     try {

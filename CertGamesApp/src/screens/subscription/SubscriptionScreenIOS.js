@@ -276,49 +276,6 @@ const SubscriptionScreenIOS = () => {
         return;
       }
       
-      // NEW: Handle past_due subscriptions first
-      const subscriptionStatus = subscriptionProduct?.subscriptionStatus || 
-                                 useSelector(state => state.user?.subscriptionStatus);
-      const isPastDue = subscriptionStatus === 'past_due';
-      
-      console.log(`Processing subscription, status: ${subscriptionStatus}, isPastDue: ${isPastDue}`);
-      
-      // Try restore flow for past_due subscriptions
-      if (isPastDue) {
-        console.log("Past due subscription detected, trying restore flow first");
-        try {
-          const restoreResult = await AppleSubscriptionService.restorePurchases(userIdToUse);
-          console.log("Restore result:", restoreResult);
-          
-          if (restoreResult.success) {
-            console.log("Subscription restored successfully");
-            
-            // Add delay to allow server sync
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Check subscription status after restore
-            await dispatch(checkSubscription(userIdToUse));
-            const userData = await dispatch(fetchUserData(userIdToUse)).unwrap();
-            
-            if (userData.subscriptionActive) {
-              console.log("Subscription active after restore, navigating to Home");
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }]
-              });
-              return;
-            }
-            // If restore succeeded but subscription isn't active, fall through to regular purchase
-          }
-          // If restore failed, continue to regular purchase
-          console.log("Restore didn't activate subscription, continuing to purchase flow");
-        } catch (restoreError) {
-          console.log("Restore attempt failed:", restoreError);
-          // Continue to regular purchase flow
-        }
-      }
-      
-      // Regular purchase flow
       console.log("Requesting subscription for user:", userIdToUse);
       
       // Request subscription purchase with improved error handling
@@ -406,7 +363,6 @@ const SubscriptionScreenIOS = () => {
       setPurchaseInProgress(false);
     }
   };
-  
   
   
   

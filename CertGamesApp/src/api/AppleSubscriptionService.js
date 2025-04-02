@@ -104,10 +104,10 @@ class AppleSubscriptionService {
       // IMPORTANT FIX: Proceed with purchase even if no subscriptions found
       console.log("Attempting purchase for:", SUBSCRIPTION_PRODUCT_ID);
       
-      // Request the subscription purchase
+      // Request the subscription purchase - CHANGED TO TRUE
       const result = await requestSubscription({
         sku: SUBSCRIPTION_PRODUCT_ID,
-        andDangerouslyFinishTransactionAutomaticallyIOS: false
+        andDangerouslyFinishTransactionAutomaticallyIOS: true
       });
       
       console.log("Purchase result:", result);
@@ -121,15 +121,19 @@ class AppleSubscriptionService {
       if (result.transactionReceipt) {
         await this.verifyReceiptWithBackend(userId, result.transactionReceipt);
         
-        // Finish the transaction
+        // Since we're now using automatic transaction finishing, this is not needed
+        // But keep as a fallback just in case
         if (result.transactionId) {
-          await finishTransaction({ 
-            transactionId: result.transactionId,
-            isConsumable: false
-          });
-          console.log("Finished transaction:", result.transactionId);
-        } else {
-          console.log("No transactionId found in result to finish");
+          try {
+            await finishTransaction({ 
+              transactionId: result.transactionId,
+              isConsumable: false
+            });
+            console.log("Finished transaction (fallback):", result.transactionId);
+          } catch (finishError) {
+            console.log("Note: Transaction may already be finished:", finishError.message);
+            // Don't throw here as transaction might already be finished automatically
+          }
         }
         
         return {

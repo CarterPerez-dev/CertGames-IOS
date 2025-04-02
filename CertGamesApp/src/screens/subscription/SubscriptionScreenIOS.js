@@ -206,7 +206,6 @@ const SubscriptionScreenIOS = () => {
     }
   };
   
-  // IMPROVED ERROR HANDLING FOR SUBSCRIPTION - UPDATED WITH FIX
   const handleSubscribe = async () => {
     // Prevent concurrent purchase attempts
     if (purchaseInProgress) {
@@ -214,99 +213,11 @@ const SubscriptionScreenIOS = () => {
       return;
     }
     
-    // NEW CHECK: Check if user already exists/registered
-    if (userId && !registrationData) {
-      console.log("User already exists, proceeding with subscription only");
-      // Skip registration and proceed directly to purchase
-      try {
-        setLoading(true);
-        setPurchaseInProgress(true);
-        setError(null);
-        
-        const result = await AppleSubscriptionService.purchaseSubscription(userId);
-        console.log("Purchase result:", result);
-        
-        if (!result || !result.success) {
-          const errorMessage = result?.error || 'Failed to complete subscription purchase';
-          console.error('Purchase failed:', errorMessage);
-          
-          // Show appropriate error message
-          if (errorMessage.includes('cancel')) {
-            setError('Subscription purchase was cancelled.');
-          } else {
-            setError(errorMessage);
-          }
-          return;
-        }
-        
-        if (result.alreadySubscribed) {
-          // User already has subscription - navigate directly to Home
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Home' }]
-          });
-          return;
-        }        
-        
-        // IMPORTANT FIX: First update subscription status in Redux
-        await dispatch(checkSubscription(userId));
-        
-        // CRITICAL FIX: Wait for user data to fully update in Redux
-        const userData = await dispatch(fetchUserData(userId)).unwrap();
-        
-        console.log(`Subscription status after update: ${userData.subscriptionActive}`);
-        
-        // Verify that subscription is actually active before navigating
-        if (userData.subscriptionActive) {
-          console.log("Subscription active, navigating to Home screen");
-          // IMPORTANT: Use direct navigation instead of setTimeout
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Home' }]
-          });
-          console.log("Navigation reset to Home attempted");
-        } else {
-          // Handle edge case where subscription didn't activate
-          console.log("Subscription not showing as active yet, checking again...");
-          // Try one more time after a short delay
-          setTimeout(async () => {
-            await dispatch(checkSubscription(userId));
-            const refreshedUserData = await dispatch(fetchUserData(userId)).unwrap();
-            console.log(`Re-checked subscription status: ${refreshedUserData.subscriptionActive}`);
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Home' }]
-            });
-            console.log("Delayed navigation reset to Home attempted");
-          }, 2000);
-        }
-        
-      } catch (error) {
-        console.error('Subscription error:', error);
-        
-        let errorMessage = 'Failed to complete subscription purchase';
-        if (error.message) {
-          errorMessage = error.message;
-        }
-        
-        // Handle user cancellation differently
-        if (error.message && error.message.includes('cancel')) {
-          setError('Subscription purchase was cancelled.');
-        } else {
-          setError(errorMessage);
-        }
-      } finally {
-        setLoading(false);
-        setPurchaseInProgress(false);
-      }
-      return;
-    }
-    
     let userIdToUse = userId;
     
     try {
       setLoading(true);
-      setPurchaseInProgress(true); // Set flag to prevent multiple attempts
+      setPurchaseInProgress(true);
       setError(null);
       
       // Check for pending transactions first
@@ -315,10 +226,44 @@ const SubscriptionScreenIOS = () => {
       // Check if this is a new registration
       if (registrationData && !registrationCompleted) {
         try {
-          userIdToUse = await registerNewUser();
+          console.log("Registering new user with data:", {
+            ...registrationData,
+            password: '********' // Log masked password for security
+          });
+          
+          // Register the user via API
+          const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
+          
+          if (!response.data || !response.data.user_id) {
+            throw new Error('Registration failed: No user ID returned');
+          }
+          
+          userIdToUse = response.data.user_id;
+          console.log("User registered successfully, ID:", userIdToUse);
+          
+          // Save user ID to secure storage
+          await SecureStore.setItemAsync('userId', userIdToUse);
+          
+          // Update Redux state
+          dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
+          
+          // Fetch user data to update Redux
+          await dispatch(fetchUserData(userIdToUse));
+          
+          setRegistrationCompleted(true);
         } catch (regError) {
-          // Registration error is already set in registerNewUser function
-          setPurchaseInProgress(false); // Reset flag on error
+          console.error('Registration error:', regError);
+          let errorMessage = 'Registration failed. Please try again.';
+          
+          if (regError.response && regError.response.data && regError.response.data.error) {
+            errorMessage = regError.response.data.error;
+          } else if (regError.message) {
+            errorMessage = regError.message;
+          }
+          
+          setError(errorMessage);
+          setPurchaseInProgress(false);
+          setLoading(false);
           return;
         }
       }
@@ -326,7 +271,8 @@ const SubscriptionScreenIOS = () => {
       // Ensure we have a user ID
       if (!userIdToUse) {
         setError('User ID is missing. Please try again.');
-        setPurchaseInProgress(false); // Reset flag on error
+        setPurchaseInProgress(false);
+        setLoading(false);
         return;
       }
       
@@ -337,7 +283,7 @@ const SubscriptionScreenIOS = () => {
       
       console.log("Purchase result:", purchaseResult);
       
-      // Better handling of purchase results
+      // Handle purchase results
       if (!purchaseResult || !purchaseResult.success) {
         const errorMessage = purchaseResult?.error || 'Failed to complete subscription purchase';
         console.error('Purchase failed:', errorMessage);
@@ -348,15 +294,33 @@ const SubscriptionScreenIOS = () => {
         } else {
           setError(errorMessage);
         }
+        
+        setPurchaseInProgress(false);
+        setLoading(false);
+        return;
+      }
+      
+      if (purchaseResult.alreadySubscribed) {
+        // User already has subscription - navigate directly to Home
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }]
+        });
         return;
       }
       
       console.log("Subscription purchased successfully:", purchaseResult);
       
-      // IMPORTANT FIX: First update subscription status in Redux
+      // Add delay to allow server sync
+      console.log("Waiting for backend sync...");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // SEQUENTIAL UPDATES: First update subscription status in Redux
+      console.log("Checking subscription status...");
       await dispatch(checkSubscription(userIdToUse));
       
-      // CRITICAL FIX: Wait for user data to fully update in Redux
+      // Then update full user data
+      console.log("Fetching updated user data...");
       const userData = await dispatch(fetchUserData(userIdToUse)).unwrap();
       
       console.log(`Subscription status after update: ${userData.subscriptionActive}`);
@@ -364,28 +328,21 @@ const SubscriptionScreenIOS = () => {
       // Verify that subscription is actually active before navigating
       if (userData.subscriptionActive) {
         console.log("Subscription active, navigating to Home screen");
-        // IMPORTANT: Use direct navigation instead of setTimeout
         navigation.reset({
           index: 0,
           routes: [{ name: 'Home' }]
         });
-        console.log("Navigation reset to Home attempted");
       } else {
-        // Handle edge case where subscription didn't activate
-        console.log("Subscription not showing as active yet, checking again...");
-        // Try one more time after a short delay
-        setTimeout(async () => {
-          await dispatch(checkSubscription(userIdToUse));
-          const refreshedUserData = await dispatch(fetchUserData(userIdToUse)).unwrap();
-          console.log(`Re-checked subscription status: ${refreshedUserData.subscriptionActive}`);
+        // Handle edge case where subscription didn't activate immediately
+        console.log("Subscription not showing as active yet, forcing navigation anyway");
+        // Force navigation after a short delay
+        setTimeout(() => {
           navigation.reset({
             index: 0,
             routes: [{ name: 'Home' }]
           });
-          console.log("Delayed navigation reset to Home attempted");
         }, 2000);
       }
-      
     } catch (error) {
       console.error('Subscription error:', error);
       
@@ -403,9 +360,12 @@ const SubscriptionScreenIOS = () => {
       }
     } finally {
       setLoading(false);
-      setPurchaseInProgress(false); // Always reset the flag when done
+      setPurchaseInProgress(false);
     }
   };
+  
+  
+  
   
   const handleRestorePurchases = async () => {
     // Prevent concurrent operations
@@ -428,33 +388,36 @@ const SubscriptionScreenIOS = () => {
       const restoreResult = await AppleSubscriptionService.restorePurchases(userId);
       
       if (!restoreResult.success) {
-        // No alerts - just set error message
         setError(restoreResult.message || "No previous subscriptions found to restore.");
         return;
       }
       
       console.log("Purchases restored successfully:", restoreResult);
       
+      // Add delay to allow server sync
+      console.log("Waiting for backend sync...");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Update subscription status in Redux
+      console.log("Checking subscription status...");
       await dispatch(checkSubscription(userId));
       
       // Fetch updated user data
+      console.log("Fetching updated user data...");
       const userData = await dispatch(fetchUserData(userId)).unwrap();
       
       console.log(`Subscription status after restore: ${userData.subscriptionActive}`);
       
+      // Verify status before navigating
       if (userData.subscriptionActive) {
         console.log("Subscription restored and active, navigating to Home");
-        // IMPORTANT FIX: Use direct navigation instead of setTimeout
         navigation.reset({
           index: 0,
           routes: [{ name: 'Home' }]
         });
-        console.log("Navigation reset to Home attempted after restore");
       } else {
         setError("No active subscriptions were found to restore.");
       }
-      
     } catch (error) {
       console.error('Restore purchases error:', error);
       setError('Failed to restore purchases. Please try again.');
@@ -463,6 +426,7 @@ const SubscriptionScreenIOS = () => {
       setPurchaseInProgress(false);
     }
   };
+  
   
   // Get subscription type - prioritize OAuth/New Username flow over renewal
   const getSubscriptionType = () => {

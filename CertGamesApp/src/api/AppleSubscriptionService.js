@@ -143,6 +143,14 @@ class AppleSubscriptionService {
       return { success: false, error: 'No transaction receipt found' };
     } catch (error) {
       console.error('Failed to purchase subscription:', error);
+      if (error.message && (
+          error.message.includes('cancel') || 
+          error.message.includes('SKErrorDomain Error 2') ||
+          (error.code && error.code === 2)
+      )) {
+        return { success: false, error: 'Purchase was cancelled.' };
+      }
+  
       return { success: false, error: error.message };
     }
   }

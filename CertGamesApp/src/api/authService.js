@@ -89,3 +89,20 @@ export const claimDailyBonus = async (userId) => {
     throw error;
   }
 };
+
+
+
+
+export const deleteUserAccount = async (userId) => {
+  try {
+    const response = await apiClient.delete(API.USER.DELETE_ACCOUNT(userId));
+    
+    // Ensure you clear any stored tokens or user data
+    await SecureStore.deleteItemAsync('userId');
+    
+    return response.data;
+  } catch (error) {
+    console.error('Account deletion error:', error.response?.data || error.message);
+    throw error;
+  }
+};

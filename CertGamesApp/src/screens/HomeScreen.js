@@ -844,8 +844,9 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   coinsValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
+    flexShrink: 1,
   },
   coinsLabel: {
     fontSize: 10,

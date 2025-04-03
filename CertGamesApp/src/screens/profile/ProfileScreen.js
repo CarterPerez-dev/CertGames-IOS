@@ -32,7 +32,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import useUserData from '../../hooks/useUserData';
 import useXpProgress from '../../hooks/useXpProgress';
 
-// Import profile service to handle API calls
+import { deleteUserAccount } from '../../api/authService';
 import { changeUsername, changeEmail, changePassword } from '../../api/profileService';
 import apiClient from '../../api/apiClient';
 
@@ -421,50 +421,53 @@ const ProfileScreen = ({ navigation }) => {
 
   // Handle account deletion
   const handleDeleteAccount = async () => {
-    if (Platform.OS === 'ios') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    }
-    
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to permanently delete your account? This action cannot be undone. If you have an active subscription, please cancel it in the App Store subscription management.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Delete Account',
-          onPress: async () => {
-            try {
-              setDeleteAccountLoading(true);
-              const response = await apiClient.delete(`/api/test/user/${userId}`);
-              
-              if (response.status === 200 || response.status === 204) {
-                // Account deleted successfully
-                await SecureStore.deleteItemAsync('userId');
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+      
+      Alert.alert(
+        'Delete Account',
+        'Are you sure you want to permanently delete your account? This action cannot be undone. If you have an active subscription, please cancel it in the App Store subscription management.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Delete Account',
+            onPress: async () => {
+              try {
+                setDeleteAccountLoading(true);
+                
+                // Use the new service method
+                await deleteUserAccount(userId);
+                
+                // Dispatch logout action to clear Redux state
                 dispatch(logout());
                 
-                // Since we're logging out, we don't need to show a success message
-                // as the user will be redirected to the login screen
-              } else {
-                const data = await response.json();
-                showStatusMessage(data.error || 'Failed to delete account', 'error');
+                // Optional: Show a success message or navigate
+                if (Platform.OS === 'ios') {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }
+              } catch (error) {
+                console.error('Error deleting account:', error);
+                
+                // Use your existing error handling
+                showStatusMessage(
+                  error.response?.data?.error || 'Failed to delete account. Please try again.', 
+                  'error'
+                );
+                
+                if (Platform.OS === 'ios') {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                }
+              } finally {
+                setDeleteAccountLoading(false);
               }
-            } catch (error) {
-              console.error('Error deleting account:', error);
-              showStatusMessage('Failed to delete account. Please try again.', 'error');
-              if (Platform.OS === 'ios') {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-              }
-            } finally {
-              setDeleteAccountLoading(false);
-            }
-          },
-          style: 'destructive'
-        }
-      ]
-    );
+            },
+          }
+        ]
+      );
   };
   
   // Handle OAuth user trying to change password

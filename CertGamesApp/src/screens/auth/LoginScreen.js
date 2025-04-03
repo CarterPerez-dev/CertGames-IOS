@@ -435,12 +435,12 @@ const LoginScreen = () => {
               
               <View style={styles.form}>
                 <View style={styles.inputWrap}>
-                  <Text style={styles.inputLabel}>Username or Email</Text>
+                  <Text style={styles.inputLabel}>Username</Text>
                   <View style={styles.inputContainer}>
                     <Ionicons name="person-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Username or Email"
+                      placeholder="Enter your Username"
                       placeholderTextColor="#AAAAAA"
                       value={usernameOrEmail}
                       onChangeText={setUsernameOrEmail}

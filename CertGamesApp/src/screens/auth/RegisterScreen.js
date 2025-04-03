@@ -34,7 +34,6 @@ WebBrowser.maybeCompleteAuthSession();
 
 const RegisterScreen = () => {
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -98,8 +97,8 @@ const RegisterScreen = () => {
       hasMinimumLength: password.length >= 6,
       hasUpperCase: /[A-Z]/.test(password),
       hasLowerCase: /[a-z]/.test(password),
-      hasNumber: /[0-9]/.test(password),
-      hasSpecialChar: /[!@#$%^&*()\-_=+[\]{}|;:'",<.>/?`~\\]/.test(password)
+      hasNumber: /\d/.test(password),
+      hasSpecialChar: /[!@#$%^&*()\-_=+\[\]{}|;:'",<.>/?`~\\]/.test(password)
     });
   }, [password]);
 
@@ -142,7 +141,7 @@ const RegisterScreen = () => {
   
   const validateForm = () => {
     // Check if all fields are filled
-    if (!username || !email || !password || !confirmPassword) {
+    if (!username || !password || !confirmPassword) {
       setFormError('All fields are required');
       return false;
     }
@@ -177,10 +176,10 @@ const RegisterScreen = () => {
     }
     
     // For React Native, we use the navigation object directly
-    // Instead of registering immediately, navigate to subscription page with form data
+    // Generate email from username to maintain backend compatibility
     const registrationData = {
       username,
-      email,
+      email: `${username.toLowerCase().replace(/[^a-z0-9]/g, '')}@certgames.app`,
       password,
       confirmPassword: confirmPassword
     };
@@ -188,7 +187,7 @@ const RegisterScreen = () => {
     // Navigate to subscription screen with registration data
     navigation.navigate('SubscriptionIOS', { 
       registrationData, 
-      isOauthFlow: false ,
+      isOauthFlow: false,
       isNewUsername: false
     });
   };
@@ -486,24 +485,6 @@ const RegisterScreen = () => {
                   <View style={styles.inputHint}>
                     <Ionicons name="information-circle-outline" size={16} color="#00cc00" />
                     <Text style={styles.hintText}>3-30 characters, letters, numbers, dots, underscores, dashes</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.inputWrap}>
-                  <Text style={styles.inputLabel}>Email</Text>
-                  <View style={styles.inputContainer}>
-                    <Ionicons name="mail-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Enter your email address"
-                      placeholderTextColor="#AAAAAA"
-                      value={email}
-                      onChangeText={setEmail}
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                      returnKeyType="next"
-                      editable={!loading}
-                    />
                   </View>
                 </View>
                 

@@ -224,7 +224,7 @@ const GRCScreen = () => {
       }
     } catch (error) {
       console.error('Error fetching question:', error);
-      setErrorMessage('Failed to load question. Please try again.');
+      setErrorMessage('Failed to load question. Please check your network connection.');
       
       // Don't show alert for retry attempts
       if (retryAttempt === 0) {

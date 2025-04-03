@@ -770,7 +770,7 @@ const ShopScreen = () => {
           color: theme.colors.textSecondary,
           fontFamily: 'ShareTechMono'
         }]}>
-          COMING SOON....
+          Please check your network conenction...
         </Text>
       </View>
     );
@@ -1430,35 +1430,6 @@ const ShopScreen = () => {
                 fontFamily: 'ShareTechMono'
               }]}>
                 XP BOOSTS
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-                activeCategory === 'nameColor' && { 
-                  backgroundColor: theme.colors.primary,
-                  borderColor: theme.colors.primary
-                }
-              ]}
-              onPress={() => handleCategoryChange('nameColor')}
-            >
-              <Ionicons 
-                name="color-palette" 
-                size={16} 
-                color={activeCategory === 'nameColor' ? 
-                  theme.colors.buttonText : 
-                  theme.colors.textMuted
-                } 
-              />
-              <Text style={[styles.filterText, { 
-                color: activeCategory === 'nameColor' ? 
-                  theme.colors.buttonText : 
-                  theme.colors.textMuted,
-                fontFamily: 'ShareTechMono'
-              }]}>
-                NAME COLORS
               </Text>
             </TouchableOpacity>
           </ScrollView>

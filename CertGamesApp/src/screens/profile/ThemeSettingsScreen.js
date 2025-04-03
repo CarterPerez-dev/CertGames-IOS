@@ -10,7 +10,8 @@ import {
   Dimensions,
   Animated,
   Platform,
-  Image
+  Image,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { createGlobalStyles } from '../../styles/globalStyles';
 import CustomHeaderComponent from '../../components/CustomHeaderComponent';
+
 
 const { width, height } = Dimensions.get('window');
 const CARD_SPACING = 16;
@@ -104,6 +106,7 @@ const ThemeSettingsScreen = ({ navigation }) => {
         opacity: headerOpacity,
         backgroundColor: theme.colors.surface,
         borderBottomColor: theme.colors.border,
+        top: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 0,
       }]}>
         <CustomHeaderComponent 
           title="Theme Settings" 

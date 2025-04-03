@@ -675,7 +675,7 @@ const XploitCraftScreen = () => {
       
     } catch (error) {
       console.error('Error generating payload:', error);
-      Alert.alert('Error', 'Error generating payload. Please try again.');
+      Alert.alert('Error', 'Error generating payload. Please check your network connection.');
     } finally {
       setIsLoading(false);
     }
@@ -874,7 +874,7 @@ const XploitCraftScreen = () => {
                           fontFamily: 'ShareTechMono'
                         }
                       ]}
-                      placeholder="E.g. SQL Injection, XSS, Buffer Overflow..."
+                      placeholder="E.g. SQL Injection"
                       placeholderTextColor={theme.colors.placeholder}
                       value={vulnerability}
                       onChangeText={handleVulnerabilityChange}
@@ -951,7 +951,7 @@ const XploitCraftScreen = () => {
                           fontFamily: 'ShareTechMono'
                         }
                       ]}
-                      placeholder="E.g. Obfuscation, Encoding, Polyglot..."
+                      placeholder="E.g. Obfuscation"
                       placeholderTextColor={theme.colors.placeholder}
                       value={evasionTechnique}
                       onChangeText={handleEvasionTechniqueChange}

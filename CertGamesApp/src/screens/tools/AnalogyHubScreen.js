@@ -197,7 +197,7 @@ const AnalogyHubScreen = () => {
       }, 300);
     } catch (error) {
       console.error('Error generating analogy:', error);
-      Alert.alert('Error', 'Error generating analogy. Please try again.');
+      Alert.alert('Error', 'Error generating analogy. Please check your network connection.');
     } finally {
       setIsStreaming(false);
     }

@@ -220,7 +220,6 @@ const LoginScreen = () => {
         }
       } catch (error) {
         console.error('[DEBUG] Google login error:', error);
-        Alert.alert('Login Failed', error.message || 'Google sign-in failed');
       }
     };
   
@@ -306,7 +305,6 @@ const LoginScreen = () => {
         }
       } catch (error) {
         console.error('[DEBUG] Apple login error:', error);
-        Alert.alert('Login Failed', error.message || 'Apple sign-in could not be completed.');
       }
     };
     

@@ -10,18 +10,29 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
-  SafeAreaView
+  SafeAreaView,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { requestPasswordReset } from '../../api/passwordResetService';
+import { submitContactForm } from '../../api/contactService';
 
 const ForgotPasswordScreen = () => {
+  // Password reset states
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Contact form states
+  const [contactEmail, setContactEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [message, setMessage] = useState('');
+  const [contactSent, setContactSent] = useState(false);
+  const [contactError, setContactError] = useState('');
+  const [contactLoading, setContactLoading] = useState(false);
   
   const navigation = useNavigation();
   
@@ -43,6 +54,54 @@ const ForgotPasswordScreen = () => {
       setError(err.message || 'Failed to send reset link. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleContactSubmit = async () => {
+    if (!contactEmail) {
+      setContactError('Please enter your email address.');
+      return;
+    }
+    
+    if (!username) {
+      setContactError('Please enter your username.');
+      return;
+    }
+    
+    if (!message) {
+      setContactError('Please enter a message.');
+      return;
+    }
+    
+    if (message.length < 10) {
+      setContactError('Message must be at least 10 characters.');
+      return;
+    }
+    
+    setContactLoading(true);
+    setContactError('');
+    
+    try {
+      // Format message to include username for context
+      const formattedMessage = `Username: ${username}\n\n${message}`;
+      
+      const response = await submitContactForm({
+        email: contactEmail,
+        message: formattedMessage
+      });
+      
+      if (response.success) {
+        setContactSent(true);
+        setContactEmail('');
+        setUsername('');
+        setMessage('');
+      } else {
+        throw new Error(response.error || 'Failed to send message');
+      }
+    } catch (err) {
+      setContactError(err.message || 'Failed to send message. Please try again.');
+    } finally {
+      setContactLoading(false);
     }
   };
 
@@ -106,7 +165,7 @@ const ForgotPasswordScreen = () => {
                 </LinearGradient>
                 <Text style={styles.headerTitle}>Reset Password</Text>
                 <Text style={styles.subtitle}>
-                  Enter your email address to receive a password reset link
+                  If you signed up through our website and forgot your password, please enter your email address to receive a password reset link
                 </Text>
               </View>
               
@@ -180,6 +239,130 @@ const ForgotPasswordScreen = () => {
                           <View style={styles.buttonContent}>
                             <Text style={styles.buttonText}>Send Reset Link</Text>
                             <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                          </View>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+              
+              {/* iOS User Support Section */}
+              <View style={styles.separator}>
+                <View style={styles.separatorLine} />
+                <Text style={styles.separatorText}>iOS App Users</Text>
+                <View style={styles.separatorLine} />
+              </View>
+              
+              <View style={styles.iosNotice}>
+                <Ionicons name="information-circle" size={24} color="#6543CC" />
+                <Text style={styles.iosNoticeText}>
+                  If you registered through the iOS app and need password assistance,
+                  please contact our support team using the form below:
+                </Text>
+              </View>
+              
+              {contactSent ? (
+                <View style={styles.contactSuccessMessage}>
+                  <View style={styles.successIcon}>
+                    <Ionicons name="checkmark" size={40} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.successTitle}>Message Sent!</Text>
+                  <Text style={styles.successText}>
+                    We've received your request and will get back to you as soon as possible.
+                  </Text>
+                  
+                  <TouchableOpacity 
+                    style={styles.backToLoginButton}
+                    onPress={() => navigation.navigate('Login')}
+                  >
+                    <Text style={styles.backToLoginText}>Back to Login</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  {contactError && (
+                    <View style={styles.errorContainer}>
+                      <Ionicons name="alert-circle" size={20} color="#FF4C8B" />
+                      <Text style={styles.errorText}>{contactError}</Text>
+                    </View>
+                  )}
+                  
+                  <View style={styles.contactForm}>
+                    <View style={styles.inputWrap}>
+                      <Text style={styles.inputLabel}>Email Address</Text>
+                      <View style={styles.inputContainer}>
+                        <Ionicons name="mail-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter your email"
+                          placeholderTextColor="#AAAAAA"
+                          value={contactEmail}
+                          onChangeText={setContactEmail}
+                          autoCapitalize="none"
+                          keyboardType="email-address"
+                          returnKeyType="next"
+                          editable={!contactLoading}
+                        />
+                      </View>
+                    </View>
+                    
+                    <View style={styles.inputWrap}>
+                      <Text style={styles.inputLabel}>Username</Text>
+                      <View style={styles.inputContainer}>
+                        <Ionicons name="person-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter your username"
+                          placeholderTextColor="#AAAAAA"
+                          value={username}
+                          onChangeText={setUsername}
+                          autoCapitalize="none"
+                          returnKeyType="next"
+                          editable={!contactLoading}
+                        />
+                      </View>
+                    </View>
+                    
+                    <View style={styles.inputWrap}>
+                      <Text style={styles.inputLabel}>Message</Text>
+                      <View style={[styles.inputContainer, styles.textAreaContainer]}>
+                        <TextInput
+                          style={styles.textArea}
+                          placeholder="Describe your issue"
+                          placeholderTextColor="#AAAAAA"
+                          value={message}
+                          onChangeText={setMessage}
+                          multiline
+                          numberOfLines={4}
+                          textAlignVertical="top"
+                          returnKeyType="done"
+                          editable={!contactLoading}
+                        />
+                      </View>
+                    </View>
+                    
+                    <TouchableOpacity 
+                      style={styles.contactButton}
+                      onPress={handleContactSubmit}
+                      disabled={contactLoading}
+                      activeOpacity={0.8}
+                    >
+                      <LinearGradient
+                        colors={['#2EBB77', '#25A367']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.buttonGradient}
+                      >
+                        {contactLoading ? (
+                          <View style={styles.buttonContent}>
+                            <ActivityIndicator color="#FFFFFF" />
+                            <Text style={styles.buttonText}>Sending...</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.buttonContent}>
+                            <Ionicons name="paper-plane" size={18} color="#FFFFFF" />
+                            <Text style={styles.buttonText}>Send Message</Text>
                           </View>
                         )}
                       </LinearGradient>
@@ -351,6 +534,11 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+    marginBottom: 30,
+  },
+  contactForm: {
+    width: '100%',
+    marginBottom: 20,
   },
   inputWrap: {
     marginBottom: 20,
@@ -372,6 +560,19 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.05)',
     paddingHorizontal: 5,
   },
+  textAreaContainer: {
+    height: 120,
+    alignItems: 'flex-start',
+  },
+  textArea: {
+    flex: 1,
+    height: 120,
+    color: '#FFFFFF',
+    paddingTop: 12,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    textAlignVertical: 'top',
+  },
   inputIcon: {
     marginHorizontal: 12,
   },
@@ -387,6 +588,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#6543CC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  contactButton: {
+    height: 52,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#2EBB77',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -410,6 +621,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   successMessage: {
+    backgroundColor: 'rgba(46, 187, 119, 0.1)',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2ebb77',
+  },
+  contactSuccessMessage: {
     backgroundColor: 'rgba(46, 187, 119, 0.1)',
     borderRadius: 12,
     padding: 20,
@@ -489,6 +709,41 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(170, 170, 170, 0.2)',
   },
+  // Separator styles
+  separator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  separatorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  separatorText: {
+    color: '#6543CC',
+    fontWeight: 'bold',
+    paddingHorizontal: 10,
+    fontSize: 16,
+  },
+  // iOS Notice styles
+  iosNotice: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(101, 67, 204, 0.1)',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: '#6543CC',
+    alignItems: 'flex-start',
+  },
+  iosNoticeText: {
+    color: '#AAAAAA',
+    marginLeft: 10,
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  }
 });
 
 export default ForgotPasswordScreen;

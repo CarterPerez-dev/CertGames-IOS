@@ -33,7 +33,7 @@ import useUserData from '../../hooks/useUserData';
 import useXpProgress from '../../hooks/useXpProgress';
 
 import { deleteUserAccount } from '../../api/authService';
-import { changeUsername, changeEmail, changePassword } from '../../api/profileService';
+import { changeUsername, changePassword } from '../../api/profileService';
 import apiClient from '../../api/apiClient';
 
 const { width, height } = Dimensions.get('window');
@@ -47,7 +47,6 @@ const ProfileScreen = ({ navigation }) => {
   const { 
     userId, 
     username, 
-    email, 
     xp, 
     level, 
     coins, 
@@ -85,15 +84,12 @@ const ProfileScreen = ({ navigation }) => {
   const [showLevelUpAnimation, setShowLevelUpAnimation] = useState(false);
   const levelUpAnimAnim = useRef(new Animated.Value(0)).current;
   
-  // Form state
+  // Username form state
   const [showChangeUsername, setShowChangeUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [usernameLoading, setUsernameLoading] = useState(false);
   
-  const [showChangeEmail, setShowChangeEmail] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
-  const [emailLoading, setEmailLoading] = useState(false);
-  
+  // Password form state (only for security tab)
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -228,14 +224,9 @@ const ProfileScreen = ({ navigation }) => {
     // Update ref for next comparison
     prevLevelRef.current = level;
   }, [level, levelUpAnimAnim]);
-  
-  
-  
-
 
   // Calculate XP percentage for progress bar
   const { xpPercentage, remainingXp } = useXpProgress(xp, level);
-
   
   // Get avatar URL
   const avatarUrl = getAvatarUrl();
@@ -326,45 +317,6 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
   
-  // Handle email change
-  const handleChangeEmail = async () => {
-    if (!newEmail) {
-      showStatusMessage('Please enter a new email', 'error');
-      return;
-    }
-    
-    // Basic validation
-    if (!/\S+@\S+\.\S+/.test(newEmail)) {
-      showStatusMessage('Please enter a valid email address', 'error');
-      return;
-    }
-    
-    setEmailLoading(true);
-    
-    try {
-      await changeEmail(userId, newEmail);
-      
-      showStatusMessage('Email updated successfully!');
-      setShowChangeEmail(false);
-      setNewEmail('');
-      
-      // Refresh user data
-      refreshData();
-      
-      if (Platform.OS === 'ios') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-    } catch (error) {
-      console.error('Error changing email:', error);
-      showStatusMessage(error.message || 'Failed to update email. Please try again.', 'error');
-      if (Platform.OS === 'ios') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-    } finally {
-      setEmailLoading(false);
-    }
-  };
-  
   // Handle password change
   const handleChangePassword = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
@@ -427,7 +379,7 @@ const ProfileScreen = ({ navigation }) => {
       
       Alert.alert(
         'Delete Account',
-        'Are you sure you want to permanently delete your account? This action cannot be undone. If you have an active subscription, please cancel it in the App Store subscription management.',
+        'Are you sure you want to permanently delete your account? This action cannot be undone and all data linked to your account will be permanently deleted. If you have an active subscription, please cancel it in the App Store subscription management. If you signed up through the website, your susbcription will automatically be canceled.',
         [
           {
             text: 'Cancel',
@@ -1096,203 +1048,21 @@ const ProfileScreen = ({ navigation }) => {
               shadowColor: theme.colors.shadow,
             }]}>
               {/* Change Username */}
-
-              
-              {/* Change Password */}
               <View style={styles.settingsSection}>
                 <View style={styles.settingHeader}>
                   <View style={styles.settingLabelContainer}>
-                    <Ionicons name="lock-closed" size={18} color={theme.colors.primary} />
+                    <Ionicons name="person" size={18} color={theme.colors.primary} />
                     <Text style={[styles.settingLabel, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
-                      PASSWORD
+                      USERNAME
                     </Text>
                   </View>
                   
                   <Text style={[styles.settingValue, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                    ••••••••••
+                    {username}
                   </Text>
                 </View>
                 
-                {(!oauth_provider && showChangePassword) ? (
-                  <View style={styles.changeForm}>
-                    <View style={styles.passwordInputContainer}>
-                      <TextInput
-                        style={[
-                          styles.settingInput,
-                          { 
-                            backgroundColor: theme.colors.inputBackground, 
-                            color: theme.colors.text,
-                            borderColor: theme.colors.border,
-                            fontFamily: 'ShareTechMono'
-                          }
-                        ]}
-                        placeholder="Current password"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={oldPassword}
-                        onChangeText={setOldPassword}
-                        secureTextEntry={!showOldPassword}
-                        autoCapitalize="none"
-                        editable={!passwordLoading}
-                      />
-                      <TouchableOpacity
-                        style={styles.eyeIcon}
-                        onPress={() => setShowOldPassword(!showOldPassword)}
-                      >
-                        <Ionicons
-                          name={showOldPassword ? "eye-off" : "eye"}
-                          size={20}
-                          color={theme.colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    
-                    <View style={styles.passwordInputContainer}>
-                      <TextInput
-                        style={[
-                          styles.settingInput,
-                          { 
-                            backgroundColor: theme.colors.inputBackground, 
-                            color: theme.colors.text,
-                            borderColor: theme.colors.border,
-                            fontFamily: 'ShareTechMono'
-                          }
-                        ]}
-                        placeholder="New password"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={newPassword}
-                        onChangeText={setNewPassword}
-                        secureTextEntry={!showNewPassword}
-                        autoCapitalize="none"
-                        editable={!passwordLoading}
-                      />
-                      <TouchableOpacity
-                        style={styles.eyeIcon}
-                        onPress={() => setShowNewPassword(!showNewPassword)}
-                      >
-                        <Ionicons
-                          name={showNewPassword ? "eye-off" : "eye"}
-                          size={20}
-                          color={theme.colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    
-                    <View style={styles.passwordInputContainer}>
-                      <TextInput
-                        style={[
-                          styles.settingInput,
-                          { 
-                            backgroundColor: theme.colors.inputBackground, 
-                            color: theme.colors.text,
-                            borderColor: theme.colors.border,
-                            fontFamily: 'ShareTechMono'
-                          }
-                        ]}
-                        placeholder="Confirm new password"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        secureTextEntry={!showConfirmPassword}
-                        autoCapitalize="none"
-                        editable={!passwordLoading}
-                      />
-                      <TouchableOpacity
-                        style={styles.eyeIcon}
-                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                      >
-                        <Ionicons
-                          name={showConfirmPassword ? "eye-off" : "eye"}
-                          size={20}
-                          color={theme.colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    
-                    <View style={styles.formActions}>
-                      <TouchableOpacity 
-                        style={[
-                          styles.actionButton,
-                          { backgroundColor: theme.colors.primary }
-                        ]}
-                        onPress={handleChangePassword}
-                        disabled={passwordLoading}
-                      >
-                        {passwordLoading ? (
-                          <ActivityIndicator color={theme.colors.buttonText} size="small" />
-                        ) : (
-                          <Text style={[styles.actionButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
-                            UPDATE
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={[
-                          styles.cancelButton, 
-                          { borderColor: theme.colors.border }
-                        ]}
-                        onPress={() => {
-                          setShowChangePassword(false);
-                          setOldPassword('');
-                          setNewPassword('');
-                          setConfirmPassword('');
-                        }}
-                        disabled={passwordLoading}
-                      >
-                        <Text style={[styles.cancelButtonText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
-                          CANCEL
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ) : (
-                  <TouchableOpacity 
-                    style={[
-                      styles.changeButton,
-                      { 
-                        backgroundColor: theme.colors.surface, 
-                        borderColor: theme.colors.primary + (oauth_provider ? '30' : '60'),
-                        opacity: oauth_provider ? 0.7 : 1
-                      }
-                    ]}
-                    onPress={() => {
-                      if (oauth_provider) {
-                        handleOAuthPasswordChange();
-                      } else {
-                        setShowChangePassword(true);
-                      }
-                    }}
-                  >
-                    <Ionicons 
-                      name={oauth_provider ? "information-circle" : "create"} 
-                      size={16} 
-                      color={theme.colors.primary} 
-                    />
-                    <Text style={[styles.changeButtonText, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
-                      {oauth_provider ? `MANAGED BY ${oauth_provider.toUpperCase()} ACCOUNT` : 'CHANGE PASSWORD'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              
-              
-              
-              {/* Change Email */}
-              <View style={[styles.settingsSection, { borderBottomColor: theme.colors.border }]}>
-                <View style={styles.settingHeader}>
-                  <View style={styles.settingLabelContainer}>
-                    <Ionicons name="mail" size={18} color={theme.colors.primary} />
-                    <Text style={[styles.settingLabel, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
-                      EMAIL
-                    </Text>
-                  </View>
-                  
-                  <Text style={[styles.settingValue, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                    {email}
-                  </Text>
-                </View>
-                
-                {showChangeEmail ? (
+                {showChangeUsername ? (
                   <View style={styles.changeForm}>
                     <TextInput
                       style={[
@@ -1304,13 +1074,13 @@ const ProfileScreen = ({ navigation }) => {
                           fontFamily: 'ShareTechMono'
                         }
                       ]}
-                      placeholder="New email address"
+                      placeholder="New username"
                       placeholderTextColor={theme.colors.placeholder}
-                      value={newEmail}
-                      onChangeText={setNewEmail}
+                      value={newUsername}
+                      onChangeText={setNewUsername}
                       autoCapitalize="none"
-                      keyboardType="email-address"
-                      editable={!emailLoading}
+                      returnKeyType="done"
+                      editable={!usernameLoading}
                     />
                     
                     <View style={styles.formActions}>
@@ -1319,10 +1089,10 @@ const ProfileScreen = ({ navigation }) => {
                           styles.actionButton,
                           { backgroundColor: theme.colors.primary }
                         ]}
-                        onPress={handleChangeEmail}
-                        disabled={emailLoading}
+                        onPress={handleChangeUsername}
+                        disabled={usernameLoading}
                       >
-                        {emailLoading ? (
+                        {usernameLoading ? (
                           <ActivityIndicator color={theme.colors.buttonText} size="small" />
                         ) : (
                           <Text style={[styles.actionButtonText, { color: theme.colors.buttonText, fontFamily: 'Orbitron' }]}>
@@ -1337,10 +1107,10 @@ const ProfileScreen = ({ navigation }) => {
                           { borderColor: theme.colors.border }
                         ]}
                         onPress={() => {
-                          setShowChangeEmail(false);
-                          setNewEmail('');
+                          setShowChangeUsername(false);
+                          setNewUsername('');
                         }}
-                        disabled={emailLoading}
+                        disabled={usernameLoading}
                       >
                         <Text style={[styles.cancelButtonText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
                           CANCEL
@@ -1354,11 +1124,11 @@ const ProfileScreen = ({ navigation }) => {
                       styles.changeButton,
                       { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + '60' }
                     ]}
-                    onPress={() => setShowChangeEmail(true)}
+                    onPress={() => setShowChangeUsername(true)}
                   >
                     <Ionicons name="create" size={16} color={theme.colors.primary} />
                     <Text style={[styles.changeButtonText, { color: theme.colors.primary, fontFamily: 'ShareTechMono' }]}>
-                      CHANGE EMAIL
+                      CHANGE USERNAME
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -1463,7 +1233,7 @@ const ProfileScreen = ({ navigation }) => {
                   </View>
                   
                   <Text style={[styles.settingValue, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-                    ••••••••••
+                  Password change is not available for accounts created using social login. Please manage your account security through your social provider.
                   </Text>
                 </View>
                 
@@ -1733,9 +1503,7 @@ const StatusModal = ({ visible, message, type, onClose, theme }) => {
   );
 };
 
-
-                      
-              
+// Styles
 const styles = StyleSheet.create({
   // Header styles
   animatedHeader: {
@@ -2068,16 +1836,19 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 5,
     letterSpacing: 0.5,
+    marginRight: 10,
   },
   settingValue: {
-    fontSize: 14,
+    fontSize: 8,
+    flexShrink: 1,
   },
   themeValue: {
     fontSize: 14,
     fontWeight: 'bold',
   },
+  
   
   // Change Forms
   changeForm: {

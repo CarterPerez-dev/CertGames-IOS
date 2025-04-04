@@ -237,7 +237,7 @@ const RegisterScreen = () => {
       }
     } catch (error) {
       console.error('[DEBUG] Google sign up error:', error);
-      Alert.alert('Sign Up Failed', error.message || 'Google sign-in failed');
+
     }
   };
   
@@ -324,7 +324,6 @@ const RegisterScreen = () => {
       }
     } catch (error) {
       console.error('[DEBUG] Apple login error:', error);
-      Alert.alert('Sign Up Failed', error.message || 'Apple sign-in could not be completed.');
     }
   };
   
@@ -388,7 +387,6 @@ const RegisterScreen = () => {
         }
       } else if (params.error) {
         console.error("[DEEP-LINK-DEBUG] OAuth error:", params.error);
-        Alert.alert('Login Failed', params.error_description || params.error);
       }
     } catch (error) {
       console.error("[DEEP-LINK-DEBUG] Error handling deep link:", error);

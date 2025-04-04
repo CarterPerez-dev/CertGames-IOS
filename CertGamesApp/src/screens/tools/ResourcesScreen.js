@@ -299,7 +299,7 @@ const ResourcesScreen = () => {
               {loadingRandom ? (
                 <ActivityIndicator size="small" color={theme.colors.buttonText} />
               ) : (
-                <Ionicons name="shuffle-outline" size={22} color={theme.colors.buttonText} />
+                <Ionicons name="refresh-outline" size={22} color={theme.colors.buttonText} />
               )}
             </TouchableOpacity>
           </View>

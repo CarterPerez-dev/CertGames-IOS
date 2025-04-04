@@ -217,80 +217,36 @@ const SubscriptionScreenIOS = () => {
       // Check for pending transactions first
       await AppleSubscriptionService.checkPendingTransactions();
       
-      // Check if this is a new registration
+      // IMPORTANT CHANGE: Only store temporary registration data, don't register yet
       if (registrationData && !registrationCompleted) {
-        try {
-          console.log("Registering new user with data:", {
-            ...registrationData,
-            password: '********' // Log masked password for security
-          });
-          
-          const existingUser = await apiClient.get(`${API.USER.DETAILS(userIdToUse)}`).catch(() => null);
-          if (existingUser && existingUser.data) {
-            console.log("User already exists, skipping registration");
-            setRegistrationCompleted(true);
-            userIdToUse = existingUser.data._id;
-          } else {  
-            // Registration logic
-            const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
-            
-            if (!response.data || !response.data.user_id) {
-              throw new Error('Registration failed: No user ID returned');
-            }
-            
-            userIdToUse = response.data.user_id;
-            console.log("User registered successfully, ID:", userIdToUse);
-            
-            // Save user ID to secure storage
-            await SecureStore.setItemAsync('userId', userIdToUse);
-            
-            // Update Redux state
-            dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
-            
-            // Fetch user data to update Redux
-            await dispatch(fetchUserData(userIdToUse));
-            
-            setRegistrationCompleted(true);
-          }
-        } catch (regError) {
-          console.error('Registration error:', regError);
-          let errorMessage = 'Registration failed. Please try again.';
-          
-          if (regError.response && regError.response.data && regError.response.data.error) {
-            errorMessage = regError.response.data.error;
-          } else if (regError.message) {
-            errorMessage = regError.message;
-          }
-          
-          setError(errorMessage);
-          setPurchaseInProgress(false);
-          setLoading(false);
-          return;
-        }
+        console.log("Temporary registration data available:", {
+          ...registrationData,
+          password: '********' // Log masked password for security
+        });
+        // Don't register the user yet! Just keep the registration data for later
       }
       
-      // Ensure we have a user ID
-      if (!userIdToUse) {
+      // Ensure we have a user ID for existing users
+      if (!userIdToUse && !registrationData) {
         setError('User ID is missing. Please try again.');
         setPurchaseInProgress(false);
         setLoading(false);
         return;
       }
       
-      // SIMPLIFIED: Always attempt to purchase subscription regardless of current status
-      console.log("Requesting subscription purchase for user:", userIdToUse);
+      // FIRST initiate payment flow before creating the user
+      console.log("Requesting subscription purchase");
       
       // Request subscription purchase with improved error handling
       const purchaseResult = await AppleSubscriptionService.purchaseSubscription(userIdToUse);
       
       console.log("Purchase result:", purchaseResult);
       
-      // Handle purchase results
+      // If purchase failed or was cancelled, exit early without registering the user
       if (!purchaseResult || !purchaseResult.success) {
         const errorMessage = purchaseResult?.error || 'Failed to complete subscription purchase';
         console.error('Purchase failed:', errorMessage);
         
-        // Show appropriate error message
         if (errorMessage.includes('cancel')) {
           setError('Subscription purchase was cancelled.');
         } else {
@@ -304,11 +260,44 @@ const SubscriptionScreenIOS = () => {
       
       console.log("Subscription purchased successfully:", purchaseResult);
       
+      // NOW register the user if needed (only after successful payment)
+      if (registrationData && !registrationCompleted) {
+        try {
+          // Registration logic - ONLY happens after successful payment
+          const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
+          
+          if (!response.data || !response.data.user_id) {
+            throw new Error('Registration failed: No user ID returned');
+          }
+          
+          userIdToUse = response.data.user_id;
+          console.log("User registered successfully, ID:", userIdToUse);
+          
+          // Save user ID to secure storage
+          await SecureStore.setItemAsync('userId', userIdToUse);
+          
+          // Update Redux state
+          dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
+          
+          // Fetch user data to update Redux
+          await dispatch(fetchUserData(userIdToUse));
+          
+          setRegistrationCompleted(true);
+        } catch (regError) {
+          console.error('Registration error:', regError);
+          // Handle registration error after successful payment (rare case)
+          setError('Payment successful, but account creation failed. Please contact support.');
+          setPurchaseInProgress(false);
+          setLoading(false);
+          return;
+        }
+      }
+      
       // Add delay to allow server sync
       console.log("Waiting for backend sync...");
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // SEQUENTIAL UPDATES: First update subscription status in Redux
+      // Update subscription status in Redux
       console.log("Checking subscription status...");
       await dispatch(checkSubscription(userIdToUse));
       
@@ -318,17 +307,14 @@ const SubscriptionScreenIOS = () => {
       
       console.log(`Subscription status after update: ${userData.subscriptionActive}`);
       
-      // Verify that subscription is actually active before navigating
+      // Navigate to Home screen
       if (userData.subscriptionActive) {
-        console.log("Subscription active, navigating to Home screen");
         navigation.reset({
           index: 0,
           routes: [{ name: 'Home' }]
         });
       } else {
-        // Handle edge case where subscription didn't activate immediately
-        console.log("Subscription not showing as active yet, forcing navigation anyway");
-        // Force navigation after a short delay
+        // Force navigation after a short delay if status doesn't update immediately
         setTimeout(() => {
           navigation.reset({
             index: 0,
@@ -338,19 +324,7 @@ const SubscriptionScreenIOS = () => {
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      
-      let errorMessage = 'Failed to complete subscription purchase';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      // Handle user cancellation differently
-      if (error.message && error.message.includes('cancel')) {
-        setError('Subscription purchase was cancelled.');
-      } else {
-        setError(errorMessage);
-      }
+      setError(error.message || 'Failed to complete subscription purchase');
     } finally {
       setLoading(false);
       setPurchaseInProgress(false);

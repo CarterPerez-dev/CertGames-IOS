@@ -101,7 +101,7 @@ const LoginScreen = () => {
   
   const handleBiometricAuth = async () => {
     if (!savedCredentials) {
-      Alert.alert('No Saved Credentials', 'Please log in with your username and password first.');
+      Alert.alert('No Saved Credentials', 'Please log in with your username and password first or social login.');
       return;
     }
     
@@ -120,13 +120,13 @@ const LoginScreen = () => {
       }
     } catch (error) {
       console.error('Biometric authentication error:', error);
-      Alert.alert('Authentication Failed', 'Please try again or use your password.');
+      Alert.alert('Authentication Failed', 'Please try again or use your password or social login.');
     }
   };
 
   const handleLogin = async () => {
     if (!usernameOrEmail || !password) {
-      Alert.alert('Missing Information', 'Please enter both username/email and password');
+      Alert.alert('Missing Information', 'Please enter both username and password');
       return;
     }
     

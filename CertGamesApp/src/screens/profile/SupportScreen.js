@@ -426,11 +426,25 @@ const SupportScreen = ({ navigation }) => {
   /////////////////////////////////////////////////////////////////////////
   const formatTimestamp = (ts) => {
     if (!ts) return '';
+    
+    // Create date object from timestamp (ISO string from server)
     const date = new Date(ts);
+    
+    // Get today's date for comparison
     const today = new Date();
-    if (date.toDateString() === today.toDateString()) {
+    
+    // Compare year, month, and day directly (better for time zones)
+    const isSameDay = 
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate();
+    
+    // If the date is today, just show the time
+    if (isSameDay) {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
+    
+    // Otherwise show date and time
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
   
@@ -960,7 +974,7 @@ const SupportScreen = ({ navigation }) => {
             </Text>
             <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
             <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
-              ASK US ANYTHING! (UTC TIME)
+              ASK US ANYTHING!
             </Text>
           </View>
         </LinearGradient>
@@ -1023,7 +1037,7 @@ const SupportScreen = ({ navigation }) => {
                       fontFamily: 'ShareTechMono'
                     }
                   ]}
-                  placeholder="New conversation subject..."
+                  placeholder="New Message"
                   placeholderTextColor={theme.colors.placeholder}
                   value={newThreadSubject}
                   onChangeText={setNewThreadSubject}

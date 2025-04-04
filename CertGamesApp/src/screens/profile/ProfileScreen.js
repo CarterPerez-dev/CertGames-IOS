@@ -379,7 +379,7 @@ const ProfileScreen = ({ navigation }) => {
       
       Alert.alert(
         'Delete Account',
-        'Are you sure you want to permanently delete your account? This action cannot be undone and all data linked to your account will be permanently deleted. If you have an active subscription, please cancel it in the App Store subscription management. If you signed up through the website, your susbcription will automatically be canceled.',
+        'Are you sure you want to permanently delete your account? This action cannot be undone and all data linked to your account will be permanently deleted. If you have an active subscription, please cancel it in the App Store subscription management. If you signed up through the website, your subscription will automatically be canceled.',
         [
           {
             text: 'Cancel',

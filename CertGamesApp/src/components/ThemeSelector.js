@@ -54,14 +54,14 @@ const ThemeSelector = () => {
   // Icon for each theme
   const getThemeIcon = (name) => {
     switch(name) {
-      case 'dark':
-        return 'moon';            // Moon icon for Dark Purple
-      case 'light':
+      case 'Amethyst':
+        return 'diamond';            // Moon icon for Dark Purple
+      case 'Crimson':
         return 'flame';           // Flame icon for Dark Crimson
-      case 'hacker':
-        return 'leaf';            // Leaf icon for Dark Emerald
-      case 'monochrome':
-        return 'contrast';        // Contrast icon for Monochrome
+      case 'Emerald':
+        return 'prism';            // Leaf icon for Dark Emerald
+      case 'Monochrome':
+        return 'infinite';        // Contrast icon for Monochrome
       default:
         return 'color-palette';   // Default fallback
     }
@@ -116,7 +116,7 @@ const ThemeSelector = () => {
             >
               {isActive && (
                 <View style={styles.selectedIcon}>
-                  <BlurView intensity={80} tint="dark" style={styles.blurView}>
+                  <BlurView intensity={80} tint="Amethyst" style={styles.blurView}>
                     <Ionicons name="checkmark-circle" size={24} color={themePrimary} />
                   </BlurView>
                 </View>
@@ -158,7 +158,7 @@ const ThemeSelector = () => {
                   </View>
                   <View style={styles.previewCardRow}>
                     <View style={[styles.previewSquare, { 
-                      backgroundColor: item.name === 'hacker' ? item.colors.testCard : item.colors.testCard 
+                      backgroundColor: item.name === 'Emerald' ? item.colors.testCard : item.colors.testCard 
                     }]} />
                     <View style={[styles.previewLineSmall, { backgroundColor: themeText }]} />
                   </View>

@@ -1,5 +1,5 @@
 // src/screens/auth/PrivacyPolicyScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 
+
+const SCROLL_OFFSET = 800;
+
 const PrivacyPolicyScreen = () => {
   const navigation = useNavigation();
+  const scrollViewRef = useRef(null);
+  const sectionPositions = useRef({}).current;
   
   // Sections for easy navigation
   const sections = [
@@ -28,11 +33,23 @@ const PrivacyPolicyScreen = () => {
     { id: 'cookies', title: '7. Cookies and Similar Technologies' },
     { id: 'authentication', title: '8. Third-Party Authentication' },
     { id: 'children', title: '9. Children\'s Privacy' },
-    { id: 'international', title: '10. International Data Transfers' },
-    { id: 'retention', title: '11. Data Retention' },
+    { id: 'appleData', title: '10. Apple-Specific Data Collection' },
+    { id: 'dataRetention', title: '11. Data Retention' },
     { id: 'changes', title: '12. Changes to This Privacy Policy' },
     { id: 'contact', title: '13. Contact Us' },
   ];
+  
+  // Function to scroll to a specific section
+  const scrollToSection = (sectionId) => {
+    if (scrollViewRef.current && sectionPositions[sectionId] !== undefined) {
+      const targetY = sectionPositions[sectionId];
+      const adjustedY = targetY + SCROLL_OFFSET;
+      scrollViewRef.current.scrollTo({
+        y: adjustedY,
+        animated: true,
+      });
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -54,10 +71,14 @@ const PrivacyPolicyScreen = () => {
           <Ionicons name="shield-checkmark-outline" size={30} color="#6543CC" style={styles.headerIcon} />
           <Text style={styles.headerTitle}>Privacy Policy</Text>
         </View>
-        <Text style={styles.headerDate}>Last updated: March 30, 2025</Text>
+        <Text style={styles.headerDate}>Last updated: April 04, 2025</Text>
       </View>
       
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Ionicons name="information-circle-outline" size={20} color="#FF4C8B" />
@@ -78,7 +99,11 @@ const PrivacyPolicyScreen = () => {
           
           <View style={styles.tocContent}>
             {sections.map((section, index) => (
-              <TouchableOpacity key={section.id} style={styles.tocItem}>
+              <TouchableOpacity 
+                key={section.id} 
+                style={styles.tocItem}
+                onPress={() => scrollToSection(section.id)}
+              >
                 <Text style={styles.tocItemText}>{section.title}</Text>
               </TouchableOpacity>
             ))}
@@ -87,31 +112,52 @@ const PrivacyPolicyScreen = () => {
         
         {/* Document Content */}
         <View style={styles.documentContent}>
-          <View style={styles.section} id="introduction">
+          <View 
+            style={styles.section} 
+            id="introduction"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['introduction'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>1. Introduction</Text>
             <Text style={styles.paragraph}>
-              This Privacy Policy explains how Cert Games ("we", "us", or "our") collects, uses, and shares your information when you use our app and services.
+              This Privacy Policy explains how Cert Games ("we", "us", or "our") collects, uses, and shares your information when you use our mobile application and services.
             </Text>
             <Text style={styles.paragraph}>
               We take your privacy seriously and are committed to protecting your personal information. Please read this policy carefully to understand our practices regarding your data.
             </Text>
           </View>
           
-          <View style={styles.section} id="information">
+          <View 
+            style={styles.section} 
+            id="information"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['information'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>2. Information We Collect</Text>
             <Text style={styles.paragraph}>
               We collect several types of information from and about users of our app, including:
             </Text>
             <View style={styles.list}>
-              <Text style={styles.listItem}>• <Text style={styles.bold}>Personal Information:</Text> This includes your name, email address, and username when you register for an account.</Text>
-              <Text style={styles.listItem}>• <Text style={styles.bold}>Authentication Information:</Text> When you sign in using Google or Ouath, we receive basic profile information such as your name and email address.</Text>
-              <Text style={styles.listItem}>• <Text style={styles.bold}>Usage Data:</Text> Information about how you interact with our app, including tests taken, scores, achievements, and usage patterns.</Text>
-              <Text style={styles.listItem}>• <Text style={styles.bold}>Payment Information:</Text> When you purchase a subscription, payment information is processed by our payment provider. We do not store complete payment details on our servers.</Text>
-              <Text style={styles.listItem}>• <Text style={styles.bold}>Device Information:</Text> We may collect information about your device, including your IP address, browser type, operating system, and other technical details.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Account Information:</Text> When you register for an account, we collect your username and, if you choose to provide it, your email address. We need this minimum information to create and maintain your account.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Authentication Information:</Text> When you sign in using Google or Apple, we receive basic profile information such as your name and email address from the authentication provider, but we do not receive or store your passwords for these services.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>App Usage Data:</Text> Information about how you interact with our app, including tests taken, scores, progress tracking, achievements, and usage patterns. This helps us improve your experience and provide personalized content.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Payment Information:</Text> When you purchase a subscription, payment information is processed by Apple's App Store. We do not collect, see, or store your payment details like credit card numbers.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>In-App Activity:</Text> We collect information about your activity within the app, such as the features you use, how long you use them, and your interactions with content.</Text>
             </View>
           </View>
           
-          <View style={styles.section} id="use">
+          <View 
+            style={styles.section} 
+            id="use"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['use'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>3. How We Use Your Information</Text>
             <Text style={styles.paragraph}>
               We use the information we collect to:
@@ -124,20 +170,27 @@ const PrivacyPolicyScreen = () => {
               <Text style={styles.listItem}>• Personalize your experience and deliver relevant content</Text>
               <Text style={styles.listItem}>• Process transactions and manage your subscription</Text>
               <Text style={styles.listItem}>• Analyze usage patterns to improve our app and services</Text>
-              <Text style={styles.listItem}>• Protect the security and integrity of our platform</Text>
+              <Text style={styles.listItem}>• Detect, prevent, and address technical issues or fraud</Text>
             </View>
           </View>
           
-          <View style={styles.section} id="share">
+          <View 
+            style={styles.section} 
+            id="share"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['share'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>4. How We Share Your Information</Text>
             <Text style={styles.paragraph}>
               We do not sell your personal information to third parties. We may share your information in the following circumstances:
             </Text>
             <View style={styles.list}>
-              <Text style={styles.listItem}>• With service providers who perform services on our behalf (such as hosting providers and payment processors)</Text>
-              <Text style={styles.listItem}>• To comply with legal obligations</Text>
-              <Text style={styles.listItem}>• To protect and defend our rights and property</Text>
-              <Text style={styles.listItem}>• With your consent or at your direction</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Service Providers:</Text> We share information with trusted service providers who perform services on our behalf, such as hosting providers, authentication services, and analytics providers. These providers are contractually obligated to use your data only for providing services to us.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Legal Requirements:</Text> We may disclose your information if required to do so by law or in response to valid requests by public authorities (e.g., a court or government agency).</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Business Transfers:</Text> If we are involved in a merger, acquisition, or sale of all or a portion of our assets, your information may be transferred as part of that transaction.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>With Your Consent:</Text> We may share your information with third parties when we have your consent to do so.</Text>
             </View>
             <View style={styles.callout}>
               <Text style={styles.calloutText}>
@@ -146,7 +199,14 @@ const PrivacyPolicyScreen = () => {
             </View>
           </View>
           
-          <View style={styles.section} id="security">
+          <View 
+            style={styles.section} 
+            id="security"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['security'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>5. Data Security</Text>
             <Text style={styles.paragraph}>
               We implement appropriate security measures to protect your personal information from unauthorized access, alteration, disclosure, or destruction. These measures include:
@@ -155,51 +215,71 @@ const PrivacyPolicyScreen = () => {
               <Text style={styles.listItem}>• Encryption of sensitive data in transit and at rest</Text>
               <Text style={styles.listItem}>• Regular security assessments and testing</Text>
               <Text style={styles.listItem}>• Access controls and authentication requirements</Text>
-              <Text style={styles.listItem}>• Monitoring for suspicious activities</Text>
+              <Text style={styles.listItem}>• Secure password storage using industry-standard hashing algorithms</Text>
             </View>
             <Text style={styles.paragraph}>
               However, no method of transmission over the Internet or electronic storage is 100% secure, and we cannot guarantee absolute security.
             </Text>
           </View>
           
-          <View style={styles.section} id="rights">
+          <View 
+            style={styles.section} 
+            id="rights"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['rights'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>6. Your Data Rights</Text>
             <Text style={styles.paragraph}>
               Depending on your location, you may have certain rights regarding your personal information, including:
             </Text>
             <View style={styles.list}>
-              <Text style={styles.listItem}>• Accessing your personal information</Text>
-              <Text style={styles.listItem}>• Correcting inaccurate information</Text>
-              <Text style={styles.listItem}>• Deleting your information</Text>
-              <Text style={styles.listItem}>• Restricting or objecting to certain processing</Text>
-              <Text style={styles.listItem}>• Requesting portability of your information</Text>
-              <Text style={styles.listItem}>• Withdrawing consent (where processing is based on consent)</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Access:</Text> You can request a copy of the personal information we hold about you.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Correction:</Text> You can request that we correct inaccurate or incomplete information.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Deletion:</Text> You can request that we delete your personal information. You can delete your account at any time via the Profile screen in the app.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Restriction:</Text> You can request that we restrict processing of your personal information.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Data Portability:</Text> You can request a copy of your data in a structured, commonly used, machine-readable format.</Text>
             </View>
             <Text style={styles.paragraph}>
               To exercise these rights, please contact us using the information provided in the "Contact Us" section.
             </Text>
           </View>
           
-          <View style={styles.section} id="cookies">
+          <View 
+            style={styles.section} 
+            id="cookies"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['cookies'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>7. Cookies and Similar Technologies</Text>
             <Text style={styles.paragraph}>
-              We use cookies and similar tracking technologies to track activity on our app and hold certain information. Cookies are small data files that are placed on your device when you use our app.
+              Our mobile application uses local storage and similar technologies to remember your preferences and settings. Unlike website cookies, mobile app local storage remains on your device and is not shared across the internet.
             </Text>
             <Text style={styles.paragraph}>
-              We use cookies for the following purposes:
+              We use these technologies for the following purposes:
             </Text>
             <View style={styles.list}>
-              <Text style={styles.listItem}>• To maintain your session and authentication status</Text>
-              <Text style={styles.listItem}>• To remember your preferences and settings</Text>
-              <Text style={styles.listItem}>• To analyze how our app is used</Text>
-              <Text style={styles.listItem}>• To personalize your experience</Text>
+              <Text style={styles.listItem}>• To maintain your authentication state</Text>
+              <Text style={styles.listItem}>• To remember your settings and preferences</Text>
+              <Text style={styles.listItem}>• To store progress data when offline</Text>
+              <Text style={styles.listItem}>• To improve performance of the application</Text>
             </View>
             <Text style={styles.paragraph}>
-              You can configure your device settings to limit or disable cookies, but this may affect certain features of our app.
+              You can clear the app's local storage by uninstalling the application, though this will also remove your locally stored progress.
             </Text>
           </View>
           
-          <View style={styles.section} id="authentication">
+          <View 
+            style={styles.section} 
+            id="authentication"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['authentication'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>8. Third-Party Authentication</Text>
             <Text style={styles.paragraph}>
               Our service offers sign-in through Google and Apple authentication services. When you choose to sign in using these services:
@@ -232,50 +312,95 @@ const PrivacyPolicyScreen = () => {
             </View>
           </View>
           
-          <View style={styles.section} id="children">
+          <View 
+            style={styles.section} 
+            id="children"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['children'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>9. Children's Privacy</Text>
             <Text style={styles.paragraph}>
-              Our services are not intended for children under 4 years of age and we do not knowingly collect personal information from children under 4 years of age. If you are a parent or guardian and believe that your child has provided us with personal information, please contact us so that we can take appropriate steps.
+              Our services are not intended for children under 13 years of age, and we do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe that your child has provided us with personal information, please contact us so that we can take appropriate steps.
+            </Text>
+            <Text style={styles.paragraph}>
+              If we learn that we have collected personal information from a child under 13, we will take steps to delete that information as soon as possible.
             </Text>
           </View>
           
-          <View style={styles.section} id="international">
-            <Text style={styles.sectionTitle}>10. International Data Transfers</Text>
+          <View 
+            style={styles.section} 
+            id="appleData"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['appleData'] = layout.y;
+            }}
+          >
+            <Text style={styles.sectionTitle}>10. Apple-Specific Data Collection</Text>
             <Text style={styles.paragraph}>
-              Your information may be transferred to and processed in countries other than the one in which you reside. These countries may have data protection laws that are different from the laws of your country.
+              For users who download our app from the Apple App Store:
             </Text>
+            <View style={styles.list}>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>App Tracking Transparency:</Text> We respect your choices regarding tracking across apps and websites owned by other companies. If you opt out of tracking via Apple's App Tracking Transparency feature, we will not track your activity across other companies' apps and websites.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>In-App Purchases:</Text> All payments and subscriptions are processed through Apple's App Store. We do not collect or store your payment information. Your purchase history is subject to Apple's Privacy Policy.</Text>
+              <Text style={styles.listItem}>• <Text style={styles.bold}>Apple Sign-in:</Text> If you use Apple Sign-in, we only receive the information you authorize Apple to share with us. At minimum, this includes a unique identifier that we use to create and manage your account.</Text>
+            </View>
             <Text style={styles.paragraph}>
-              Whenever we transfer your information, we take appropriate safeguards to ensure that your information remains protected in accordance with this Privacy Policy and applicable data protection laws.
+              Apple may collect additional information about your interactions with our app. Please refer to Apple's Privacy Policy for more information about their data practices.
             </Text>
           </View>
           
-          <View style={styles.section} id="retention">
+          <View 
+            style={styles.section} 
+            id="dataRetention"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['dataRetention'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>11. Data Retention</Text>
             <Text style={styles.paragraph}>
-              We retain your personal information for as long as necessary to fulfill the purposes for which we collected it, including to satisfy any legal, accounting, or reporting requirements.
+              We retain your personal information for as long as your account is active or as needed to provide you services. If you delete your account, we will delete or anonymize your personal information within a reasonable time period, except where we need to retain certain information for legitimate business or legal purposes.
             </Text>
             <Text style={styles.paragraph}>
-              To determine the appropriate retention period, we consider the amount, nature, and sensitivity of the personal information, the potential risk of harm from unauthorized use or disclosure, and the applicable legal requirements.
+              Information we retain after account deletion may include:
             </Text>
-            <Text style={styles.paragraph}>
-              When we no longer need your personal information, we will securely delete or anonymize it.
-            </Text>
+            <View style={styles.list}>
+              <Text style={styles.listItem}>• Aggregated analytics data that does not identify you personally</Text>
+              <Text style={styles.listItem}>• Information necessary for our legitimate business interests, such as fraud prevention</Text>
+              <Text style={styles.listItem}>• Information we are required to keep for legal reasons</Text>
+            </View>
           </View>
           
-          <View style={styles.section} id="changes">
+          <View 
+            style={styles.section} 
+            id="changes"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['changes'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>12. Changes to This Privacy Policy</Text>
             <Text style={styles.paragraph}>
               We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date.
             </Text>
             <Text style={styles.paragraph}>
-              We encourage you to review this Privacy Policy periodically for any changes. Changes to this Privacy Policy are effective when they are posted on this page.
+              For significant changes, we will provide a more prominent notice, which may include an in-app notification. We encourage you to review this Privacy Policy periodically for any changes.
             </Text>
           </View>
           
-          <View style={styles.section} id="contact">
+          <View 
+            style={styles.section} 
+            id="contact"
+            onLayout={(event) => {
+              const layout = event.nativeEvent.layout;
+              sectionPositions['contact'] = layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>13. Contact Us</Text>
             <Text style={styles.paragraph}>
-              If you have any questions about this Privacy Policy, please contact us at:
+              If you have any questions about this Privacy Policy or our data practices, please contact us at:
             </Text>
             <View style={styles.contactInfo}>
               <Text style={styles.contactLabel}>Email: </Text>

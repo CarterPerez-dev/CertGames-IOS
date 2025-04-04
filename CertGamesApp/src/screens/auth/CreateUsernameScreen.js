@@ -203,7 +203,7 @@ const CreateUsernameScreen = () => {
               </View>
               <Text style={styles.headerTitle}>Choose Your Gamer Tag</Text>
               <Text style={styles.subtitle}>
-                Pick a unique username for your journey
+                Create a unique username for your journey
               </Text>
             </View>
             
@@ -241,7 +241,7 @@ const CreateUsernameScreen = () => {
                     <Ionicons name="person" size={20} color="#AAAAAA" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Choose a unique username"
+                      placeholder="Create a username"
                       placeholderTextColor="#AAAAAA"
                       value={username}
                       onChangeText={setUsername}

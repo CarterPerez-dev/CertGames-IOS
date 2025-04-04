@@ -12,7 +12,8 @@ import {
   Platform,
   Animated,
   Easing,
-  Dimensions
+  Dimensions,
+  Linking
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -58,17 +59,7 @@ const SubscriptionScreenIOS = () => {
   const message = route.params?.message;
   const isRenewal = route.params?.renewal || false;
   
-  // Debug logging
-  useEffect(() => {
-    console.log("SubscriptionScreen params:", {
-      registrationData: registrationData ? "present" : "not present",
-      isOauthFlow,
-      isNewUsername,
-      userId,
-      isRenewal,
-      message: route.params?.message || "no message"
-    });
-  }, []);
+  
   
   useEffect(() => {
     // Initialize IAP connection and fetch subscription product
@@ -158,6 +149,8 @@ const SubscriptionScreenIOS = () => {
     ).start();
   }, []);
   
+
+
   const registerNewUser = async () => {
     try {
       setLoading(true);
@@ -419,6 +412,18 @@ const SubscriptionScreenIOS = () => {
       description: 'Track your progress with our gamified learning approach'
     }
   ];
+  
+
+  const openExternalLink = (url) => {
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        console.log("Cannot open URL: " + url);
+        Alert.alert("Error", "Cannot open the URL.");
+      }
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -449,33 +454,24 @@ const SubscriptionScreenIOS = () => {
         />
       ))}
       
-      {/* Back button - IMPORTANT: Preserving original functionality */}
+      {/* Back button - IMPORTANT: Fix for navigation issue */}
       <TouchableOpacity 
         style={styles.backButton}
         onPress={() => {
           console.log("Back button pressed, subscription type:", subscriptionType);
           
           if (subscriptionType === "renewal") {
-            // Existing code for renewal
+            // Use navigate instead of reset for more reliable behavior
             dispatch(logout());
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'AuthNavigator' }],
-            });
+            navigation.navigate('Login');  // Navigate directly to Login screen
           } 
           else if (subscriptionType === "oauth" || isOauthFlow || isNewUsername) {
-            // For OAuth flow that just created username
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'AuthNavigator' }],
-            });
+            // Navigate directly to a screen rather than to the navigator
+            navigation.navigate('Register');
           }
           else {
             dispatch(logout());
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Register' }],
-            });
+            navigation.navigate('Register');
           }
         }}
       >
@@ -591,7 +587,7 @@ const SubscriptionScreenIOS = () => {
                   style={styles.benefitsHeaderGradient}
                 >
                   <Ionicons name="diamond" size={20} color="#FF4C8B" style={styles.benefitsIcon} />
-                  <Text style={styles.benefitsTitle}>Unlock All Features</Text>
+                  <Text style={styles.benefitsTitle}>Unlocks All Features</Text>
                 </LinearGradient>
               </View>
               
@@ -645,6 +641,30 @@ const SubscriptionScreenIOS = () => {
                 "As someone with ADHD, traditional studying was a nightmare. The gamified elements kept me focused, and I surprised myself by completing all three certs in under 4 months!"
               </Text>
               <Text style={styles.testimonialAuthor}>— Connor B, SOC Intern.</Text>
+            </View>
+            
+            {/* Legal links footer */}
+            <View style={styles.legalLinksContainer}>
+              <TouchableOpacity 
+                style={styles.legalLink}
+                onPress={() => openExternalLink('https://certgames.com/privacy-ios')}
+              >
+                <Text style={styles.legalLinkText}>Privacy Policy</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.legalLink}
+                onPress={() => openExternalLink('https://certgames.com/terms-ios')}
+              >
+                <Text style={styles.legalLinkText}>Terms of Use</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.legalLink}
+                onPress={() => openExternalLink('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
+              >
+                <Text style={styles.legalLinkText}>Apple Terms</Text>
+              </TouchableOpacity>
             </View>
           </LinearGradient>
         </Animated.View>
@@ -1016,6 +1036,26 @@ const styles = StyleSheet.create({
     color: '#AAAAAA',
     fontSize: 14,
     fontWeight: '500',
+  },
+  // NEW: Legal links styles
+  legalLinksContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  legalLink: {
+    paddingVertical: 8,
+    paddingHorizontal: 7,
+  },
+  legalLinkText: {
+    color: '#8A8A8A',
+    fontSize: 10,
+    textDecorationLine: 'underline',
+    fontStyle: 'italic',
   }
 });
 

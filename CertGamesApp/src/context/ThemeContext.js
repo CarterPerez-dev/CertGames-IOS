@@ -6,8 +6,8 @@ import * as SecureStore from 'expo-secure-store';
 // Define available themes with comprehensive properties
 const themes = {
   // Default theme: Dark black background with dark purple primary color
-  dark: {
-    name: 'dark',
+  Amethyst: {
+    name: 'Amethyst',
     displayName: 'Amethyst',
     colors: {
       // Base colors
@@ -127,8 +127,8 @@ const themes = {
   },
   
   // Dark Red/Orange theme
-  light: {
-    name: 'light',
+  Crimson: {
+    name: 'Crimson',
     displayName: 'Crimson',
     colors: {
       // Base colors
@@ -248,8 +248,8 @@ const themes = {
   },
   
   // Dark Green/Cyan theme
-  hacker: {
-    name: 'hacker',
+  Emerald: {
+    name: 'Emerald',
     displayName: 'Emerald',
     colors: {
       // Base colors
@@ -369,8 +369,8 @@ const themes = {
   },
   
   // Modern Monochrome: Black & White theme
-  monochrome: {
-    name: 'monochrome',
+  Monochrome: {
+    name: 'Monochrome',
     displayName: 'Monochrome',
     colors: {
       // Base colors
@@ -496,7 +496,7 @@ const ThemeContext = createContext();
 // Theme provider component
 export const ThemeProvider = ({ children }) => {
   const deviceTheme = useColorScheme();
-  const [themeName, setThemeName] = useState('dark'); // Default to dark theme
+  const [themeName, setThemeName] = useState('Amethyst'); // Default to dark theme
   const [isLoading, setIsLoading] = useState(true);
   
   // Load saved theme on startup
@@ -508,12 +508,12 @@ export const ThemeProvider = ({ children }) => {
           setThemeName(savedTheme);
         } else {
           // Default to dark theme if no saved theme
-          setThemeName('dark');
+          setThemeName('Amethyst');
         }
       } catch (error) {
         console.error('Failed to load theme', error);
         // Default to dark theme if there's an error
-        setThemeName('dark');
+        setThemeName('Amethyst');
       } finally {
         setIsLoading(false);
       }
@@ -529,7 +529,7 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [themeName, isLoading]);
   
-  const theme = themes[themeName] || themes.dark; // Default fallback to dark theme
+  const theme = themes[themeName] || themes.Amethyst; // Default fallback to dark theme
   
   const setTheme = (name) => {
     if (themes[name]) {

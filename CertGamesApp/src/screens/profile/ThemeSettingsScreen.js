@@ -79,13 +79,13 @@ const ThemeSettingsScreen = ({ navigation }) => {
   // Get icon for each theme
   const getThemeIcon = (name) => {
     switch(name) {
-      case 'dark':
+      case 'Amethyst':
         return 'diamond';            // Moon icon for Dark Purple
-      case 'light':
+      case 'Crimson':
         return 'flame';           // Flame icon for Dark Crimson
-      case 'hacker':
+      case 'Emerald':
         return 'prism';            // Leaf icon for Dark Emerald
-      case 'monochrome':
+      case 'Monochrome':
         return 'infinite';        // Contrast icon for Monochrome
       default:
         return 'color-palette';   // Default fallback

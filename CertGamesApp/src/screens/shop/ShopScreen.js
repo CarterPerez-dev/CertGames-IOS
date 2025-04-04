@@ -770,7 +770,7 @@ const ShopScreen = () => {
           color: theme.colors.textSecondary,
           fontFamily: 'ShareTechMono'
         }]}>
-          Please check your network conenction...
+          Please check your network connection...
         </Text>
       </View>
     );

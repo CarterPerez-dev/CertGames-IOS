@@ -751,14 +751,24 @@ const RegisterScreen = () => {
               </View>
               
               <View style={styles.socialButtonsContainer}>
-                <TouchableOpacity 
-                  style={styles.socialButton}
-                  onPress={handleGoogleSignUp}
-                  disabled={loading}
-                >
-                  <Ionicons name="logo-google" size={20} color="#EA4335" />
-                  <Text style={styles.socialButtonText}>Google</Text>
-                </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.socialButton}
+                onPress={handleGoogleSignUp}
+                disabled={loading}
+              >
+                {/* We'll replace this Ionicon in the next step */}
+                <Ionicons name="logo-google" size={20} color="#EA4335" /> 
+                
+                {/* Container for the multi-colored text */}
+                <View style={styles.googleTextContainer}> 
+                  <Text style={[styles.googleLetterBase, { color: '#4285F4' }]}>G</Text>
+                  <Text style={[styles.googleLetterBase, { color: '#EA4335' }]}>o</Text>
+                  <Text style={[styles.googleLetterBase, { color: '#FBBC05' }]}>o</Text>
+                  <Text style={[styles.googleLetterBase, { color: '#4285F4' }]}>g</Text>
+                  <Text style={[styles.googleLetterBase, { color: '#34A853' }]}>l</Text>
+                  <Text style={[styles.googleLetterBase, { color: '#EA4335' }]}>e</Text>
+                </View>
+              </TouchableOpacity>
                 
                 {appleAuthAvailable && (
                   <TouchableOpacity 
@@ -1150,9 +1160,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
-  socialButtonText: {
-    color: '#4285F4',
+  googleTextContainer: {
+    flexDirection: 'row', // Arrange letters horizontally
+  },
+  // Base style for each letter (inherits boldness, etc.)
+  googleLetterBase: {
     fontWeight: 'bold',
+    fontSize: 14, // Match your desired text size
   },
   socialButtonAppleText: {
     color: '#979797',

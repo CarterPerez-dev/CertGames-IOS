@@ -1166,14 +1166,15 @@ const styles = StyleSheet.create({
   testNumberText: {
     fontSize: 8,
     fontWeight: 'bold',
+    marginRight: 5,
   },
   difficultyBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 12,
   },
   difficultyText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: 'bold',
   },
   progressSection: {

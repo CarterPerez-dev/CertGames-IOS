@@ -32,7 +32,8 @@ const useUserData = (options = {}) => {
     error = null,
     lastDailyClaim = null,
     subscriptionStatus = null,
-    subscriptionPlatform = null
+    subscriptionPlatform = null,
+    lastUpdated = null // Added new field
   } = userData;
   
   // Safe access to shop and achievements
@@ -64,6 +65,18 @@ const useUserData = (options = {}) => {
       }
     }
   }, [autoFetch, userId, status, shopStatus, achievementsStatus, dispatch]);
+  
+  // NEW: Add effect to monitor lastUpdated changes
+  useEffect(() => {
+    if (lastUpdated && userId) {
+      // Don't refresh if we're already loading
+      if (status !== 'loading') {
+        // Refresh shop and achievements when user data changes
+        dispatch(fetchShopItems());
+        dispatch(fetchAchievements());
+      }
+    }
+  }, [lastUpdated, userId, status, dispatch]);
   
   // Function to manually refresh data with error handling
   const refreshData = useCallback(() => {
@@ -143,6 +156,7 @@ const useUserData = (options = {}) => {
     lastDailyClaim: lastDailyClaim || null,
     subscriptionStatus: subscriptionStatus || null,
     subscriptionPlatform: subscriptionPlatform || null,
+    lastUpdated: lastUpdated || null, // Added to return value
     
     // Shop items
     shopItems: shopItems || [],

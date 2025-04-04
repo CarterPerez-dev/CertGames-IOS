@@ -127,6 +127,7 @@ const initialState = {
   subscriptionPlatform: null,
   lastDailyClaim: null,
   appleTransactionId: null,
+  lastUpdated: null, // Added for sync tracking
   
   // Status flags
   status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
@@ -194,12 +195,14 @@ const userSlice = createSlice({
     
     updateCoins: (state, action) => {
       state.coins = action.payload;
+      state.lastUpdated = Date.now(); // Add timestamp
     },
     
     updateXp: (state, action) => {
       state.xp = action.payload;
       // Recalculate level based on new XP
       state.level = calculateLevelFromXP(action.payload);
+      state.lastUpdated = Date.now(); // Add timestamp
     },
     
     setXPAndCoins: (state, action) => {
@@ -225,6 +228,9 @@ const userSlice = createSlice({
           }
         });
       }
+      
+      // Add timestamp to trigger subscription updates
+      state.lastUpdated = Date.now();
     },
     
     // Add this new reducer
@@ -256,6 +262,7 @@ const userSlice = createSlice({
         state.purchasedItems = action.payload.purchasedItems || [];
         state.subscriptionActive = action.payload.subscriptionActive || false;
         state.lastDailyClaim = action.payload.lastDailyClaim || null;
+        state.lastUpdated = Date.now(); // Add timestamp
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = 'failed';
@@ -288,6 +295,7 @@ const userSlice = createSlice({
         state.appleTransactionId = userData.appleTransactionId || null;
         state.subscriptionStartDate = userData.subscriptionStartDate || null;
         state.subscriptionEndDate = userData.subscriptionEndDate || null;
+        state.lastUpdated = Date.now(); // Add timestamp
       })
       .addCase(fetchUserData.rejected, (state, action) => {
         state.status = 'failed';
@@ -316,6 +324,8 @@ const userSlice = createSlice({
               }
             });
           }
+          
+          state.lastUpdated = Date.now(); // Add timestamp
         }
       })
       

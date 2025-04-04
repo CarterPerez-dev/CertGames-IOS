@@ -645,12 +645,12 @@ const TestScreen = ({ route, navigation }) => {
           xp: finishData.newXP,
           coins: finishData.newCoins,
           newlyUnlocked: finishData.newlyUnlocked || []
-        }));
+        })).unwrap();
+      }
 
         // Log achievements for debugging
-        if (finishData.newlyUnlocked && finishData.newlyUnlocked.length > 0) {
-          console.log('New achievements unlocked:', finishData.newlyUnlocked);
-        }
+      if (finishData.newlyUnlocked && finishData.newlyUnlocked.length > 0) {
+        console.log('New achievements unlocked:', finishData.newlyUnlocked);
       }
     } catch (err) {
       console.error("Failed to finish test attempt:", err);
@@ -660,7 +660,7 @@ const TestScreen = ({ route, navigation }) => {
         [{ text: "OK" }]
       );  
     }
-
+  
     setShowScoreModal(true);
     
     // Mark that a test was just completed so TestListScreen can refresh when we go back
@@ -681,7 +681,7 @@ const TestScreen = ({ route, navigation }) => {
     examMode,
     navigation
   ]);
-
+  
   // Navigate to the next question
   const handleNextQuestion = useCallback(async () => {
     if (!isAnswered && !examMode) {

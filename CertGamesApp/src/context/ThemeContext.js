@@ -2,6 +2,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import responsive from '../utils/responsive';
 
 // Define available themes with comprehensive properties
 const themes = {
@@ -490,6 +491,35 @@ const themes = {
   },
 };
 
+// Apply responsive scaling to all theme sizes
+Object.keys(themes).forEach(themeName => {
+  // Scale font sizes
+  Object.keys(themes[themeName].sizes.fontSize).forEach(key => {
+    const originalSize = themes[themeName].sizes.fontSize[key];
+    themes[themeName].sizes.fontSize[key] = responsive.isTablet 
+      ? Math.min(originalSize * 1.2, originalSize + 4) // Limit growth on tablets
+      : Math.max(originalSize * (responsive.width / 390), originalSize * 0.85); // Scale based on device width with minimum
+  });
+  
+  // Scale border radius
+  Object.keys(themes[themeName].sizes.borderRadius).forEach(key => {
+    const originalRadius = themes[themeName].sizes.borderRadius[key];
+    themes[themeName].sizes.borderRadius[key] = responsive.scale(originalRadius);
+  });
+  
+  // Scale spacing
+  Object.keys(themes[themeName].sizes.spacing).forEach(key => {
+    const originalSpacing = themes[themeName].sizes.spacing[key];
+    themes[themeName].sizes.spacing[key] = responsive.scaleWidth(originalSpacing);
+  });
+  
+  // Scale icon sizes
+  Object.keys(themes[themeName].sizes.iconSize).forEach(key => {
+    const originalSize = themes[themeName].sizes.iconSize[key];
+    themes[themeName].sizes.iconSize[key] = responsive.scale(originalSize);
+  });
+});
+
 // Create theme context
 const ThemeContext = createContext();
 
@@ -531,6 +561,12 @@ export const ThemeProvider = ({ children }) => {
   
   const theme = themes[themeName] || themes.Amethyst; // Default fallback to dark theme
   
+  // Add responsive information to the theme
+  const responsiveTheme = {
+    ...theme,
+    responsive: responsive,
+  };
+  
   const setTheme = (name) => {
     if (themes[name]) {
       setThemeName(name);
@@ -547,7 +583,7 @@ export const ThemeProvider = ({ children }) => {
   
   return (
     <ThemeContext.Provider value={{ 
-      theme,
+      theme: responsiveTheme,
       themeName,
       setTheme,
       getAvailableThemes,

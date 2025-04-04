@@ -253,7 +253,7 @@ const ResourceRandomModal = ({
                 </View>
               ) : (
                 <>
-                  <Ionicons name="shuffle-outline" size={18} color={theme.colors.text} />
+                  <Ionicons name="refresh-outline" size={18} color={theme.colors.text} />
                   <Text style={[styles.randomButtonText, { 
                     color: theme.colors.text,
                     fontFamily: 'ShareTechMono'

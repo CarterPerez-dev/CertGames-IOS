@@ -161,9 +161,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   header: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     letterSpacing: 1,
+    MarginRight: 5,
   },
   toggleButton: {
     borderRadius: 20,
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   toggleText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     letterSpacing: 0.5,
   },

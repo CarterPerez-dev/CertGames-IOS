@@ -3,6 +3,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import TestListScreen from '../screens/tests/TestListScreen';
 import TestScreen from '../screens/tests/TestScreen';
 
@@ -24,32 +25,44 @@ import AWSCloudScreen from '../screens/tests/categories/AWSCloudScreen';
 const Stack = createNativeStackNavigator();
 
 // Custom header background
-const HeaderBackground = () => (
-  <LinearGradient
-    colors={['#1E1E2E', '#0B0C15']}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 0, y: 1 }}
-    style={StyleSheet.absoluteFill}
-  />
-);
+const HeaderBackground = () => {
+  const { theme } = useTheme();
+  
+  return (
+    <LinearGradient
+      colors={theme.colors.headerGradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={StyleSheet.absoluteFill}
+    />
+  );
+};
 
 const TestNavigator = () => {
+  const { theme } = useTheme();
+  const responsive = theme.responsive;
+  
+  // Adjust header height and font size for different devices
+  const headerHeight = responsive?.scaleHeight(60) || 60;
+  const headerFontSize = responsive?.scaleFont(theme.sizes.fontSize.lg) || theme.sizes.fontSize.lg;
+  
   return (
     <Stack.Navigator
       screenOptions={{
         headerBackground: () => <HeaderBackground />,
-        headerTintColor: '#FFFFFF',
+        headerTintColor: theme.colors.text,
         headerTitleStyle: {
           fontWeight: 'bold',
-          fontSize: 18,
+          fontSize: headerFontSize,
+          fontFamily: 'Orbitron-Bold',
         },
         headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          height: 60,
+          height: headerHeight,
         },
-        contentStyle: { backgroundColor: '#0B0C15' },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       {/* Generic TestList - rarely used if you always go to category screens */}

@@ -21,9 +21,16 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.certgames.app",
       "buildNumber": "1.0.0",
+      "requireFullScreen": true,
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to take profile photos.",
         "ITSAppUsesNonExemptEncryption": false,
+        "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait"
+        ],
+        "UISupportedInterfaceOrientations~ipad": [
+          "UIInterfaceOrientationPortrait"
+        ],
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
@@ -88,6 +95,8 @@
     "owner": "certgames",
     "runtimeVersion": {
       "policy": "appVersion"
-    }
+    },
+    "privacy": "unlisted",
+    "primaryColor": "#6543CC"
   }
 }

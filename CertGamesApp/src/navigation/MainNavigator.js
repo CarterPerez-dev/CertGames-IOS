@@ -1,6 +1,6 @@
 // src/navigation/MainNavigator.js
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,13 +60,14 @@ const HomeStackNavigator = () => {
         headerTintColor: theme.colors.text,
         headerTitleStyle: {
           fontWeight: 'bold',
-          fontSize: 18,
+          fontSize: theme.sizes.fontSize.lg,
+          fontFamily: 'Orbitron-Bold',
         },
         headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          height: 60,
+          height: theme.responsive ? theme.responsive.scaleHeight(60) : 60,
         },
         contentStyle: { backgroundColor: theme.colors.background },
       }}
@@ -146,13 +147,14 @@ const ProfileStackNavigator = () => {
         headerTintColor: theme.colors.text,
         headerTitleStyle: {
           fontWeight: 'bold',
-          fontSize: 18,
+          fontSize: theme.sizes.fontSize.lg,
+          fontFamily: 'Orbitron-Bold',
         },
         headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          height: 60,
+          height: theme.responsive ? theme.responsive.scaleHeight(60) : 60,
         },
         contentStyle: { backgroundColor: theme.colors.background },
       }}
@@ -213,13 +215,14 @@ const LeaderboardStackNavigator = () => {
         headerTintColor: theme.colors.text,
         headerTitleStyle: {
           fontWeight: 'bold',
-          fontSize: 18,
+          fontSize: theme.sizes.fontSize.lg,
+          fontFamily: 'Orbitron-Bold',
         },
         headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          height: 60,
+          height: theme.responsive ? theme.responsive.scaleHeight(60) : 60,
         },
         contentStyle: { backgroundColor: theme.colors.background },
       }}
@@ -244,13 +247,14 @@ const ShopStackNavigator = () => {
         headerTintColor: theme.colors.text,
         headerTitleStyle: {
           fontWeight: 'bold',
-          fontSize: 18,
+          fontSize: theme.sizes.fontSize.lg,
+          fontFamily: 'Orbitron-Bold',
         },
         headerBackVisible: true,
         headerBackTitleVisible: false,
         headerTitleAlign: 'center',
         headerStyle: {
-          height: 60,
+          height: theme.responsive ? theme.responsive.scaleHeight(60) : 60,
         },
         contentStyle: { backgroundColor: theme.colors.background },
       }}
@@ -264,80 +268,23 @@ const ShopStackNavigator = () => {
   );
 };
 
-// Tab bar with blur effect
-const CustomTabBar = ({ state, descriptors, navigation, theme }) => {
-  return (
-    <View style={[
-      styles.tabBarContainer, 
-      { 
-        backgroundColor: theme.colors.tabBackground,
-        borderTopColor: theme.colors.border,
-      }
-    ]}>
-      {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
-        const label = options.tabBarLabel || options.title || route.name;
-        const isFocused = state.index === index;
-
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
-
-        let iconName;
-        if (route.name === 'Home') {
-          iconName = isFocused ? 'home' : 'home-outline';
-        } else if (route.name === 'Profile') {
-          iconName = isFocused ? 'person' : 'person-outline';
-        } else if (route.name === 'Leaderboard') {
-          iconName = isFocused ? 'trophy' : 'trophy-outline';
-        } else if (route.name === 'Shop') {
-          iconName = isFocused ? 'cart' : 'cart-outline';
-        }
-
-        return (
-          <TouchableOpacity
-            key={index}
-            accessibilityRole="button"
-            accessibilityState={isFocused ? { selected: true } : {}}
-            accessibilityLabel={options.tabBarAccessibilityLabel}
-            testID={options.tabBarTestID}
-            onPress={onPress}
-            style={styles.tabItem}
-          >
-            <Ionicons 
-              name={iconName} 
-              size={24} 
-              color={isFocused ? theme.colors.tabActive : theme.colors.tabInactive} 
-            />
-            <Text 
-              style={[
-                styles.tabLabel, 
-                { 
-                  color: isFocused ? theme.colors.tabActive : theme.colors.tabInactive,
-                  fontWeight: isFocused ? 'bold' : 'normal' 
-                }
-              ]}
-            >
-              {label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-};
-
 // Main Tab Navigator
 const MainNavigator = () => {
   const { theme } = useTheme();
+  const { responsive } = theme;
+  
+  // Calculate the safe area bottom padding
+  const safeAreaBottom = responsive?.safeArea?.bottom ?? (Platform.OS === 'ios' ? 34 : 0);
+  
+  // Calculate appropriate tab bar height based on device
+  const tabBarHeight = responsive?.isTablet 
+    ? responsive.scaleHeight(70) + safeAreaBottom 
+    : responsive?.scaleHeight(80) + safeAreaBottom;
+  
+  // Determine appropriate icon sizes based on device
+  const tabIconSize = responsive?.isTablet 
+    ? responsive.scale(28) 
+    : responsive?.scale(24) || 24;
   
   return (
     <Tab.Navigator
@@ -356,19 +303,17 @@ const MainNavigator = () => {
 
         return {
           tabBarIcon: ({ focused, color, size }) => {
-            return <Ionicons name={iconName(focused)} size={size} color={color} />;
+            return <Ionicons name={iconName(focused)} size={tabIconSize} color={color} />;
           },
           tabBarActiveTintColor: theme.colors.primary,
           tabBarInactiveTintColor: theme.colors.tabInactive,
           tabBarStyle: {
             backgroundColor: theme.colors.tabBackground,
-            height: 80, // Taller to accommodate iPhone home indicator
-            paddingTop: 12, // Raise the icons/content within the tab bar
-            paddingBottom: 25, // More padding at bottom for home indicator
+            height: tabBarHeight,
+            paddingTop: responsive ? responsive.scaleHeight(12) : 12,
+            paddingBottom: safeAreaBottom > 0 ? safeAreaBottom : (responsive ? responsive.scaleHeight(20) : 20),
             borderTopWidth: 1,
             borderTopColor: theme.colors.border + '80',
-            // No margin bottom - flush with screen edge
-            // No border radius - flush with screen edges
             shadowColor: theme.colors.shadow,
             shadowOffset: { width: 0, height: -2 },
             shadowOpacity: 0.15,
@@ -376,10 +321,13 @@ const MainNavigator = () => {
             elevation: 8,
           },
           headerShown: false,
+          tabBarLabelStyle: {
+            fontSize: responsive ? responsive.scaleFont(12) : 12,
+            paddingBottom: responsive ? responsive.scaleHeight(4) : 4,
+            fontFamily: 'ShareTechMono',
+          },
         };
       }}
-      // Use custom tab bar if needed
-      // tabBar={props => <CustomTabBar {...props} theme={theme} />}
     >
       <Tab.Screen name="Home" component={HomeStackNavigator} />
       <Tab.Screen name="Leaderboard" component={LeaderboardStackNavigator} />

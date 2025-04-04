@@ -7,7 +7,8 @@ module.exports = function(api) {
   
   // Only add transform-remove-console in production builds
   if (process.env.NODE_ENV === 'production') {
-    plugins.push(['transform-remove-console', { exclude: ['error', 'warn'] }]);
+    plugins.push(['transform-remove-console', { exclude: [] }]);
+    // Empty array means no console methods are excluded from removal
   }
   
   return {

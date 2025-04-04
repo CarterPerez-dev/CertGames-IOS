@@ -4,6 +4,7 @@ import { View, Text, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { useTheme } from '../context/ThemeContext';
+import * as SecureStore from 'expo-secure-store'; // Add this import
 
 const NotificationOverlay = () => {
   const { theme } = useTheme();
@@ -13,13 +14,35 @@ const NotificationOverlay = () => {
   
   const prevAchievements = useRef(achievements || []);
   const prevLevel = useRef(level);
+  const hasInitializedLevel = useRef(false); // Track if we've already initialized
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-50)).current;
   
+  // Initialize prevLevel from storage on mount
+  useEffect(() => {
+    const loadLastNotifiedLevel = async () => {
+      try {
+        const storedLevel = await SecureStore.getItemAsync('lastNotifiedLevel');
+        if (storedLevel) {
+          prevLevel.current = parseInt(storedLevel, 10);
+        }
+        hasInitializedLevel.current = true;
+      } catch (err) {
+        console.error('Error loading last notified level:', err);
+        hasInitializedLevel.current = true; // Still mark as initialized even on error
+      }
+    };
+    
+    loadLastNotifiedLevel();
+  }, []);
+  
   // Check for new achievements or level-ups
   useEffect(() => {
-    // Check for level up
+    // Only proceed if we've initialized from storage
+    if (!hasInitializedLevel.current) return;
+    
+    // Check for level up - only notify if level increased AND it's higher than the last notified level
     if (level > prevLevel.current && prevLevel.current > 0) {
       addNotification({
         type: 'level-up',
@@ -28,6 +51,13 @@ const NotificationOverlay = () => {
         message: `You've reached level ${level}`,
         color: theme.colors.primary
       });
+      
+      // Store this level as the last notified level
+      try {
+        SecureStore.setItemAsync('lastNotifiedLevel', level.toString());
+      } catch (err) {
+        console.error('Error saving last notified level:', err);
+      }
     }
     
     // Check for new achievements
@@ -122,7 +152,7 @@ const NotificationOverlay = () => {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 100,
+    top: 80,
     left: 20,
     right: 20,
     borderRadius: 12,

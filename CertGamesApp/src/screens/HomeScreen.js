@@ -20,6 +20,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import useUserData from '../hooks/useUserData';
 import useXpProgress from '../hooks/useXpProgress';
+import { useFocusEffect } from '@react-navigation/native'; // Add this import
 
 const { width } = Dimensions.get('window');
 
@@ -172,6 +173,14 @@ const HomeScreen = ({ navigation }) => {
     // Update ref for next comparison
     prevLevelRef.current = level;
   }, [level, levelUpAnimAnim]);
+
+  // Add useFocusEffect to refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh user data whenever HomeScreen comes into focus
+      refreshData();
+    }, [refreshData])
+  );
   
   // Handle refresh
   const onRefresh = async () => {

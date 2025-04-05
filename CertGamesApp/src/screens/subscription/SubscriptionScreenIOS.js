@@ -31,6 +31,7 @@ const SubscriptionScreenIOS = () => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [subscriptionProduct, setSubscriptionProduct] = useState(null);
+  // Keep error state but never display it to users
   const [error, setError] = useState(null);
   const [registrationCompleted, setRegistrationCompleted] = useState(false);
   const [purchaseInProgress, setPurchaseInProgress] = useState(false);
@@ -70,7 +71,8 @@ const SubscriptionScreenIOS = () => {
         // Initialize connection to App Store
         const connectionInitialized = await AppleSubscriptionService.initializeConnection();
         if (!connectionInitialized) {
-          throw new Error('Failed to initialize App Store connection');
+          // No UI error, just log to console
+          console.error('Failed to initialize App Store connection');
         }
         
         // Check for and finish any pending transactions
@@ -87,17 +89,15 @@ const SubscriptionScreenIOS = () => {
             setSubscriptionProduct(subscriptions[0]);
           } else {
             console.warn("No subscription products found");
-            // FIXED: Don't set error here, still allow purchase to proceed
             console.log("Continuing without subscription products - purchase will still work");
           }
         } catch (subscriptionError) {
           console.error("Error getting subscriptions:", subscriptionError);
-          // FIXED: Don't set error here, still allow purchase to proceed
           console.log("Continuing despite subscription product error - purchase will still work");
         }
       } catch (err) {
         console.error('Error initializing subscription:', err);
-        setError('Failed to initialize subscription services. Please try again later.');
+        // No UI error, just log to console
       } finally {
         setInitialLoading(false);
       }
@@ -164,6 +164,7 @@ const SubscriptionScreenIOS = () => {
       const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
       
       if (!response.data || !response.data.user_id) {
+        // Just throw an error without setting UI error
         throw new Error('Registration failed: No user ID returned');
       }
       
@@ -184,16 +185,8 @@ const SubscriptionScreenIOS = () => {
       
     } catch (error) {
       console.error('Registration error:', error);
-      let errorMessage = 'Registration failed. Please try again.';
-      
-      if (error.response && error.response.data && error.response.data.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorMessage);
-      throw error;
+      // No UI error, just log to console
+      return null;
     } finally {
       setLoading(false);
     }
@@ -212,6 +205,7 @@ const SubscriptionScreenIOS = () => {
     try {
       setLoading(true);
       setPurchaseInProgress(true);
+      // We'll keep this to clear any potential errors, but we won't display them
       setError(null);
       
       // Check for pending transactions first
@@ -228,7 +222,8 @@ const SubscriptionScreenIOS = () => {
       
       // Ensure we have a user ID for existing users
       if (!userIdToUse && !registrationData) {
-        setError('User ID is missing. Please try again.');
+        console.error('User ID is missing');
+        // No UI error, just log to console and continue
         setPurchaseInProgress(false);
         setLoading(false);
         return;
@@ -244,14 +239,8 @@ const SubscriptionScreenIOS = () => {
       
       // If purchase failed or was cancelled, exit early without registering the user
       if (!purchaseResult || !purchaseResult.success) {
-        const errorMessage = purchaseResult?.error || 'Failed to complete subscription purchase';
-        console.error('Purchase failed:', errorMessage);
-        
-        if (errorMessage.includes('cancel')) {
-          setError('Subscription purchase was cancelled.');
-        } else {
-          setError(errorMessage);
-        }
+        const errorMessage = purchaseResult?.error || '';
+        console.error('Purchase failed or was cancelled:', errorMessage);
         
         setPurchaseInProgress(false);
         setLoading(false);
@@ -267,7 +256,11 @@ const SubscriptionScreenIOS = () => {
           const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
           
           if (!response.data || !response.data.user_id) {
-            throw new Error('Registration failed: No user ID returned');
+            // Just log the error, don't show to user
+            console.error('Registration failed: No user ID returned');
+            setPurchaseInProgress(false);
+            setLoading(false);
+            return;
           }
           
           userIdToUse = response.data.user_id;
@@ -285,8 +278,7 @@ const SubscriptionScreenIOS = () => {
           setRegistrationCompleted(true);
         } catch (regError) {
           console.error('Registration error:', regError);
-          // Handle registration error after successful payment (rare case)
-          setError('Payment successful, but account creation failed. Please contact support.');
+          // Don't show UI error, just log
           setPurchaseInProgress(false);
           setLoading(false);
           return;
@@ -324,14 +316,12 @@ const SubscriptionScreenIOS = () => {
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      setError(error.message || 'Failed to complete subscription purchase');
+      // Don't show UI error, just log to console
     } finally {
       setLoading(false);
       setPurchaseInProgress(false);
     }
   };
-  
-  // REMOVED: handleRestorePurchases method
   
   // Get subscription type - prioritize OAuth/New Username flow over renewal
   const getSubscriptionType = () => {
@@ -394,7 +384,7 @@ const SubscriptionScreenIOS = () => {
         Linking.openURL(url);
       } else {
         console.log("Cannot open URL: " + url);
-        Alert.alert("Error", "Cannot open the URL.");
+        // Don't show Alert, just log to console
       }
     });
   };
@@ -490,12 +480,7 @@ const SubscriptionScreenIOS = () => {
               </View>
             )}
             
-            {error && (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={20} color="#FF4C8B" />
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
+            {/* Removed error display UI component */}
             
             {initialLoading ? (
               <View style={styles.loadingContainer}>
@@ -603,8 +588,6 @@ const SubscriptionScreenIOS = () => {
                 <Text style={styles.guaranteeText}>24/7 Active Support & Mentor</Text>
               </View>
             </View>
-            
-            {/* REMOVED: Restore Purchases Button */}
             
             <View style={styles.testimonialsContainer}>
               <View style={styles.testimonialBadge}>
@@ -787,23 +770,24 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
   },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 76, 139, 0.1)',
-    padding: 12,
-    borderRadius: 12,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderLeftWidth: 3,
-    borderLeftColor: '#FF4C8B',
-  },
-  errorText: {
-    color: '#FF4C8B',
-    marginLeft: 10,
-    flex: 1,
-    fontSize: 14,
-  },
+  // Removed error container styles but keeping them commented for reference
+  // errorContainer: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   backgroundColor: 'rgba(255, 76, 139, 0.1)',
+  //   padding: 12,
+  //   borderRadius: 12,
+  //   marginHorizontal: 20,
+  //   marginBottom: 20,
+  //   borderLeftWidth: 3,
+  //   borderLeftColor: '#FF4C8B',
+  // },
+  // errorText: {
+  //   color: '#FF4C8B',
+  //   marginLeft: 10,
+  //   flex: 1,
+  //   fontSize: 14,
+  // },
   loadingContainer: {
     padding: 30,
     alignItems: 'center',
@@ -975,7 +959,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  // REMOVED: restoreButton styles
   testimonialsContainer: {
     padding: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.15)',
@@ -1011,7 +994,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  // NEW: Legal links styles
   legalLinksContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',

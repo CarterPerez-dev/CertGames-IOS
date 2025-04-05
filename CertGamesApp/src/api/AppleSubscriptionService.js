@@ -142,15 +142,18 @@ class AppleSubscriptionService {
       
       return { success: false, error: 'No transaction receipt found' };
     } catch (error) {
-      console.error('Failed to purchase subscription:', error);
+      // Check for cancellation FIRST - before any logging happens
       if (error.message && (
           error.message.includes('cancel') || 
           error.message.includes('SKErrorDomain Error 2') ||
           (error.code && error.code === 2)
       )) {
+        // Completely silent - no logs, no console.error, nothing at all
         return { success: false, error: 'Purchase was cancelled.' };
       }
-  
+    
+      // Only get here for non-cancellation errors
+      console.error('Failed to purchase subscription:', error);
       return { success: false, error: error.message };
     }
   }

@@ -587,22 +587,29 @@ const TestScreen = ({ route, navigation }) => {
     finishTestProcess
   ]);
   
-  // Finish the test
+
+  // Finish the test with retry logic
   const finishTestProcess = useCallback(async () => {
     let finalScore = 0;
-
+  
     // Calculate final score
     answers.forEach(ans => {
       if (ans.userAnswerIndex === ans.correctAnswerIndex) {
         finalScore++;
       }
     });
-
+  
     setScore(finalScore);
     setIsFinished(true);
-
+  
     try {
-      // First ensure the attempt exists with the correct category
+      // Make sure we have all required parameters
+      if (!userId || !testId || !category) {
+        console.error("Missing required fields:", { userId, testId, category });
+        throw new Error("Missing required data");
+      }
+  
+      // First update the attempt to ensure it exists
       await testService.createOrUpdateAttempt(userId, testId, {
         category,
         answers,
@@ -612,26 +619,12 @@ const TestScreen = ({ route, navigation }) => {
         currentQuestionIndex,
         shuffleOrder,
         answerOrder,
-        // Don't mark as finished yet - that's what the finish endpoint does
-        finished: false,
+        // Mark as finished to prevent any issues
+        finished: true,
         examMode
       });
-
-      console.log("About to finish test. Test ID:", testId);
-      console.log("Category:", category);
-
-      // Also add this to check for existing attempt
-      try {
-        const attemptCheck = await testService.fetchTestAttempt(userId, testId, 'unfinished');
-        console.log("Current unfinished attempt:", attemptCheck?.attempt ? "FOUND" : "NOT FOUND");
-        if (attemptCheck?.attempt) {
-          console.log("Attempt category:", attemptCheck.attempt.category);
-          console.log("Attempt testId:", attemptCheck.attempt.testId);
-        }
-      } catch (err) {
-        console.error("Error checking for attempt:", err);
-      }
-
+  
+      // Then call the finish endpoint
       const finishData = await testService.finishTestAttempt(userId, testId, {
         score: finalScore,
         totalQuestions: effectiveTotal,
@@ -639,31 +632,21 @@ const TestScreen = ({ route, navigation }) => {
         category
       });
       
-      // Use the setXPAndCoins action creator for Redux updates
-      if (typeof finishData.newXP !== "undefined" && typeof finishData.newCoins !== "undefined") {
+      // Update Redux store
+      if (finishData && finishData.newXP !== undefined) {
         dispatch(setXPAndCoins({
           xp: finishData.newXP,
           coins: finishData.newCoins,
           newlyUnlocked: finishData.newlyUnlocked || []
-        })).unwrap();
-      }
-
-        // Log achievements for debugging
-      if (finishData.newlyUnlocked && finishData.newlyUnlocked.length > 0) {
-        console.log('New achievements unlocked:', finishData.newlyUnlocked);
+        }));
       }
     } catch (err) {
       console.error("Failed to finish test attempt:", err);
-      Alert.alert(
-        "Sync Warning",
-        "Your test is complete, but we couldn't sync your results to the server. Your progress might not be saved.",
-        [{ text: "OK" }]
-      );  
+      // Even if we fail, continue to show score modal
     }
-  
-    setShowScoreModal(true);
     
-    // Mark that a test was just completed so TestListScreen can refresh when we go back
+    // Always show score and mark test as completed
+    setShowScoreModal(true);
     navigation.setParams({ testJustCompleted: true });
     
     return { success: true };

@@ -18,7 +18,7 @@
       "url": "https://u.expo.dev/7bb52f0d-6798-4453-93dc-89e91a9a1210"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.certgames.app",
       "buildNumber": "1.0.0",
       "requireFullScreen": true,
@@ -26,6 +26,9 @@
         "NSCameraUsageDescription": "This app uses the camera to take profile photos.",
         "ITSAppUsesNonExemptEncryption": false,
         "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait"
+        ],
+        "UISupportedInterfaceOrientations~ipad": [
           "UIInterfaceOrientationPortrait"
         ],
         "CFBundleURLTypes": [

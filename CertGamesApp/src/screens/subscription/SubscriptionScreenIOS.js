@@ -12,8 +12,7 @@ import {
   Platform,
   Animated,
   Easing,
-  Dimensions,
-  Linking
+  Dimensions
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -31,7 +30,6 @@ const SubscriptionScreenIOS = () => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [subscriptionProduct, setSubscriptionProduct] = useState(null);
-  // Keep error state but never display it to users
   const [error, setError] = useState(null);
   const [registrationCompleted, setRegistrationCompleted] = useState(false);
   const [purchaseInProgress, setPurchaseInProgress] = useState(false);
@@ -60,7 +58,17 @@ const SubscriptionScreenIOS = () => {
   const message = route.params?.message;
   const isRenewal = route.params?.renewal || false;
   
-  
+  // Debug logging
+  useEffect(() => {
+    console.log("SubscriptionScreen params:", {
+      registrationData: registrationData ? "present" : "not present",
+      isOauthFlow,
+      isNewUsername,
+      userId,
+      isRenewal,
+      message: route.params?.message || "no message"
+    });
+  }, []);
   
   useEffect(() => {
     // Initialize IAP connection and fetch subscription product
@@ -71,8 +79,7 @@ const SubscriptionScreenIOS = () => {
         // Initialize connection to App Store
         const connectionInitialized = await AppleSubscriptionService.initializeConnection();
         if (!connectionInitialized) {
-          // No UI error, just log to console
-          console.error('Failed to initialize App Store connection');
+          throw new Error('Failed to initialize App Store connection');
         }
         
         // Check for and finish any pending transactions
@@ -89,15 +96,17 @@ const SubscriptionScreenIOS = () => {
             setSubscriptionProduct(subscriptions[0]);
           } else {
             console.warn("No subscription products found");
+            // FIXED: Don't set error here, still allow purchase to proceed
             console.log("Continuing without subscription products - purchase will still work");
           }
         } catch (subscriptionError) {
           console.error("Error getting subscriptions:", subscriptionError);
+          // FIXED: Don't set error here, still allow purchase to proceed
           console.log("Continuing despite subscription product error - purchase will still work");
         }
       } catch (err) {
         console.error('Error initializing subscription:', err);
-        // No UI error, just log to console
+        setError('Failed to initialize subscription services. Please try again later.');
       } finally {
         setInitialLoading(false);
       }
@@ -149,8 +158,6 @@ const SubscriptionScreenIOS = () => {
     ).start();
   }, []);
   
-
-
   const registerNewUser = async () => {
     try {
       setLoading(true);
@@ -164,7 +171,6 @@ const SubscriptionScreenIOS = () => {
       const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
       
       if (!response.data || !response.data.user_id) {
-        // Just throw an error without setting UI error
         throw new Error('Registration failed: No user ID returned');
       }
       
@@ -185,8 +191,16 @@ const SubscriptionScreenIOS = () => {
       
     } catch (error) {
       console.error('Registration error:', error);
-      // No UI error, just log to console
-      return null;
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      if (error.response && error.response.data && error.response.data.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -205,42 +219,90 @@ const SubscriptionScreenIOS = () => {
     try {
       setLoading(true);
       setPurchaseInProgress(true);
-      // We'll keep this to clear any potential errors, but we won't display them
       setError(null);
       
       // Check for pending transactions first
       await AppleSubscriptionService.checkPendingTransactions();
       
-      // IMPORTANT CHANGE: Only store temporary registration data, don't register yet
+      // Check if this is a new registration
       if (registrationData && !registrationCompleted) {
-        console.log("Temporary registration data available:", {
-          ...registrationData,
-          password: '********' // Log masked password for security
-        });
-        // Don't register the user yet! Just keep the registration data for later
+        try {
+          console.log("Registering new user with data:", {
+            ...registrationData,
+            password: '********' // Log masked password for security
+          });
+          
+          const existingUser = await apiClient.get(`${API.USER.DETAILS(userIdToUse)}`).catch(() => null);
+          if (existingUser && existingUser.data) {
+            console.log("User already exists, skipping registration");
+            setRegistrationCompleted(true);
+            userIdToUse = existingUser.data._id;
+          } else {  
+            // Registration logic
+            const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
+            
+            if (!response.data || !response.data.user_id) {
+              throw new Error('Registration failed: No user ID returned');
+            }
+            
+            userIdToUse = response.data.user_id;
+            console.log("User registered successfully, ID:", userIdToUse);
+            
+            // Save user ID to secure storage
+            await SecureStore.setItemAsync('userId', userIdToUse);
+            
+            // Update Redux state
+            dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
+            
+            // Fetch user data to update Redux
+            await dispatch(fetchUserData(userIdToUse));
+            
+            setRegistrationCompleted(true);
+          }
+        } catch (regError) {
+          console.error('Registration error:', regError);
+          let errorMessage = 'Registration failed. Please try again.';
+          
+          if (regError.response && regError.response.data && regError.response.data.error) {
+            errorMessage = regError.response.data.error;
+          } else if (regError.message) {
+            errorMessage = regError.message;
+          }
+          
+          setError(errorMessage);
+          setPurchaseInProgress(false);
+          setLoading(false);
+          return;
+        }
       }
       
-      // Ensure we have a user ID for existing users
-      if (!userIdToUse && !registrationData) {
-        console.error('User ID is missing');
-        // No UI error, just log to console and continue
+      // Ensure we have a user ID
+      if (!userIdToUse) {
+        setError('User ID is missing. Please try again.');
         setPurchaseInProgress(false);
         setLoading(false);
         return;
       }
       
-      // FIRST initiate payment flow before creating the user
-      console.log("Requesting subscription purchase");
+      // SIMPLIFIED: Always attempt to purchase subscription regardless of current status
+      console.log("Requesting subscription purchase for user:", userIdToUse);
       
       // Request subscription purchase with improved error handling
       const purchaseResult = await AppleSubscriptionService.purchaseSubscription(userIdToUse);
       
       console.log("Purchase result:", purchaseResult);
       
-      // If purchase failed or was cancelled, exit early without registering the user
+      // Handle purchase results
       if (!purchaseResult || !purchaseResult.success) {
-        const errorMessage = purchaseResult?.error || '';
-        console.error('Purchase failed or was cancelled:', errorMessage);
+        const errorMessage = purchaseResult?.error || 'Failed to complete subscription purchase';
+        console.error('Purchase failed:', errorMessage);
+        
+        // Show appropriate error message
+        if (errorMessage.includes('cancel')) {
+          setError('Subscription purchase was cancelled.');
+        } else {
+          setError(errorMessage);
+        }
         
         setPurchaseInProgress(false);
         setLoading(false);
@@ -249,47 +311,11 @@ const SubscriptionScreenIOS = () => {
       
       console.log("Subscription purchased successfully:", purchaseResult);
       
-      // NOW register the user if needed (only after successful payment)
-      if (registrationData && !registrationCompleted) {
-        try {
-          // Registration logic - ONLY happens after successful payment
-          const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
-          
-          if (!response.data || !response.data.user_id) {
-            // Just log the error, don't show to user
-            console.error('Registration failed: No user ID returned');
-            setPurchaseInProgress(false);
-            setLoading(false);
-            return;
-          }
-          
-          userIdToUse = response.data.user_id;
-          console.log("User registered successfully, ID:", userIdToUse);
-          
-          // Save user ID to secure storage
-          await SecureStore.setItemAsync('userId', userIdToUse);
-          
-          // Update Redux state
-          dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
-          
-          // Fetch user data to update Redux
-          await dispatch(fetchUserData(userIdToUse));
-          
-          setRegistrationCompleted(true);
-        } catch (regError) {
-          console.error('Registration error:', regError);
-          // Don't show UI error, just log
-          setPurchaseInProgress(false);
-          setLoading(false);
-          return;
-        }
-      }
-      
       // Add delay to allow server sync
       console.log("Waiting for backend sync...");
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Update subscription status in Redux
+      // SEQUENTIAL UPDATES: First update subscription status in Redux
       console.log("Checking subscription status...");
       await dispatch(checkSubscription(userIdToUse));
       
@@ -299,14 +325,17 @@ const SubscriptionScreenIOS = () => {
       
       console.log(`Subscription status after update: ${userData.subscriptionActive}`);
       
-      // Navigate to Home screen
+      // Verify that subscription is actually active before navigating
       if (userData.subscriptionActive) {
+        console.log("Subscription active, navigating to Home screen");
         navigation.reset({
           index: 0,
           routes: [{ name: 'Home' }]
         });
       } else {
-        // Force navigation after a short delay if status doesn't update immediately
+        // Handle edge case where subscription didn't activate immediately
+        console.log("Subscription not showing as active yet, forcing navigation anyway");
+        // Force navigation after a short delay
         setTimeout(() => {
           navigation.reset({
             index: 0,
@@ -316,12 +345,26 @@ const SubscriptionScreenIOS = () => {
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      // Don't show UI error, just log to console
+      
+      let errorMessage = 'Failed to complete subscription purchase';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Handle user cancellation differently
+      if (error.message && error.message.includes('cancel')) {
+        setError('Subscription purchase was cancelled.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
       setPurchaseInProgress(false);
     }
   };
+  
+  // REMOVED: handleRestorePurchases method
   
   // Get subscription type - prioritize OAuth/New Username flow over renewal
   const getSubscriptionType = () => {
@@ -376,18 +419,6 @@ const SubscriptionScreenIOS = () => {
       description: 'Track your progress with our gamified learning approach'
     }
   ];
-  
-
-  const openExternalLink = (url) => {
-    Linking.canOpenURL(url).then(supported => {
-      if (supported) {
-        Linking.openURL(url);
-      } else {
-        console.log("Cannot open URL: " + url);
-        // Don't show Alert, just log to console
-      }
-    });
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -418,24 +449,33 @@ const SubscriptionScreenIOS = () => {
         />
       ))}
       
-      {/* Back button - IMPORTANT: Fix for navigation issue */}
+      {/* Back button - IMPORTANT: Preserving original functionality */}
       <TouchableOpacity 
         style={styles.backButton}
         onPress={() => {
           console.log("Back button pressed, subscription type:", subscriptionType);
           
           if (subscriptionType === "renewal") {
-            // Use navigate instead of reset for more reliable behavior
+            // Existing code for renewal
             dispatch(logout());
-            navigation.navigate('Login');  // Navigate directly to Login screen
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'AuthNavigator' }],
+            });
           } 
           else if (subscriptionType === "oauth" || isOauthFlow || isNewUsername) {
-            // Navigate directly to a screen rather than to the navigator
-            navigation.navigate('Register');
+            // For OAuth flow that just created username
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'AuthNavigator' }],
+            });
           }
           else {
             dispatch(logout());
-            navigation.navigate('Register');
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Register' }],
+            });
           }
         }}
       >
@@ -480,7 +520,12 @@ const SubscriptionScreenIOS = () => {
               </View>
             )}
             
-            {/* Removed error display UI component */}
+            {error && (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={20} color="#FF4C8B" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
             
             {initialLoading ? (
               <View style={styles.loadingContainer}>
@@ -546,7 +591,7 @@ const SubscriptionScreenIOS = () => {
                   style={styles.benefitsHeaderGradient}
                 >
                   <Ionicons name="diamond" size={20} color="#FF4C8B" style={styles.benefitsIcon} />
-                  <Text style={styles.benefitsTitle}>Unlocks All Features</Text>
+                  <Text style={styles.benefitsTitle}>Unlock All Features</Text>
                 </LinearGradient>
               </View>
               
@@ -589,6 +634,8 @@ const SubscriptionScreenIOS = () => {
               </View>
             </View>
             
+            {/* REMOVED: Restore Purchases Button */}
+            
             <View style={styles.testimonialsContainer}>
               <View style={styles.testimonialBadge}>
                 <Ionicons name="star" size={14} color="#FFD700" />
@@ -598,30 +645,6 @@ const SubscriptionScreenIOS = () => {
                 "As someone with ADHD, traditional studying was a nightmare. The gamified elements kept me focused, and I surprised myself by completing all three certs in under 4 months!"
               </Text>
               <Text style={styles.testimonialAuthor}>— Connor B, SOC Intern.</Text>
-            </View>
-            
-            {/* Legal links footer */}
-            <View style={styles.legalLinksContainer}>
-              <TouchableOpacity 
-                style={styles.legalLink}
-                onPress={() => openExternalLink('https://certgames.com/privacy-ios')}
-              >
-                <Text style={styles.legalLinkText}>Privacy Policy</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.legalLink}
-                onPress={() => openExternalLink('https://certgames.com/terms-ios')}
-              >
-                <Text style={styles.legalLinkText}>Terms of Use</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.legalLink}
-                onPress={() => openExternalLink('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
-              >
-                <Text style={styles.legalLinkText}>Apple Terms</Text>
-              </TouchableOpacity>
             </View>
           </LinearGradient>
         </Animated.View>
@@ -770,24 +793,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
   },
-  // Removed error container styles but keeping them commented for reference
-  // errorContainer: {
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   backgroundColor: 'rgba(255, 76, 139, 0.1)',
-  //   padding: 12,
-  //   borderRadius: 12,
-  //   marginHorizontal: 20,
-  //   marginBottom: 20,
-  //   borderLeftWidth: 3,
-  //   borderLeftColor: '#FF4C8B',
-  // },
-  // errorText: {
-  //   color: '#FF4C8B',
-  //   marginLeft: 10,
-  //   flex: 1,
-  //   fontSize: 14,
-  // },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 76, 139, 0.1)',
+    padding: 12,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF4C8B',
+  },
+  errorText: {
+    color: '#FF4C8B',
+    marginLeft: 10,
+    flex: 1,
+    fontSize: 14,
+  },
   loadingContainer: {
     padding: 30,
     alignItems: 'center',
@@ -959,6 +981,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  // REMOVED: restoreButton styles
   testimonialsContainer: {
     padding: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.15)',
@@ -993,25 +1016,6 @@ const styles = StyleSheet.create({
     color: '#AAAAAA',
     fontSize: 14,
     fontWeight: '500',
-  },
-  legalLinksContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-  },
-  legalLink: {
-    paddingVertical: 8,
-    paddingHorizontal: 7,
-  },
-  legalLinkText: {
-    color: '#8A8A8A',
-    fontSize: 10,
-    textDecorationLine: 'underline',
-    fontStyle: 'italic',
   }
 });
 

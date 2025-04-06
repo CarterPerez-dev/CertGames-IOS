@@ -199,7 +199,7 @@ const SubscriptionScreenIOS = () => {
         errorMessage = error.message;
       }
       
-      setError(errorMessage);
+      setError(null);
       throw error;
     } finally {
       setLoading(false);
@@ -301,7 +301,7 @@ const SubscriptionScreenIOS = () => {
         if (errorMessage.includes('cancel')) {
           setError('Subscription purchase was cancelled.');
         } else {
-          setError(errorMessage);
+          setError(null);
         }
         
         setPurchaseInProgress(false);
@@ -356,7 +356,7 @@ const SubscriptionScreenIOS = () => {
       if (error.message && error.message.includes('cancel')) {
         setError('Subscription purchase was cancelled.');
       } else {
-        setError(errorMessage);
+        setError(null);
       }
     } finally {
       setLoading(false);
@@ -456,26 +456,32 @@ const SubscriptionScreenIOS = () => {
           console.log("Back button pressed, subscription type:", subscriptionType);
           
           if (subscriptionType === "renewal") {
-            // Existing code for renewal
-            dispatch(logout());
+            // Use reset instead of navigate for more reliable behavior
             navigation.reset({
               index: 0,
-              routes: [{ name: 'AuthNavigator' }],
+              routes: [{ name: 'Login' }]
             });
+            
+            // Dispatch logout after navigation is complete
+            setTimeout(() => {
+              dispatch(logout());
+            }, 1000);
           } 
           else if (subscriptionType === "oauth" || isOauthFlow || isNewUsername) {
-            // For OAuth flow that just created username
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'AuthNavigator' }],
-            });
+            // Use goBack() for better stack navigation behavior
+            navigation.goBack();
           }
           else {
-            dispatch(logout());
+            // Use reset instead of navigate
             navigation.reset({
               index: 0,
-              routes: [{ name: 'Register' }],
+              routes: [{ name: 'Register' }]
             });
+            
+            // Dispatch logout after navigation is complete
+            setTimeout(() => {
+              dispatch(logout());
+            }, 1000);
           }
         }}
       >

@@ -1,13 +1,12 @@
 // src/api/apiConfig.js
 import Constants from 'expo-constants';
 
-// Use different URLs based on environment
-const DEV_URL = 'https://certgames.com/api'; // Replace with your local IP - can it be localhost?
+const DEV_URL = 'https://certgames.com/api'; 
 const PROD_URL = 'https://certgames.com/api';
 
 // Get the domain part of the URL (for image URLs)
 const getDomain = (url) => {
-  // Extract domain from API URL (remove /api at the end if present)
+  // Extract domain from API URL (remove /api at the end if present, fallback)
   return url.replace(/\/api\/?$/, '');
 };
 
@@ -41,10 +40,9 @@ export const API = {
   
   SUBSCRIPTION: {
     VERIFY_RECEIPT: `${BASE_URL}/subscription/verify-receipt`,
-    // Fix the endpoint name to match backend
     CHECK_STATUS: `${BASE_URL}/subscription/subscription-status`,
     UPDATE: `${BASE_URL}/subscription/update`,
-    CANCEL: `${BASE_URL}/subscription/cancel-subscription`, // Fix name if needed
+    CANCEL: `${BASE_URL}/subscription/cancel-subscription`,
     APPLE_SUBSCRIPTION: `${BASE_URL}/subscription/apple-subscription`,
     RESTORE_PURCHASES: `${BASE_URL}/subscription/restore-purchases`,
   },
@@ -55,7 +53,6 @@ export const API = {
     BY_CATEGORY: `${BASE_URL}/resources/category`,
     TRACK_CLICK: `${BASE_URL}/resources/track-click`,
   },
-  // User endpoints
   USER: {
     DETAILS: (userId) => `${BASE_URL}/test/user/${userId}`,
     DAILY_BONUS: (userId) => `${BASE_URL}/test/user/${userId}/daily-bonus`,
@@ -69,7 +66,6 @@ export const API = {
   
   // Test endpoints
   TESTS: {
-    // No LIST endpoint - we generate test objects programmatically in testService.js
     DETAILS: (category, testId) => `${BASE_URL}/test/tests/${category}/${testId}`,
     ATTEMPT: (userId, testId) => `${BASE_URL}/test/attempts/${userId}/${testId}`,
     FINISH: (userId, testId) => `${BASE_URL}/test/attempts/${userId}/${testId}/finish`,
@@ -82,7 +78,7 @@ export const API = {
   // Analogy Tool
   ANALOGY: {
     STREAM: `${BASE_URL}/analogy/stream_analogy`,
-    GENERATE: `${BASE_URL}/analogy/generate_analogy`, // Legacy endpoint
+    GENERATE: `${BASE_URL}/analogy/generate_analogy`, // Legacy endpoint in case
   },
   
   // Scenario Tool

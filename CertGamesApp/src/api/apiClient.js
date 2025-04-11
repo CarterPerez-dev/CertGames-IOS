@@ -4,9 +4,9 @@ import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
 import { setOfflineStatus, setServerError } from '../store/slices/networkSlice';
 
-// Depending on your environment:
+:
 const apiClient = axios.create({
-  baseURL: 'https://certgames.com/api', // Or your local dev URL
+  baseURL: 'https://certgames.com/api', 
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -50,11 +50,11 @@ apiClient.interceptors.request.use(
       }
       
       if (userId) {
-        // This is the fallback header your Flask code checks
+        // This is the fallback header my Flask code checks
         config.headers['X-User-Id'] = userId;
       }
 
-      // If you do not need or want cookies from server:
+      // nah
       config.withCredentials = false;
 
       return config;
@@ -66,7 +66,7 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling, optional
+// Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {

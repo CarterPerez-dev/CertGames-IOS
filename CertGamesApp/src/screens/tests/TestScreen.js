@@ -531,7 +531,7 @@ const TestScreen = ({ route, navigation }) => {
           }
 
           if (awardData.isCorrect && !awardData.alreadyCorrect && awardData.awardedXP) {
-            // Use the action creator for Redux updates
+            // Use the action creator for Redux updates - FORCE IMMEDIATE UPDATE
             dispatch(setXPAndCoins({
               xp: awardData.newXP,
               coins: awardData.newCoins,
@@ -539,8 +539,9 @@ const TestScreen = ({ route, navigation }) => {
             }));
           }
 
-          // NEW: Decrement question count for free users
+          // NEW: Decrement question count for free users IMMEDIATELY AFTER ANSWER
           if (!subscriptionActive) {
+            // Use direct dispatch to ensure it happens immediately
             dispatch(decrementQuestions(userId));
           }
         }
@@ -596,7 +597,7 @@ const TestScreen = ({ route, navigation }) => {
     
     await updateServerProgress(updatedAnswers, score, false, skipObj);
     
-    // NEW: Decrement question count for free users when skipping
+    // NEW: Decrement question count for free users IMMEDIATELY
     if (!subscriptionActive) {
       dispatch(decrementQuestions(userId));
     }

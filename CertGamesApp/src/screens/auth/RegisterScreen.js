@@ -774,7 +774,7 @@ const RegisterScreen = () => {
                     onPress={handleAppleSignUp}
                     disabled={loading}
                   >
-                    <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                    <Ionicons name="logo-apple" size={20} color="#000000" />
                     <Text style={styles.socialButtonAppleText}>Apple</Text>
                   </TouchableOpacity>
                 )}
@@ -1151,12 +1151,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: '#FFFFFF',
     height: 48,
     borderRadius: 12,
     gap: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: '#000000',
   },
   googleTextContainer: {
     flexDirection: 'row', // Arrange letters horizontally
@@ -1167,7 +1167,7 @@ const styles = StyleSheet.create({
     fontSize: 14, // Match your desired text size
   },
   socialButtonAppleText: {
-    color: '#979797',
+    color: '#000000',
     fontWeight: 'bold',
   },
   loginContainer: {

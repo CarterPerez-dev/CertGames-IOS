@@ -128,7 +128,8 @@ const initialState = {
   lastDailyClaim: null,
   appleTransactionId: null,
   lastUpdated: null, // Added for sync tracking
-  
+  practiceQuestionsRemaining: 100,
+  subscriptionType: 'free',  
   // Status flags
   status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
   error: null,

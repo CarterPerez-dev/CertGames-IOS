@@ -455,35 +455,37 @@ const SubscriptionScreenIOS = () => {
         onPress={() => {
           console.log("Back button pressed, subscription type:", subscriptionType);
           
+          // First disable the button to prevent double clicks
+          setLoading(true); // Use your existing loading state
+          
           if (subscriptionType === "renewal") {
-            // Use reset instead of navigate for more reliable behavior
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' }]
-            });
-            
-            // Dispatch logout after navigation is complete
+            // Do the logout first, then navigate
+            dispatch(logout());
+            // Small delay to ensure logout completes
             setTimeout(() => {
-              dispatch(logout());
-            }, 1000);
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }]
+              });
+            }, 200); // Much shorter timeout
           } 
           else if (subscriptionType === "oauth" || isOauthFlow || isNewUsername) {
-            // Use goBack() for better stack navigation behavior
+            // Simple goBack with no other operations
             navigation.goBack();
           }
           else {
-            // Use reset instead of navigate
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Register' }]
-            });
-            
-            // Dispatch logout after navigation is complete
+            // Do the logout first, then navigate
+            dispatch(logout());
+            // Small delay to ensure logout completes
             setTimeout(() => {
-              dispatch(logout());
-            }, 1000);
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Register' }]
+              });
+            }, 200); // Much shorter timeout
           }
         }}
+        disabled={loading} // Prevent multiple clicks
       >
         <Ionicons name="arrow-back" size={22} color="#AAAAAA" />
         <Text style={styles.backButtonText}>Back</Text>
@@ -554,7 +556,7 @@ const SubscriptionScreenIOS = () => {
                       <Text style={styles.pricePeriod}>/month</Text>
                     </View>
                   </View>
-                  <Text style={styles.priceBilled}>Billed monthly, cancel anytime</Text>
+                  <Text style={styles.priceBilled}>3-day free trial, then billed monthly, cancel anytime</Text>
                 </View>
                 
                 {/* Subscribe Button */}
@@ -578,7 +580,7 @@ const SubscriptionScreenIOS = () => {
                         </View>
                       ) : (
                         <View style={styles.buttonContent}>
-                          <Text style={styles.buttonText}>Subscribe Now</Text>
+                          <Text style={styles.buttonText}>Free Trial</Text>
                           <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
                         </View>
                       )}

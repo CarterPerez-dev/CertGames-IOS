@@ -62,6 +62,8 @@ export const API = {
     CHANGE_EMAIL: `${BASE_URL}/test/user/change-email`,
     CHANGE_PASSWORD: `${BASE_URL}/test/user/change-password`,
     DELETE_ACCOUNT: (userId) => `${BASE_URL}/test/user/${userId}/delete`
+    USAGE_LIMITS: (userId) => `${BASE_URL}/test/user/${userId}/usage-limits`,
+    DECREMENT_QUESTIONS: (userId) => `${BASE_URL}/test/user/${userId}/decrement-questions`,
   },
   
   // Test endpoints

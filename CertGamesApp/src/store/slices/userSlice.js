@@ -140,17 +140,31 @@ export const fetchUsageLimits = createAsyncThunk(
 // Decrement practice questions count for free users
 export const decrementQuestions = createAsyncThunk(
   'user/decrementQuestions',
-  async (userId, { rejectWithValue, getState }) => {
-    // Don't decrement if we recently updated the count
+  async (userId, { rejectWithValue, getState, dispatch }) => {
+    // Get current state
     const state = getState();
+    const currentRemaining = state.user.practiceQuestionsRemaining;
+    
+    // Immediately update local state
+    // This makes the UI update immediately before the API call completes
+    dispatch(decrementPracticeQuestions());
+    
+    // Skip if we've reached zero
+    if (currentRemaining <= 0) {
+      console.log("No questions remaining to decrement");
+      return {
+        practiceQuestionsRemaining: 0
+      };
+    }
+    
+    // Skip if we updated within the last 10 seconds (for debouncing)
     const lastUpdate = state.user.lastUsageLimitsUpdate || 0;
     const now = Date.now();
     
-    // Skip if we updated within the last 10 seconds (for debouncing)
     if (now - lastUpdate < 10000) {
-      console.log("Skipping decrement questions - throttled");
+      console.log("Skipping server decrement - throttled");
       return {
-        practiceQuestionsRemaining: state.user.practiceQuestionsRemaining
+        practiceQuestionsRemaining: currentRemaining - 1
       };
     }
     
@@ -275,7 +289,7 @@ const userSlice = createSlice({
     setXPAndCoins: (state, action) => {
       const { xp, coins, newlyUnlocked } = action.payload;
       
-      // Update XP and coins directly
+      // Update XP and coins directly with immediate effect
       if (typeof xp === 'number') {
         state.xp = xp;
         // Recalculate level based on new XP

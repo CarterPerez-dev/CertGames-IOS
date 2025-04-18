@@ -14,8 +14,11 @@ const QuestionLimitBanner = () => {
     return null;
   }
   
-  // Calculate progress
-  const progress = (practiceQuestionsRemaining / 100) * 100;
+  // Enforce at least 0 (never negative)
+  const questionsLeft = Math.max(0, practiceQuestionsRemaining || 0);
+  
+  // Calculate progress - cap at 100%
+  const progress = Math.min(100, (questionsLeft / 100) * 100);
   
   return (
     <View style={styles.container}>
@@ -23,7 +26,7 @@ const QuestionLimitBanner = () => {
         <Ionicons name="information-circle" size={22} color="#6543CC" />
         <View style={styles.textContainer}>
           <Text style={styles.countText}>
-            <Text style={styles.countNumber}>{practiceQuestionsRemaining}</Text> free questions remaining
+            <Text style={styles.countNumber}>{questionsLeft}</Text> free questions remaining
           </Text>
           <View style={styles.progressContainer}>
             <View 

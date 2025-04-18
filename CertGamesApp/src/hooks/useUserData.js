@@ -180,20 +180,20 @@ const useUserData = (options = {}) => {
       // Dispatch core data fetches
       dispatch(fetchUserData(userId));
       
+      // For free users, update usage limits immediately
+      // This is critical for accurate question counting
+      if (!subscriptionActive) {
+        dispatch(fetchUsageLimits(userId));
+      }
+      
       // Stagger other fetches to reduce API load
       setTimeout(() => {
-        if (!subscriptionActive) {
-          dispatch(fetchUsageLimits(userId));
-        }
+        dispatch(fetchAchievements());
       }, 1000);
       
       setTimeout(() => {
-        dispatch(fetchAchievements());
-      }, 2000);
-      
-      setTimeout(() => {
         dispatch(fetchShopItems());
-      }, 3000);
+      }, 2000);
     } catch (error) {
       console.error("[useUserData] Error refreshing data:", error);
     } finally {

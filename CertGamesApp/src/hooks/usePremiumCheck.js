@@ -104,7 +104,12 @@ const usePremiumCheck = (featureType = 'premium') => {
     );
   };
 
-  return { loading, hasAccess, showSubscriptionPrompt };
+  // Function to navigate to full premium feature prompt screen
+  const navigateToPremiumFeaturePrompt = () => {
+    navigation.navigate('PremiumFeaturePrompt', { feature: featureType });
+  };
+
+  return { loading, hasAccess, showSubscriptionPrompt, navigateToPremiumFeaturePrompt };
 };
 
 export default usePremiumCheck;

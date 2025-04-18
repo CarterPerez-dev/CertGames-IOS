@@ -1,9 +1,10 @@
-// src/hooks/useUserData.js - FIXED VERSION
+// src/hooks/useUserData.js
 import { useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchUserData } from '../store/slices/userSlice';
 import { fetchShopItems } from '../store/slices/shopSlice';
 import { fetchAchievements } from '../store/slices/achievementsSlice';
+import { fetchUsageLimits } from '../store/slices/userSlice';
 
 const useUserData = (options = {}) => {
   const { autoFetch = true } = options;
@@ -33,7 +34,9 @@ const useUserData = (options = {}) => {
     lastDailyClaim = null,
     subscriptionStatus = null,
     subscriptionPlatform = null,
-    lastUpdated = null // Added new field
+    lastUpdated = null, // Added new field
+    practiceQuestionsRemaining = 0, // Freemium: Added field
+    subscriptionType = 'free', // Freemium: Added field
   } = userData;
   
   // Safe access to shop and achievements
@@ -60,11 +63,16 @@ const useUserData = (options = {}) => {
         if (achievementsStatus === 'idle') {
           dispatch(fetchAchievements());
         }
+        
+        // Fetch usage limits for freemium model
+        if (!subscriptionActive) {
+          dispatch(fetchUsageLimits(userId));
+        }
       } catch (error) {
         console.error("Error in useUserData effect:", error);
       }
     }
-  }, [autoFetch, userId, status, shopStatus, achievementsStatus, dispatch]);
+  }, [autoFetch, userId, status, shopStatus, achievementsStatus, subscriptionActive, dispatch]);
   
   // NEW: Add effect to monitor lastUpdated changes
   useEffect(() => {
@@ -74,9 +82,14 @@ const useUserData = (options = {}) => {
         // Refresh shop and achievements when user data changes
         dispatch(fetchShopItems());
         dispatch(fetchAchievements());
+        
+        // Also refresh usage limits if on free tier
+        if (!subscriptionActive) {
+          dispatch(fetchUsageLimits(userId));
+        }
       }
     }
-  }, [lastUpdated, userId, status, dispatch]);
+  }, [lastUpdated, userId, status, subscriptionActive, dispatch]);
   
   // Function to manually refresh data with error handling
   const refreshData = useCallback(() => {
@@ -85,11 +98,16 @@ const useUserData = (options = {}) => {
         dispatch(fetchUserData(userId));
         dispatch(fetchAchievements());
         dispatch(fetchShopItems());
+        
+        // Also refresh usage limits if on free tier
+        if (!subscriptionActive) {
+          dispatch(fetchUsageLimits(userId));
+        }
       } catch (error) {
         console.error("Error refreshing data:", error);
       }
     }
-  }, [userId, dispatch]);
+  }, [userId, subscriptionActive, dispatch]);
   
   // Get avatar URL helper with thorough error handling
   const getAvatarUrl = useCallback(() => {
@@ -139,6 +157,16 @@ const useUserData = (options = {}) => {
     }
   }, [achievements]);
   
+  // Freemium: Has access to premium features check
+  const hasPremiumAccess = useCallback(() => {
+    return subscriptionActive === true;
+  }, [subscriptionActive]);
+  
+  // Freemium: Check if user has practice questions remaining
+  const hasPracticeQuestionsRemaining = useCallback(() => {
+    return subscriptionActive || practiceQuestionsRemaining > 0;
+  }, [subscriptionActive, practiceQuestionsRemaining]);
+  
   return {
     // User data with explicit fallbacks
     userId: userId || null,
@@ -158,6 +186,10 @@ const useUserData = (options = {}) => {
     subscriptionPlatform: subscriptionPlatform || null,
     lastUpdated: lastUpdated || null, // Added to return value
     
+    // Freemium properties
+    practiceQuestionsRemaining: practiceQuestionsRemaining || 0,
+    subscriptionType: subscriptionType || 'free',
+    
     // Shop items
     shopItems: shopItems || [],
     
@@ -172,7 +204,11 @@ const useUserData = (options = {}) => {
     refreshData,
     getAvatarUrl,
     getUnlockedAchievements,
-    isAchievementUnlocked
+    isAchievementUnlocked,
+    
+    // Freemium helper functions
+    hasPremiumAccess,
+    hasPracticeQuestionsRemaining
   };
 };
 

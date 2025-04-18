@@ -364,7 +364,87 @@ const SubscriptionScreenIOS = () => {
     }
   };
   
-  // REMOVED: handleRestorePurchases method
+  // NEW: Handler for continuing with free plan
+  const handleContinueFree = async () => {
+    setLoading(true);
+    
+    try {
+      let userIdToUse = userId;
+      
+      // For new registration, create the user first
+      if (registrationData && !registrationCompleted) {
+        try {
+          console.log("Registering new user for free tier:", {
+            ...registrationData,
+            password: '********' // Log masked password
+          });
+          
+          // Register the user
+          const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
+          
+          if (!response.data || !response.data.user_id) {
+            throw new Error('Registration failed: No user ID returned');
+          }
+          
+          userIdToUse = response.data.user_id;
+          console.log("User registered successfully (free tier), ID:", userIdToUse);
+          
+          // Save user ID to secure storage
+          await SecureStore.setItemAsync('userId', userIdToUse);
+          
+          // Update Redux state
+          dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
+          
+          // Explicitly set free tier
+          try {
+            await apiClient.post(`${API.USER.USAGE_LIMITS(userIdToUse)}`, {
+              subscriptionType: 'free',
+              practiceQuestionsRemaining: 100
+            });
+          } catch (limitError) {
+            console.error("Error setting usage limits:", limitError);
+            // Non-fatal, continue anyway
+          }
+          
+          // Fetch complete user data to update Redux
+          await dispatch(fetchUserData(userIdToUse));
+          
+          setRegistrationCompleted(true);
+        } catch (regError) {
+          console.error('Free tier registration error:', regError);
+          setError(regError.message || 'Registration failed. Please try again.');
+          setLoading(false);
+          return;
+        }
+      } else if (userIdToUse) {
+        // Ensure the user has freemium settings
+        try {
+          await apiClient.post(`${API.USER.USAGE_LIMITS(userIdToUse)}`, {
+            subscriptionType: 'free',
+            practiceQuestionsRemaining: 100
+          });
+        } catch (limitError) {
+          console.error("Error setting usage limits:", limitError);
+          // Non-fatal, continue anyway
+        }
+        
+        // Update user data in Redux
+        await dispatch(fetchUserData(userIdToUse));
+      }
+      
+      // Navigate to home screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }]
+      });
+      
+    } catch (error) {
+      console.error('Continue with free error:', error);
+      setError(error.message || 'Failed to continue with free plan');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Get subscription type - prioritize OAuth/New Username flow over renewal
   const getSubscriptionType = () => {
@@ -587,6 +667,41 @@ const SubscriptionScreenIOS = () => {
                     </LinearGradient>
                   </TouchableOpacity>
                 </Animated.View>
+
+                {/* NEW: Continue with Free Button */}
+                <TouchableOpacity 
+                  style={styles.freeButton}
+                  onPress={handleContinueFree}
+                  disabled={loading || purchaseInProgress}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.freeButtonText}>Continue with Free</Text>
+                </TouchableOpacity>
+                
+                {/* Add comparison info */}
+                <View style={styles.comparisonContainer}>
+                  <Text style={styles.comparisonTitle}>Free vs Premium:</Text>
+                  <View style={styles.comparisonRow}>
+                    <Ionicons name="checkmark" size={16} color="#2ebb77" />
+                    <Text style={styles.comparisonText}>Free: 100 practice questions</Text>
+                  </View>
+                  <View style={styles.comparisonRow}>
+                    <Ionicons name="checkmark" size={16} color="#2ebb77" />
+                    <Text style={styles.comparisonText}>Free: AnalogyHub access</Text>
+                  </View>
+                  <View style={styles.comparisonRow}>
+                    <Ionicons name="close" size={16} color="#FF4C8B" />
+                    <Text style={styles.comparisonText}>Free: No premium tools</Text>
+                  </View>
+                  <View style={styles.comparisonRow}>
+                    <Ionicons name="checkmark" size={16} color="#2ebb77" />
+                    <Text style={styles.comparisonText}>Premium: Unlimited questions</Text>
+                  </View>
+                  <View style={styles.comparisonRow}>
+                    <Ionicons name="checkmark" size={16} color="#2ebb77" />
+                    <Text style={styles.comparisonText}>Premium: All premium tools</Text>
+                  </View>
+                </View>
               </View>
             )}
             
@@ -641,8 +756,6 @@ const SubscriptionScreenIOS = () => {
                 <Text style={styles.guaranteeText}>24/7 Active Support & Mentor</Text>
               </View>
             </View>
-            
-            {/* REMOVED: Restore Purchases Button */}
             
             <View style={styles.testimonialsContainer}>
               <View style={styles.testimonialBadge}>
@@ -921,6 +1034,47 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  // NEW: Free tier button
+  freeButton: {
+    height: 44,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#AAAAAA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  freeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  // NEW: Comparison styles
+  comparisonContainer: {
+    marginTop: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  comparisonTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  comparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  comparisonText: {
+    color: '#DDDDDD',
+    marginLeft: 10,
+    fontSize: 14,
+  },
   benefitsContainer: {
     padding: 20,
     paddingTop: 0,
@@ -989,7 +1143,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  // REMOVED: restoreButton styles
   testimonialsContainer: {
     padding: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.15)',

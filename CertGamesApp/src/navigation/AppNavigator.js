@@ -188,7 +188,7 @@ const AppNavigator = () => {
     debugLog(`Redux status changed to: ${status}`);
   }, [status]);
 
-  // Determine which navigator to render based on auth and subscription status !!!CRITICAL!!!IMPORTANT!!!
+  // Determine which navigator to render based on auth and subscription status
   const renderNavigator = useCallback(() => {
     debugLog(`renderNavigator called with: 
       userId = ${userId?.substring(0,8) || 'null'}, 
@@ -267,54 +267,11 @@ const AppNavigator = () => {
       );
     }
 
-    // *** FIX: Use memoized subscription status instead of actual state ***  !!!CRITICAL!!!
-    // If no subscription, direct to subscription screen
-    if (!memoizedSubscriptionStatus) {
-      debugLog("Showing subscription screen - no active subscription");
-      // On iOS we should show the iOS subscription screen
-      if (Platform.OS === 'ios') {
-        // Create a special navigator that starts with subscription screen
-        const SubscriptionStack = createNativeStackNavigator();
-        
-        return (
-          <SubscriptionStack.Navigator>
-            <SubscriptionStack.Screen 
-              name="SubscriptionIOS" 
-              component={SubscriptionScreenIOS} 
-              initialParams={{ 
-                renewal: true, 
-                userId: userId,
-                // Make sure these flags are properly passed
-                isOauthFlow: false,
-                isNewUsername: false
-              }}
-              options={{ headerShown: false }}
-            />
-            {/* Add Auth screens so they can be navigated to-- CRITICAL!!!*/}
-            <SubscriptionStack.Screen
-              name="AuthNavigator"
-              component={AuthNavigator}
-              options={{ headerShown: false }}
-            />
-          </SubscriptionStack.Navigator>
-        );
-      } else {
-        // On other platforms, we'll use the main navigator but pass subscription as initial screen
-        debugLog("Using MainNavigator with subscription params for non-iOS platform");
-        return (
-          <MainNavigator 
-            initialParams={{ 
-              screen: 'Profile',
-              params: { showSubscription: true }
-            }} 
-          />
-        );
-      }
-    }
-    
-    // User is logged in and has active subscription
-    debugLog("Showing MainNavigator - user logged in and has active subscription");
+    // *** MAJOR CHANGE: Always use MainNavigator regardless of subscription status ***
+    // This implements the freemium model where users can access the app without immediate subscription
+    debugLog("Showing MainNavigator - freemium model allows access regardless of subscription");
     return <MainNavigator />;
+    
   }, [userId, status, memoizedSubscriptionStatus, initError, initialLoadComplete, needsUsername]); // Added initialLoadComplete to deps
 
   if (!appIsReady) {

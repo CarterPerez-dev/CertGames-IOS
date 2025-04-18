@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
 import { setOfflineStatus, setServerError } from '../store/slices/networkSlice';
 
-:
+
 const apiClient = axios.create({
   baseURL: 'https://certgames.com/api', 
   timeout: 30000,

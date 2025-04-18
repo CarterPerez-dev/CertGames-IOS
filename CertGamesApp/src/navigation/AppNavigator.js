@@ -13,7 +13,7 @@ import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import SubscriptionScreenIOS from '../screens/subscription/SubscriptionScreenIOS';
 import CreateUsernameScreen from '../screens/auth/CreateUsernameScreen';
-
+import PremiumFeaturePrompt from '../components/PremiumFeaturePrompt';
 
 // Import the notification overlay
 import NotificationOverlay from '../components/NotificationOverlay';
@@ -62,28 +62,35 @@ const AppNavigator = () => {
   debugLog("AppNavigator rendering");
   const dispatch = useDispatch();
   
-  // Add rendering counter to track re-renders
-  const [renderCount, setRenderCount] = useState(0);
-  useEffect(() => {
-    setRenderCount(prev => prev + 1);
-    debugLog(`Re-render #${renderCount+1}`);
-  }, []);
-  
   // Extract Redux state with debug logging
   const { userId, status, subscriptionActive, error, needsUsername, oauth_provider } = useSelector((state) => {
     const userData = state.user;
     debugLog(`Redux state: userId=${userData.userId?.substring(0,8) || 'null'}, status=${userData.status}, subscriptionActive=${userData.subscriptionActive}`);
     return userData;
+  }, (prev, next) => {
+    // Custom equality check to prevent unnecessary re-renders
+    return (
+      prev.userId === next.userId && 
+      prev.status === next.status && 
+      prev.subscriptionActive === next.subscriptionActive &&
+      prev.needsUsername === next.needsUsername
+    );
   });
   
   const [appIsReady, setAppIsReady] = useState(false);
   const [initError, setInitError] = useState(null);
-  
-  // NEW: Add initialLoadComplete state to track first load
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  
+  // Use a ref to track whether the app has been initialized
+  // This prevents duplicate initialization calls
+  const appInitializedRef = React.useRef(false);
 
   // Improved prepare function with better error handling and logging
   const prepare = async () => {
+    // Prevent multiple initialization attempts
+    if (appInitializedRef.current) return;
+    appInitializedRef.current = true;
+    
     debugLog("Starting prepare() function");
     try {
       // Initialize Google Auth Service
@@ -114,7 +121,15 @@ const AppNavigator = () => {
           }
         } catch (fetchError) {
           debugLog(`Error fetching user data: ${fetchError.message}`);
-          setInitError("Could not fetch user data. Please check your network connection.");
+          
+          // Check if this is a network error
+          if (fetchError.message && fetchError.message.includes('network')) {
+            setInitError("Could not fetch user data. Please check your network connection.");
+          } else {
+            // If it's not a network error, try to clear userId as it might be invalid
+            await SecureStore.deleteItemAsync('userId');
+            debugLog("Cleared userId from SecureStore due to fetch error");
+          }
         }
         
         // Initialize IAP connection for iOS
@@ -138,11 +153,13 @@ const AppNavigator = () => {
       // Tell the application to render
       debugLog("Setting appIsReady to true");
       setAppIsReady(true);
-      
-      // NEW: Mark initial load as complete !!!CRITICAL!!!!
       setInitialLoadComplete(true);
       
-      await SplashScreen.hideAsync();
+      try {
+        await SplashScreen.hideAsync();
+      } catch (splashError) {
+        debugLog(`Error hiding splash screen: ${splashError.message}`);
+      }
     }
   };
 
@@ -150,16 +167,14 @@ const AppNavigator = () => {
     debugLog("Running initial useEffect");
     prepare();
     return () => debugLog("Cleanup for initial useEffect");
-  }, [dispatch]);
+  }, []);
 
-  // Add these to debugging in AppNavigator.js
+  // Log deep links for debugging
   useEffect(() => {
-    // Log received deep links for debugging
     const subscription = Linking.addEventListener('url', url => {
       debugLog(`Received deep link: ${JSON.stringify(url)}`);
     });
     
-    // Log all available URL schemes
     Linking.getInitialURL().then(url => {
       debugLog(`Initial URL: ${url}`);
     });
@@ -167,26 +182,16 @@ const AppNavigator = () => {
     return () => subscription.remove();
   }, []);
 
-  // *** FIX: Memoize subscription status to prevent navigation loops *** !!!!IMPORTANT!!!CRITICAL!!!!
-  const memoizedSubscriptionStatus = React.useMemo(() => {
-    debugLog(`Creating memoized subscription status: ${subscriptionActive}`);
-    return subscriptionActive;
+  // Create a stable version of the subscription status to prevent navigation loops
+  const stableSubscriptionStatus = React.useRef(subscriptionActive);
+  
+  // Only update the ref when needed, not on every render
+  useEffect(() => {
+    if (stableSubscriptionStatus.current !== subscriptionActive) {
+      debugLog(`Updating stable subscription status from ${stableSubscriptionStatus.current} to ${subscriptionActive}`);
+      stableSubscriptionStatus.current = subscriptionActive;
+    }
   }, [subscriptionActive]);
-  
-  // Log when subscription status changes
-  useEffect(() => {
-    debugLog(`Subscription status changed to: ${subscriptionActive}`);
-  }, [subscriptionActive]);
-  
-  // Log when user ID changes
-  useEffect(() => {
-    debugLog(`User ID changed to: ${userId?.substring(0,8) || 'null'}`);
-  }, [userId]);
-  
-  // Log when status changes
-  useEffect(() => {
-    debugLog(`Redux status changed to: ${status}`);
-  }, [status]);
 
   // Determine which navigator to render based on auth and subscription status
   const renderNavigator = useCallback(() => {
@@ -195,9 +200,7 @@ const AppNavigator = () => {
       status = ${status}, 
       subscriptionActive = ${subscriptionActive},
       needsUsername = ${needsUsername},
-      memoizedStatus = ${memoizedSubscriptionStatus},
       initialLoadComplete = ${initialLoadComplete}`);
-      
 
     if (initError) {
       debugLog("Showing error screen due to init error");
@@ -214,7 +217,7 @@ const AppNavigator = () => {
             onPress={() => {
               debugLog("Retry button pressed");
               setInitError(null);
-              setAppIsReady(false);
+              appInitializedRef.current = false; // Reset initialization flag
               prepare();
             }}
           >
@@ -224,7 +227,7 @@ const AppNavigator = () => {
       );
     }
     
-    // !!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!Only show loading during initial app load, not during data refreshes- !!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!!!!CRITICAL!!!!
+    // Only show loading during initial app load, not during data refreshes
     if (status === 'loading' && !initialLoadComplete) {
       debugLog("Showing loading screen for initial load only");
       return (
@@ -235,15 +238,15 @@ const AppNavigator = () => {
       );
     }
     
-    // If not logged in, show auth screens !!!IMPORTANT!!!
+    // If not logged in, show auth screens
     if (!userId) {
       debugLog("Showing AuthNavigator - user not logged in");
       return <AuthNavigator />;
     }
     
-    
-    // IMPORTANT- Makes sure username is set so it can skip createusername screen for existing ouath users
+    // If username is needed, show username screen
     if (needsUsername) {
+      debugLog("Showing CreateUsername screen - user needs username");
       const UsernameStack = createNativeStackNavigator();
       
       return (
@@ -257,7 +260,6 @@ const AppNavigator = () => {
             }}
             options={{ headerShown: false }}
           />
-          {/* Add this screen to enable navigation */}
           <UsernameStack.Screen 
             name="SubscriptionIOS" 
             component={SubscriptionScreenIOS} 
@@ -267,12 +269,21 @@ const AppNavigator = () => {
       );
     }
 
-    // *** MAJOR CHANGE: Always use MainNavigator regardless of subscription status ***
-    // This implements the freemium model where users can access the app without immediate subscription
+    // For the freemium model: Always show MainNavigator, regardless of subscription status
+    // Feature restrictions are handled within screens, not by navigation changes
     debugLog("Showing MainNavigator - freemium model allows access regardless of subscription");
-    return <MainNavigator />;
     
-  }, [userId, status, memoizedSubscriptionStatus, initError, initialLoadComplete, needsUsername]); // Added initialLoadComplete to deps
+    // Create main stack with all screens
+    const MainStack = createNativeStackNavigator();
+    
+    return (
+      <MainStack.Navigator screenOptions={{ headerShown: false }}>
+        <MainStack.Screen name="Main" component={MainNavigator} />
+        <MainStack.Screen name="SubscriptionIOS" component={SubscriptionScreenIOS} />
+        <MainStack.Screen name="PremiumFeaturePrompt" component={PremiumFeaturePrompt} />
+      </MainStack.Navigator>
+    );
+  }, [userId, status, needsUsername, initialLoadComplete, initError]);
 
   if (!appIsReady) {
     debugLog("App not ready yet, returning null");

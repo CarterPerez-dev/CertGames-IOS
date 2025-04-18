@@ -29,9 +29,12 @@ import testService from '../../api/testService';
 
 import { fetchShopItems } from '../../store/slices/shopSlice';
 import { fetchAchievements } from '../../store/slices/achievementsSlice';
-import { setXPAndCoins } from '../../store/slices/userSlice';
+import { setXPAndCoins, decrementQuestions } from '../../store/slices/userSlice';
 
 import FormattedQuestion from '../../components/FormattedQuestion';
+// Import for freemium check
+import usePremiumCheck from '../../hooks/usePremiumCheck';
+import QuestionLimitBanner from '../../components/QuestionLimitBanner';
 
 
 const { width, height } = Dimensions.get('window');
@@ -75,9 +78,12 @@ const TestScreen = ({ route, navigation }) => {
   } = route.params || {};
 
   const dispatch = useDispatch();
-  const { userId, xp, level, coins, xpBoost, currentAvatar } = useSelector(state => state.user);
+  const { userId, xp, level, coins, xpBoost, currentAvatar, subscriptionActive, practiceQuestionsRemaining } = useSelector(state => state.user);
   const { items: shopItems = [], status: shopStatus } = useSelector(state => state.shop || { items: [], status: 'idle' });
   const { all: achievements = [] } = useSelector(state => state.achievements || { all: [] });
+
+  // Freemium check
+  const { hasAccess, navigateToPremiumFeaturePrompt } = usePremiumCheck('questions');
 
   // State for test data
   const [testData, setTestData] = useState(null);
@@ -480,6 +486,12 @@ const TestScreen = ({ route, navigation }) => {
       if (!questionObject) return;
       if (!examMode && isAnswered) return; // Block if already answered in non-exam mode
 
+      // NEW: Check if free user has remaining questions
+      if (!subscriptionActive && practiceQuestionsRemaining <= 0) {
+        navigateToPremiumFeaturePrompt();
+        return;
+      }
+
       const actualAnswerIndex = answerOrder[realIndex][displayOptionIndex];
       setSelectedOptionIndex(displayOptionIndex);
 
@@ -526,6 +538,11 @@ const TestScreen = ({ route, navigation }) => {
               newlyUnlocked: awardData.newlyUnlocked || []
             }));
           }
+
+          // NEW: Decrement question count for free users
+          if (!subscriptionActive) {
+            dispatch(decrementQuestions(userId));
+          }
         }
       } catch (err) {
         console.error("Failed to submit answer to backend", err);
@@ -540,13 +557,23 @@ const TestScreen = ({ route, navigation }) => {
       answers,
       updateServerProgress,
       realIndex,
-      answerOrder
+      answerOrder,
+      subscriptionActive,
+      practiceQuestionsRemaining,
+      userId,
+      navigateToPremiumFeaturePrompt
     ]
   );
 
   // Skip the current question
   const skipQuestion = useCallback(async () => {
     if (!questionObject) return false;
+    
+    // NEW: Check if free user has remaining questions
+    if (!subscriptionActive && practiceQuestionsRemaining <= 0) {
+      navigateToPremiumFeaturePrompt();
+      return false;
+    }
     
     const updatedAnswers = [...answers];
     const idx = updatedAnswers.findIndex(a => a.questionId === questionObject.id);
@@ -569,6 +596,11 @@ const TestScreen = ({ route, navigation }) => {
     
     await updateServerProgress(updatedAnswers, score, false, skipObj);
     
+    // NEW: Decrement question count for free users when skipping
+    if (!subscriptionActive) {
+      dispatch(decrementQuestions(userId));
+    }
+    
     // If this is the last question, finish the test
     if (currentQuestionIndex === activeTestLength - 1) {
       return await finishTestProcess();
@@ -584,7 +616,12 @@ const TestScreen = ({ route, navigation }) => {
     updateServerProgress, 
     currentQuestionIndex, 
     activeTestLength,
-    finishTestProcess
+    finishTestProcess,
+    subscriptionActive,
+    practiceQuestionsRemaining,
+    userId,
+    navigateToPremiumFeaturePrompt,
+    dispatch
   ]);
   
 
@@ -1467,6 +1504,9 @@ const TestScreen = ({ route, navigation }) => {
       {renderScoreModal()}
       {renderReviewMode()}
       {renderQuestionDropdown()}
+
+      {/* NEW: Display the QuestionLimitBanner if not premium */}
+      {!subscriptionActive && <QuestionLimitBanner />}
 
       {/* Upper controls */}
       <LinearGradient

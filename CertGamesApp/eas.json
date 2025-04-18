@@ -27,10 +27,26 @@
       },
       "autoIncrement": true,
       "channel": "production"
+    },
+    "testflight": {
+      "ios": {
+        "resourceClass": "m-medium",
+        "buildConfiguration": "Release"
+      },
+      "autoIncrement": true,
+      "channel": "testflight",
+      "distribution": "store"
     }
   },
   "submit": {
     "production": {
+      "ios": {
+        "appleId": "carterperez88@example.com",
+        "ascAppId": "6743811522",
+        "appleTeamId": "9L6WVD6452"
+      }
+    },
+    "testflight": {
       "ios": {
         "appleId": "carterperez88@example.com",
         "ascAppId": "6743811522",

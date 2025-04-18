@@ -108,33 +108,64 @@ export const checkSubscription = createAsyncThunk(
   }
 );
 
-// NEW: Fetch usage limits for freemium model
+// IMPROVED: Fetch usage limits for freemium model with throttling
 export const fetchUsageLimits = createAsyncThunk(
   'user/fetchUsageLimits',
-  async (userId, { rejectWithValue }) => {
+  async (userId, { rejectWithValue, getState }) => {
+    // Check if we've recently fetched usage limits
+    const state = getState();
+    const lastUsageLimitsFetch = state.user.lastUsageLimitsUpdate || 0;
+    const now = Date.now();
+    
+    // Skip if we fetched within the last 30 seconds
+    if (now - lastUsageLimitsFetch < 30000) {
+      console.log("Skipping usage limits fetch - throttled");
+      return {
+        practiceQuestionsRemaining: state.user.practiceQuestionsRemaining,
+        subscriptionType: state.user.subscriptionType
+      };
+    }
+    
     try {
+      console.log("Fetching usage limits for:", userId);
       const response = await apiClient.get(`${API.USER.USAGE_LIMITS(userId)}`);
       return response.data;
     } catch (error) {
+      console.error("Error fetching usage limits:", error);
       return rejectWithValue(error.response?.data?.error || 'Failed to fetch usage limits');
     }
   }
 );
 
-// NEW: Decrement practice questions count for free users
+// Decrement practice questions count for free users
 export const decrementQuestions = createAsyncThunk(
   'user/decrementQuestions',
-  async (userId, { rejectWithValue }) => {
+  async (userId, { rejectWithValue, getState }) => {
+    // Don't decrement if we recently updated the count
+    const state = getState();
+    const lastUpdate = state.user.lastUsageLimitsUpdate || 0;
+    const now = Date.now();
+    
+    // Skip if we updated within the last 10 seconds (for debouncing)
+    if (now - lastUpdate < 10000) {
+      console.log("Skipping decrement questions - throttled");
+      return {
+        practiceQuestionsRemaining: state.user.practiceQuestionsRemaining
+      };
+    }
+    
     try {
+      console.log("Decrementing practice questions count for:", userId);
       const response = await apiClient.post(`${API.USER.DECREMENT_QUESTIONS(userId)}`);
       return response.data;
     } catch (error) {
+      console.error("Error decrementing questions:", error);
       return rejectWithValue(error.response?.data?.error || 'Failed to update question count');
     }
   }
 );
 
-// Initial state
+// Initial state with additional tracking fields
 const initialState = {
   userId: null,
   username: '',
@@ -153,17 +184,23 @@ const initialState = {
   subscriptionPlatform: null,
   lastDailyClaim: null,
   appleTransactionId: null,
-  lastUpdated: null, // Added for sync tracking
-  // Added freemium fields
+  lastUpdated: null,
+  
+  // Freemium fields
   practiceQuestionsRemaining: 100,
-  subscriptionType: 'free',  
+  subscriptionType: 'free',
+  
+  // Added for tracking API calls
+  lastUsageLimitsUpdate: null,
+  usageLimitsStatus: 'idle',
+  usageLimitsError: null,
+  
   // Status flags
   status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
   error: null,
 };
 
 // Helper function to calculate level from XP
-// Note: This should match your backend logic for calculating levels
 function calculateLevelFromXP(xp) {
   // Basic level calculation
   if (xp < 0) return 1;
@@ -263,17 +300,25 @@ const userSlice = createSlice({
       state.lastUpdated = Date.now();
     },
     
-    // Add this new reducer
     clearAuthErrors: (state) => {
       state.error = null;
       state.status = 'idle';
     },
     
-    // NEW: Update practice questions remaining manually
+    // Update practice questions remaining manually
     decrementPracticeQuestions: (state) => {
       if (state.practiceQuestionsRemaining > 0) {
         state.practiceQuestionsRemaining -= 1;
+        state.lastUsageLimitsUpdate = Date.now(); // Track last update
       }
+    },
+    
+    // NEW: Manually reset API statuses
+    resetApiStatus: (state) => {
+      state.status = 'idle';
+      state.usageLimitsStatus = 'idle';
+      state.error = null;
+      state.usageLimitsError = null;
     }
   },
   extraReducers: (builder) => {
@@ -341,6 +386,9 @@ const userSlice = createSlice({
       .addCase(fetchUserData.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload;
+        
+        // Important: Set a timestamp even on failure
+        state.lastUpdated = Date.now();
       })
       
       // DAILY BONUS
@@ -397,27 +445,45 @@ const userSlice = createSlice({
         state.status = 'idle';
       })
       
-      // NEW: Fetch usage limits
+      // IMPROVED: Fetch usage limits with better state tracking
       .addCase(fetchUsageLimits.pending, (state) => {
-        state.status = 'loading';
+        state.usageLimitsStatus = 'loading';
+        // Don't change main status to avoid UI flicker
       })
       .addCase(fetchUsageLimits.fulfilled, (state, action) => {
         state.practiceQuestionsRemaining = action.payload.practiceQuestionsRemaining;
         state.subscriptionType = action.payload.subscriptionType;
-        state.status = 'idle';
+        state.usageLimitsStatus = 'idle';
+        state.lastUsageLimitsUpdate = Date.now(); // Track last update time
       })
       .addCase(fetchUsageLimits.rejected, (state, action) => {
-        state.error = action.payload;
-        state.status = 'failed';
+        state.usageLimitsError = action.payload;
+        state.usageLimitsStatus = 'failed';
+        
+        // Important: Don't leave statuses as 'loading' on error
+        if (state.status === 'loading') {
+          state.status = 'idle';
+        }
       })
       
-      // NEW: Decrement questions
+      // IMPROVED: Decrement questions with better state tracking
+      .addCase(decrementQuestions.pending, (state) => {
+        state.usageLimitsStatus = 'loading';
+      })
       .addCase(decrementQuestions.fulfilled, (state, action) => {
         state.practiceQuestionsRemaining = action.payload.practiceQuestionsRemaining;
+        state.lastUsageLimitsUpdate = Date.now(); // Update the timestamp
+        state.usageLimitsStatus = 'idle';
       })
       .addCase(decrementQuestions.rejected, (state, action) => {
         // Handle error but don't change question count if API call fails
-        state.error = action.payload;
+        state.usageLimitsError = action.payload;
+        state.usageLimitsStatus = 'failed';
+        
+        // Important: Don't leave statuses as 'loading' on error
+        if (state.status === 'loading') {
+          state.status = 'idle';
+        }
       });
   },
 });
@@ -430,7 +496,8 @@ export const {
   updateXp, 
   setXPAndCoins, 
   clearAuthErrors,
-  decrementPracticeQuestions 
+  decrementPracticeQuestions,
+  resetApiStatus
 } = userSlice.actions;
 
 export default userSlice.reducer;

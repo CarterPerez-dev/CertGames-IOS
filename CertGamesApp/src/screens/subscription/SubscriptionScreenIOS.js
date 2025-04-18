@@ -397,16 +397,18 @@ const SubscriptionScreenIOS = () => {
           
           // Explicitly set free tier
           try {
+            // Use a single API call instead of multiple rapid calls
             await apiClient.post(`${API.USER.USAGE_LIMITS(userIdToUse)}`, {
               subscriptionType: 'free',
               practiceQuestionsRemaining: 100
             });
+            console.log("Successfully set usage limits for new user");
           } catch (limitError) {
             console.error("Error setting usage limits:", limitError);
             // Non-fatal, continue anyway
           }
           
-          // Fetch complete user data to update Redux
+          // Fetch complete user data to update Redux - but avoid multiple API calls
           await dispatch(fetchUserData(userIdToUse));
           
           setRegistrationCompleted(true);
@@ -423,6 +425,7 @@ const SubscriptionScreenIOS = () => {
             subscriptionType: 'free',
             practiceQuestionsRemaining: 100
           });
+          console.log("Successfully updated usage limits for existing user");
         } catch (limitError) {
           console.error("Error setting usage limits:", limitError);
           // Non-fatal, continue anyway
@@ -432,11 +435,15 @@ const SubscriptionScreenIOS = () => {
         await dispatch(fetchUserData(userIdToUse));
       }
       
-      // Navigate to home screen
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }]
-      });
+      // Important: Add a small delay before navigation to ensure state updates complete
+      console.log("Free tier setup complete, navigating to home screen");
+      setTimeout(() => {
+        // Use navigation.reset for a clean navigation state
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }] // Navigate directly to the Main component
+        });
+      }, 300);
       
     } catch (error) {
       console.error('Continue with free error:', error);

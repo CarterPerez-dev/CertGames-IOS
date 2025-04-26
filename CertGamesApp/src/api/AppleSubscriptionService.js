@@ -104,16 +104,9 @@ class AppleSubscriptionService {
       // Request the subscription purchase - CHANGED TO TRUE
       const result = await requestSubscription({
         sku: SUBSCRIPTION_PRODUCT_ID,
-        andDangerouslyFinishTransactionAutomaticallyIOS: false
+        andDangerouslyFinishTransactionAutomaticallyIOS: true
       });
- 
-       if (result.transactionId) {
-        await finishTransaction({ 
-          transactionId: result.transactionId,
-          isConsumable: false
-        });
-      }
-      
+   
            
       console.log("Purchase result:", result);
       

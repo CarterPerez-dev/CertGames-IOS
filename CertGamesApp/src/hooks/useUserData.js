@@ -6,39 +6,51 @@ import { fetchShopItems } from '../store/slices/shopSlice';
 import { fetchAchievements } from '../store/slices/achievementsSlice';
 import { fetchUsageLimits } from '../store/slices/userSlice';
 
-// Debounce function to prevent excessive API calls
-const debounce = (func, wait) => {
-  let timeout;
-  return (...args) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
+// Create module-level singleton to track initialization across all components
+const globalState = {
+  // Track which user IDs have already been initialized
+  initializedUserIds: new Set(),
+  // Track pending fetches to prevent concurrent requests
+  pendingFetches: {},
+  // Track last fetch time for each endpoint for each user
+  lastFetchTimes: {
+    userData: {},
+    usageLimits: {},
+    achievements: {},
+    shopItems: {}
+  },
+  // Track backoff multipliers to implement exponential backoff
+  backoffMultipliers: {}
 };
 
+// Utility for staggered fetching
+const staggeredFetch = async (dispatch, action, userId, delayMs = 100) => {
+  if (delayMs > 0) {
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+  return dispatch(action);
+};
+
+// Main hook implementation
 const useUserData = (options = {}) => {
   const { autoFetch = true } = options;
   const dispatch = useDispatch();
   
-  // Use refs to track initialization and prevent duplicate API calls
+  // Local refs for component state
   const initialFetchDoneRef = useRef(false);
-  const lastFetchTimeRef = useRef(0);
-  const usageLimitsFetchedRef = useRef(false);
   
-  // Safely get data from Redux with null checks at every level
+  // Get data from Redux with optimized selector
   const userData = useSelector(state => state?.user || {}, (prev, next) => {
-    // Optimize re-renders - only update if these specific fields change
-    return (
-      prev.userId === next.userId &&
-      prev.subscriptionActive === next.subscriptionActive &&
-      prev.practiceQuestionsRemaining === next.practiceQuestionsRemaining &&
-      prev.lastUpdated === next.lastUpdated
-    );
+    return prev.lastUpdated === next.lastUpdated;
   });
   
   const shopState = useSelector(state => state?.shop || {});
   const achievementsState = useSelector(state => state?.achievements || {});
   
-  // Safely destructure with fallbacks
+  // Component state
+  const [loading, setLoading] = useState(true);
+  
+  // Destructure user data with defaults
   const { 
     userId = null, 
     username = '', 
@@ -52,8 +64,6 @@ const useUserData = (options = {}) => {
     nameColor = null,
     purchasedItems = [],
     subscriptionActive = false,
-    status = 'idle',
-    error = null,
     lastDailyClaim = null,
     subscriptionStatus = null,
     subscriptionPlatform = null,
@@ -62,147 +72,158 @@ const useUserData = (options = {}) => {
     subscriptionType = 'free',
   } = userData;
   
-  // Safe access to shop and achievements
-  const shopItems = shopState?.items || [];
-  const shopStatus = shopState?.status || 'idle';
-  const allAchievements = achievementsState?.all || [];
-  const achievementsStatus = achievementsState?.status || 'idle';
+  // Fetch initial data with guards and staggering
+  const fetchInitialData = useCallback(async () => {
+    if (!userId) return;
+    
+    // Create a unique key for this fetch operation
+    const fetchKey = `init-${userId}`;
+    
+    // Check if this user is already being fetched
+    if (globalState.pendingFetches[fetchKey]) {
+      console.log(`[useUserData] Already fetching data for ${userId}, skipping duplicate`);
+      return;
+    }
+    
+    // Check if this user has already been initialized
+    if (globalState.initializedUserIds.has(userId)) {
+      console.log(`[useUserData] User ${userId} already initialized, skipping`);
+      initialFetchDoneRef.current = true;
+      setLoading(false);
+      return;
+    }
+    
+    // Set flag to prevent concurrent fetches
+    globalState.pendingFetches[fetchKey] = true;
+    
+    try {
+      setLoading(true);
+      
+      // Fetch core user data first
+      if (status === 'idle') {
+        console.log(`[useUserData] Fetching user data for ${userId}`);
+        await dispatch(fetchUserData(userId));
+        globalState.lastFetchTimes.userData[userId] = Date.now();
+      }
+      
+      // Stagger shop items fetch with delay
+      if (shopState.status === 'idle') {
+        console.log(`[useUserData] Fetching shop items with 150ms delay`);
+        await staggeredFetch(dispatch, fetchShopItems(), userId, 150);
+        globalState.lastFetchTimes.shopItems[userId] = Date.now();
+      }
+      
+      // Stagger achievements fetch with delay
+      if (achievementsState.status === 'idle') {
+        console.log(`[useUserData] Fetching achievements with 300ms delay`);
+        await staggeredFetch(dispatch, fetchAchievements(), userId, 300);
+        globalState.lastFetchTimes.achievements[userId] = Date.now();
+      }
+      
+      // Fetch usage limits only for free users
+      if (!subscriptionActive) {
+        console.log(`[useUserData] Fetching usage limits with 450ms delay`);
+        await staggeredFetch(dispatch, fetchUsageLimits(userId), userId, 450);
+        globalState.lastFetchTimes.usageLimits[userId] = Date.now();
+      }
+      
+      // Mark this user as initialized
+      globalState.initializedUserIds.add(userId);
+      initialFetchDoneRef.current = true;
+      
+    } catch (error) {
+      console.error(`[useUserData] Error in fetchInitialData: ${error.message}`);
+    } finally {
+      // Clear the pending flag when done
+      delete globalState.pendingFetches[fetchKey];
+      setLoading(false);
+    }
+  }, [userId, status, shopState.status, achievementsState.status, subscriptionActive, dispatch]);
   
-  const [loading, setLoading] = useState(true);
-  
-  // Create debounced versions of our API calls
-  const debouncedFetchUserData = useRef(
-    debounce((id) => {
-      console.log("[useUserData] Debounced fetchUserData call for:", id);
-      dispatch(fetchUserData(id));
-    }, 2000)
-  ).current;
-  
-  const debouncedFetchUsageLimits = useRef(
-    debounce((id) => {
-      console.log("[useUserData] Debounced fetchUsageLimits call for:", id);
-      dispatch(fetchUsageLimits(id));
-      usageLimitsFetchedRef.current = true;
-    }, 5000) // Higher debounce time for limits
-  ).current;
-  
-  // Auto-fetch data when component mounts if userId is available
+  // Effect for initialization
   useEffect(() => {
     if (!autoFetch || !userId) {
       setLoading(false);
       return;
     }
     
-    const now = Date.now();
-    const timeSinceLastFetch = now - lastFetchTimeRef.current;
+    fetchInitialData();
     
-    // Initial data load - only runs once
-    if (!initialFetchDoneRef.current) {
-      console.log("[useUserData] Initial data load for:", userId);
-      
-      setLoading(true);
-      
-      // Fetch core user data first
-      const fetchInitialData = async () => {
-        try {
-          if (status === 'idle') {
-            await dispatch(fetchUserData(userId));
-          }
-          
-          // Fetch shop items if needed - only once
-          if (shopStatus === 'idle') {
-            dispatch(fetchShopItems());
-          }
-          
-          // Fetch achievements if needed - only once
-          if (achievementsStatus === 'idle') {
-            dispatch(fetchAchievements());
-          }
-          
-          // Fetch usage limits for freemium model - only fetch once initially
-          if (!subscriptionActive && !usageLimitsFetchedRef.current) {
-            dispatch(fetchUsageLimits(userId));
-            usageLimitsFetchedRef.current = true;
-          }
-          
-          lastFetchTimeRef.current = Date.now();
-          initialFetchDoneRef.current = true;
-        } finally {
-          setLoading(false);
-        }
-      };
-      
-      fetchInitialData();
-      return;
-    }
-    
-    // For subsequent updates, only fetch if it's been a while or status changes
-    if (timeSinceLastFetch > 30000 && status === 'idle') { // 30 second minimum between refreshes
-      console.log("[useUserData] Refreshing data after timeout for:", userId);
-      debouncedFetchUserData(userId);
-      lastFetchTimeRef.current = now;
-    }
-    
-    // Always set loading to false for subsequent renders
-    setLoading(false);
-  }, [userId, status, shopStatus, achievementsStatus, subscriptionActive, dispatch, autoFetch]);
+    // Cleanup function
+    return () => {
+      // If component unmounts during fetch, clean up
+      const fetchKey = `init-${userId}`;
+      if (globalState.pendingFetches[fetchKey]) {
+        delete globalState.pendingFetches[fetchKey];
+      }
+    };
+  }, [userId, autoFetch, fetchInitialData]);
   
-  // Only refresh usage limits when subscription status changes or after significant time
-  useEffect(() => {
-    if (!userId || subscriptionActive) return;
-    
-    // Only refresh usage limits if subscription status changed to false
-    // or if it's been a while since last fetch
-    const now = Date.now();
-    if (now - lastFetchTimeRef.current > 60000) { // 1 minute between usage limit refreshes
-      console.log("[useUserData] Refreshing usage limits for:", userId);
-      debouncedFetchUsageLimits(userId);
-    }
-  }, [userId, subscriptionActive]);
-  
-  // Function to manually refresh data with error handling and rate limiting
+  // Manual refresh with exponential backoff
   const refreshData = useCallback(() => {
     if (!userId) return;
     
-    const now = Date.now();
-    if (now - lastFetchTimeRef.current < 5000) {
-      console.log("[useUserData] Refresh request ignored - too soon");
-      return; // Prevent refreshes more frequent than every 5 seconds
+    const refreshKey = `refresh-${userId}`;
+    
+    // Check if refresh is already in progress
+    if (globalState.pendingFetches[refreshKey]) {
+      console.log(`[useUserData] Refresh already in progress for ${userId}`);
+      return;
     }
     
-    console.log("[useUserData] Manual refresh requested for:", userId);
+    // Initialize or increment backoff multiplier
+    if (!globalState.backoffMultipliers[userId]) {
+      globalState.backoffMultipliers[userId] = 1;
+    } else {
+      globalState.backoffMultipliers[userId] = Math.min(globalState.backoffMultipliers[userId] * 2, 8);
+    }
+    
+    const backoffTime = 500 * globalState.backoffMultipliers[userId]; // 500ms base * multiplier
+    const now = Date.now();
+    const lastFetchTime = globalState.lastFetchTimes.userData[userId] || 0;
+    
+    if (now - lastFetchTime < backoffTime) {
+      console.log(`[useUserData] Throttling refresh - backoff time ${backoffTime}ms not met`);
+      return;
+    }
+    
+    // Set flag to prevent concurrent refreshes
+    globalState.pendingFetches[refreshKey] = true;
     setLoading(true);
     
-    try {
-      // Update last fetch time immediately to prevent duplicates
-      lastFetchTimeRef.current = now;
-      
-      // Dispatch core data fetches
-      dispatch(fetchUserData(userId));
-      
-      // For free users, update usage limits immediately
-      // This is critical for accurate question counting
-      if (!subscriptionActive) {
-        dispatch(fetchUsageLimits(userId));
-      }
-      
-      // Stagger other fetches to reduce API load
-      setTimeout(() => {
-        dispatch(fetchAchievements());
-      }, 1000);
-      
-      setTimeout(() => {
-        dispatch(fetchShopItems());
-      }, 2000);
-    } catch (error) {
-      console.error("[useUserData] Error refreshing data:", error);
-    } finally {
-      // Ensure loading state is reset after a maximum time
-      // This prevents UI getting stuck in loading state
-      setTimeout(() => {
+    // Update timestamp immediately
+    globalState.lastFetchTimes.userData[userId] = now;
+    
+    // Perform the refresh with careful sequencing
+    const performRefresh = async () => {
+      try {
+        // Fetch user data first
+        await dispatch(fetchUserData(userId));
+        
+        // Stagger other requests
+        if (!subscriptionActive) {
+          setTimeout(() => {
+            if (!globalState.pendingFetches[`usageLimits-${userId}`]) {
+              globalState.pendingFetches[`usageLimits-${userId}`] = true;
+              dispatch(fetchUsageLimits(userId)).finally(() => {
+                delete globalState.pendingFetches[`usageLimits-${userId}`];
+              });
+            }
+          }, 200);
+        }
+        
+        // Reset backoff on success
+        globalState.backoffMultipliers[userId] = 1;
+        
+      } catch (error) {
+        console.error(`[useUserData] Error refreshing data: ${error.message}`);
+      } finally {
+        delete globalState.pendingFetches[refreshKey];
         setLoading(false);
-      }, 5000);
-    }
+      }
+    };
+    
+    performRefresh();
   }, [userId, subscriptionActive, dispatch]);
   
   // Get avatar URL helper with thorough error handling

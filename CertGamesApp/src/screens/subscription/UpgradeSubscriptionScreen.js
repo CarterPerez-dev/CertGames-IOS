@@ -163,7 +163,55 @@ const UpgradeSubscriptionScreen = () => {
     ).start();
   };
   
-  // Handle subscription purchase
+  // Poll for subscription status changes after purchase
+  const pollSubscriptionStatus = async (userId, maxAttempts = 5) => {
+    console.log(`[SUBSCRIPTION POLLING] Starting polling for userId: ${userId}`);
+    let attempts = 0;
+    
+    // Function to check subscription status
+    const checkStatus = async () => {
+      if (attempts >= maxAttempts) {
+        console.log(`[SUBSCRIPTION POLLING] Max attempts reached (${maxAttempts})`);
+        return;
+      }
+      
+      attempts++;
+      console.log(`[SUBSCRIPTION POLLING] Attempt ${attempts}/${maxAttempts}`);
+      
+      try {
+        // First check subscription status
+        await dispatch(checkSubscription(userId));
+        
+        // Then fetch full user data
+        const userData = await dispatch(fetchUserData(userId)).unwrap();
+        
+        console.log(`[SUBSCRIPTION POLLING] Status: ${userData.subscriptionActive ? 'ACTIVE' : 'INACTIVE'}`);
+        console.log(`[SUBSCRIPTION POLLING] Status Data:`, {
+          active: userData.subscriptionActive,
+          status: userData.subscriptionStatus,
+          platform: userData.subscriptionPlatform,
+          type: userData.subscriptionType
+        });
+        
+        // If subscription is now active, we can stop polling
+        if (userData.subscriptionActive === true) {
+          console.log(`[SUBSCRIPTION POLLING] Subscription is now active, stopping poll`);
+          return;
+        }
+        
+        // Otherwise, continue polling
+        setTimeout(checkStatus, 2000); // Check every 2 seconds
+      } catch (error) {
+        console.error(`[SUBSCRIPTION POLLING] Error:`, error);
+        // Continue polling despite errors
+        setTimeout(checkStatus, 2000);
+      }
+    };
+    
+    // Start the initial check
+    setTimeout(checkStatus, 2000); // First check after 2 seconds
+  };
+  
   const handleSubscribe = async () => {
     // Prevent concurrent purchase attempts
     if (purchaseInProgress || loading) {
@@ -225,11 +273,11 @@ const UpgradeSubscriptionScreen = () => {
       
       console.log("Subscription purchased successfully:", purchaseResult);
       
-      // TESTFLIGHT FIX: Add significant delay to allow transaction to process
+      // Add delay to allow server sync
       console.log("Waiting for backend sync...");
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Update subscription status in Redux
+      // Initial Redux update
       console.log("Checking subscription status...");
       try {
         await dispatch(checkSubscription(userId));
@@ -237,29 +285,30 @@ const UpgradeSubscriptionScreen = () => {
         console.error("Error checking subscription:", subError);
       }
       
-      // Update full user data
-      console.log("Fetching updated user data...");
+      // Start polling for subscription status updates
+      pollSubscriptionStatus(userId);
+      
+      // Navigate to purchase success screen
       try {
-        const userData = await dispatch(fetchUserData(userId)).unwrap();
-        console.log(`Subscription status after update: ${userData.subscriptionActive}`);
-      } catch (dataError) {
-        console.error("Error fetching user data:", dataError);
-      }
-      
-      // Show success animation
-      setSuccess(true);
-      Animated.sequence([
-        Animated.timing(successAnimation, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true
-        }),
-        Animated.delay(1500)  // TESTFLIGHT FIX: Increase success display time
-      ]).start();
-      
-      // Apply success haptic feedback
-      if (Platform.OS === 'ios') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        navigation.navigate('PurchaseSuccess', { userId: userId });
+      } catch (navError) {
+        console.error("Navigation error:", navError);
+        
+        // Fallback: show local success animation
+        setSuccess(true);
+        Animated.sequence([
+          Animated.timing(successAnimation, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true
+          }),
+          Animated.delay(1500)
+        ]).start();
+        
+        // Apply success haptic feedback
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
       }
       
     } catch (error) {
@@ -286,7 +335,6 @@ const UpgradeSubscriptionScreen = () => {
     }
   };
   
-  // Handle back button press
   const handleBackPress = () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

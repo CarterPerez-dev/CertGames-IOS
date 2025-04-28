@@ -178,6 +178,55 @@ const SubscriptionScreenIOS = () => {
     ).start();
   }, []);
   
+  // Poll for subscription status changes after purchase
+  const pollSubscriptionStatus = async (userId, maxAttempts = 5) => {
+    console.log(`[SUBSCRIPTION POLLING] Starting polling for userId: ${userId}`);
+    let attempts = 0;
+    
+    // Function to check subscription status
+    const checkStatus = async () => {
+      if (attempts >= maxAttempts) {
+        console.log(`[SUBSCRIPTION POLLING] Max attempts reached (${maxAttempts})`);
+        return;
+      }
+      
+      attempts++;
+      console.log(`[SUBSCRIPTION POLLING] Attempt ${attempts}/${maxAttempts}`);
+      
+      try {
+        // First check subscription status
+        await dispatch(checkSubscription(userId));
+        
+        // Then fetch full user data
+        const userData = await dispatch(fetchUserData(userId)).unwrap();
+        
+        console.log(`[SUBSCRIPTION POLLING] Status: ${userData.subscriptionActive ? 'ACTIVE' : 'INACTIVE'}`);
+        console.log(`[SUBSCRIPTION POLLING] Status Data:`, {
+          active: userData.subscriptionActive,
+          status: userData.subscriptionStatus,
+          platform: userData.subscriptionPlatform,
+          type: userData.subscriptionType
+        });
+        
+        // If subscription is now active, we can stop polling
+        if (userData.subscriptionActive === true) {
+          console.log(`[SUBSCRIPTION POLLING] Subscription is now active, stopping poll`);
+          return;
+        }
+        
+        // Otherwise, continue polling
+        setTimeout(checkStatus, 2000); // Check every 2 seconds
+      } catch (error) {
+        console.error(`[SUBSCRIPTION POLLING] Error:`, error);
+        // Continue polling despite errors
+        setTimeout(checkStatus, 2000);
+      }
+    };
+    
+    // Start the initial check
+    setTimeout(checkStatus, 2000); // First check after 2 seconds
+  };
+
   const registerNewUser = async () => {
     try {
       setLoading(true);
@@ -226,8 +275,6 @@ const SubscriptionScreenIOS = () => {
     }
   };
   
-
-  // Fix for handleSubscribe in SubscriptionScreenIOS.js
   const handleSubscribe = async () => {
     // Prevent concurrent purchase attempts
     if (purchaseInProgress || loading) {
@@ -253,28 +300,23 @@ const SubscriptionScreenIOS = () => {
       // STEP 1: Handle new user registration if needed
       if (registrationData && !registrationCompleted) {
         try {
-          console.log("Registering new user with data:", {
-            ...registrationData,
-            password: '********' // Log masked password for security
-          });
-          
-          const existingUser = await apiClient.get(`${API.USER.DETAILS(userIdToUse)}`).catch(() => null);
-          if (existingUser && existingUser.data) {
+          console.log("Checking if user already exists...");
+          const existingUserCheck = await apiClient.get(`${API.USER.DETAILS(userIdToUse)}`).catch(() => null);
+  
+          if (existingUserCheck && existingUserCheck.data) {
             console.log("User already exists, skipping registration");
+            userIdToUse = existingUserCheck.data._id;
             setRegistrationCompleted(true);
-            userIdToUse = existingUser.data._id;
-          } else {  
-            // Registration logic
+          } else {
+            console.log("Registering new user");
             const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
-            
+  
             if (!response.data || !response.data.user_id) {
-              throw new Error('Registration failed: No user ID returned');
+              throw new Error('Registration failed: No user ID returned from API');
             }
-            
+  
             userIdToUse = response.data.user_id;
             console.log("User registered successfully, ID:", userIdToUse);
-            
-            // Save user ID to secure storage
             await SecureStore.setItemAsync('userId', userIdToUse);
             
             // Update Redux state
@@ -340,61 +382,38 @@ const SubscriptionScreenIOS = () => {
       
       console.log("Subscription purchased successfully:", purchaseResult);
       
-      // TESTFLIGHT FIX: Add significant delay to allow transaction to process
+      // Add delay to allow server sync
       console.log("Waiting for backend sync...");
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // STEP 4: Update Redux state
-      // First update subscription status in Redux
+      // Initial Redux update
       console.log("Checking subscription status...");
       try {
         await dispatch(checkSubscription(userIdToUse));
       } catch (subError) {
         console.error("Error checking subscription:", subError);
-        // Continue despite this error
       }
       
-      // Then update full user data
-      console.log("Fetching updated user data...");
-      try {
-        const userData = await dispatch(fetchUserData(userIdToUse)).unwrap();
-        console.log(`Subscription status after update: ${userData.subscriptionActive}`);
-      } catch (dataError) {
-        console.error("Error fetching user data:", dataError);
-        // Continue despite this error
-      }
+      // Start polling for subscription status updates
+      pollSubscriptionStatus(userIdToUse);
       
-      // STEP 5: Navigation - Only navigate after purchase is complete
-      // TESTFLIGHT FIX: Use a safe navigation method with guards
+      // Navigate to purchase success screen
       try {
-        // Check if navigation is available
-        if (navigation && navigation.reset) {
+        navigation.navigate('PurchaseSuccess', { userId: userIdToUse });
+      } catch (navError) {
+        console.error("Navigation error:", navError);
+        
+        // Fallback: direct navigation to Main if PurchaseSuccess isn't available
+        try {
           navigation.reset({
             index: 0,
             routes: [{ name: 'Main' }]
           });
-        } else {
-          // Fallback in case navigation object is unavailable
-          console.error("Navigation object unavailable, using fallback");
-          setTimeout(() => {
-            try {
-              navigation.navigate('Main');
-            } catch (navError) {
-              console.error("Final navigation error:", navError);
-            }
-          }, 500);
+        } catch (fallbackError) {
+          console.error("Fallback navigation error:", fallbackError);
         }
-      } catch (navError) {
-        console.error("Navigation error:", navError);
-        // Try alternate navigation as fallback
-        setTimeout(() => {
-          try {
-            navigation.navigate('Main');
-          } catch (altNavError) {
-            console.error("Alternate navigation error:", altNavError);
-          }
-        }, 500);
       }
+      
     } catch (error) {
       console.error('Subscription error:', error);
       
@@ -410,8 +429,7 @@ const SubscriptionScreenIOS = () => {
         setError(errorMessage);
       }
     } finally {
-      // Make sure we reset loading states even if there's an error
-      // TESTFLIGHT FIX: Add delay to ensure UI updates properly
+      // TESTFLIGHT FIX: Add delay for UI updates
       setTimeout(() => {
         setLoading(false);
         setPurchaseInProgress(false);
@@ -419,16 +437,13 @@ const SubscriptionScreenIOS = () => {
     }
   };
 
-  
-  
-  // Fix for handleContinueFree in SubscriptionScreenIOS.js
   const handleContinueFree = async () => {
     // Prevent concurrent attempts
     if (loading) {
       console.log("Already processing, ignoring tap");
       return;
     }
-  
+
     console.log("=== [handleContinueFree] START ===");
     console.log("Current flow state:", { 
       isOauthFlow, 
@@ -439,16 +454,16 @@ const SubscriptionScreenIOS = () => {
     
     setLoading(true);
     setError(null);
-  
+
     let userIdToUse = userId;
-  
+
     try {
       // STEP 1: Handle user registration if needed
       if (registrationData && !registrationCompleted) {
         try {
           console.log("Checking if user already exists...");
           const existingUserCheck = await apiClient.get(`${API.USER.DETAILS(userIdToUse)}`).catch(() => null);
-  
+
           if (existingUserCheck && existingUserCheck.data) {
             console.log("User already exists, skipping registration");
             userIdToUse = existingUserCheck.data._id;
@@ -456,11 +471,11 @@ const SubscriptionScreenIOS = () => {
           } else {
             console.log("Registering new user");
             const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
-  
+
             if (!response.data || !response.data.user_id) {
               throw new Error('Registration failed: No user ID returned from API');
             }
-  
+
             userIdToUse = response.data.user_id;
             console.log("User registered successfully, ID:", userIdToUse);
             await SecureStore.setItemAsync('userId', userIdToUse);
@@ -473,7 +488,7 @@ const SubscriptionScreenIOS = () => {
           return;
         }
       }
-  
+
       // STEP 2: Validate userId
       if (!userIdToUse) {
         console.error("No userIdToUse after registration step!");
@@ -481,7 +496,7 @@ const SubscriptionScreenIOS = () => {
         setLoading(false);
         return;
       }
-  
+
       // STEP 3: Update Redux state - FIXED for OAuth flow
       console.log("Updating Redux state with userId:", userIdToUse);
       
@@ -515,7 +530,7 @@ const SubscriptionScreenIOS = () => {
         // For regular flow, just set the user data directly
         dispatch({ type: 'user/setUser', payload });
       }
-  
+
       // STEP 4: Navigation
       console.log("Navigating to Main screen...");
       
@@ -541,7 +556,7 @@ const SubscriptionScreenIOS = () => {
           console.error("Fallback navigation error:", fallbackError);
         }
       }
-  
+
     } catch (error) {
       console.error('Error during free tier setup:', error);
       setError(error.message || 'An unexpected error occurred.');
@@ -551,6 +566,7 @@ const SubscriptionScreenIOS = () => {
       console.log("=== [handleContinueFree] END ===");
     }
   };
+  
   // Get subscription type - prioritize OAuth/New Username flow over renewal
   const getSubscriptionType = () => {
     // Add more verbose debugging to understand what's happening
@@ -808,7 +824,7 @@ const SubscriptionScreenIOS = () => {
                   </TouchableOpacity>
                 </Animated.View>
 
-                {/* NEW: Continue with Free Button */}
+                {/* Continue with Free Button */}
                 <TouchableOpacity 
                   style={styles.freeButton}
                   onPress={handleContinueFree}

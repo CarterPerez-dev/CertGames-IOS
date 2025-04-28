@@ -14,7 +14,7 @@ const circuitBreaker = {
   isOpen: false,
   resetTimeout: null,
   threshold: 5, // Number of failures to trip the breaker
-  resetDelay: 10000, // 10 seconds before trying requests again
+  resetDelay: 2000, // 10 seconds before trying requests again
 };
 
 // Request throttling
@@ -40,57 +40,30 @@ apiClient.request = function(config) {
   // Generate a unique key for this request
   const requestKey = `${config.method}:${config.url}:${JSON.stringify(config.params || {})}:${JSON.stringify(config.data || {})}`;
   
-  // Check circuit breaker
-  if (circuitBreaker.isOpen) {
-    console.log('Circuit breaker is open, rejecting request:', requestKey);
-    return Promise.reject({
-      response: {
-        status: 503,
-        data: { error: 'Too many failed requests. Please try again later.' }
-      },
-      circuitBreakerActive: true
-    });
-  }
-  
-  // Check if an identical request is already in progress
+  // Check if a duplicate request is already in progress
   if (pendingRequests[requestKey]) {
-    console.log('Duplicate request detected, using existing promise:', requestKey);
+    console.log(`Duplicate request detected: ${requestKey}`);
     return pendingRequests[requestKey];
   }
   
-  // Implement request throttling
-  const now = Date.now();
-  const timeSinceLastRequest = now - requestThrottle.lastRequestTime;
-  
-  if (timeSinceLastRequest < requestThrottle.minInterval) {
-    // Queue this request instead of sending immediately
-    return new Promise((resolve, reject) => {
-      requestThrottle.requestQueue.push({
-        config,
-        resolve,
-        reject,
-        requestKey
-      });
-      
-      // Start processing the queue if not already processing
-      if (!requestThrottle.isProcessingQueue) {
-        processRequestQueue();
-      }
+  // Add mandatory throttling for all requests
+  return new Promise((resolve, reject) => {
+    // Add the request to a processing queue
+    requestThrottle.requestQueue.push({
+      config,
+      resolve,
+      reject,
+      requestKey
     });
-  }
-  
-  // Proceed with the request
-  requestThrottle.lastRequestTime = now;
-  const promise = originalRequest.call(apiClient, config);
-  
-  // Store this request in pendingRequests and remove when done
-  pendingRequests[requestKey] = promise;
-  promise.finally(() => {
-    delete pendingRequests[requestKey];
+    
+    // Start the queue processor if not already running
+    if (!requestThrottle.isProcessingQueue) {
+      processRequestQueue();
+    }
   });
-  
-  return promise;
 };
+  
+
 
 // Function to process the request queue with proper timing
 async function processRequestQueue() {

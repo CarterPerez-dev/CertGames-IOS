@@ -1,76 +1,65 @@
 // src/hooks/usePremiumCheck.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
-import { fetchUsageLimits } from '../store/slices/userSlice';
 
+/**
+ * Hook to check if user has access to premium features
+ * 
+ * @param {string} featureType - Type of feature to check access for
+ * @returns {Object} Access status and helper methods
+ */
 const usePremiumCheck = (featureType = 'premium') => {
   const { 
     userId, 
     subscriptionActive, 
-    practiceQuestionsRemaining 
+    practiceQuestionsRemaining = 0 
   } = useSelector(state => state.user);
-  const [loading, setLoading] = useState(true);
+  
   const [hasAccess, setHasAccess] = useState(false);
-  const dispatch = useDispatch();
   const navigation = useNavigation();
 
+  // Determine access based on subscription status and feature type
+  // This is a single useEffect with no nesting
   useEffect(() => {
-    const checkAccess = async () => {
-      setLoading(true);
-      
-      // If already subscribed, always has access
-      if (subscriptionActive) {
-        setHasAccess(true);
-        setLoading(false);
-        return;
-      }
-      
-      // For free users, check specific feature access
-      try {
-        // If it's a practice question feature and user still has questions
-        if (featureType === 'questions' && practiceQuestionsRemaining > 0) {
-          setHasAccess(true);
-        } 
-        // If it's Analogy Hub (which is free)
-        else if (featureType === 'analogy') {
-          setHasAccess(true);
-        }
-        // Resources viewing (without active links) is allowed
-        else if (featureType === 'resources_view') {
-          setHasAccess(true);
-        }
-        // Daily questions viewing (without answering) is allowed
-        else if (featureType === 'daily_view') {
-          setHasAccess(true);
-        }
-        // All other premium features: no access for free users
-        else {
-          setHasAccess(false);
-        }
-        
-        // Refresh usage limits if user is free
-        if (!subscriptionActive) {
-          await dispatch(fetchUsageLimits(userId));
-        }
-      } catch (error) {
-        console.error('Error checking premium access:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Default to no access
+    let access = false;
     
-    if (userId) {
-      checkAccess();
-    } else {
-      setLoading(false);
-      setHasAccess(false);
+    // Premium users always have access to everything
+    if (subscriptionActive) {
+      access = true;
+    } 
+    // Free tier access control
+    else {
+      switch (featureType) {
+        case 'questions':
+          // Access if they have questions remaining
+          access = practiceQuestionsRemaining > 0;
+          break;
+        case 'analogy':
+        case 'resources_view':
+        case 'daily_view':
+          // These features are free
+          access = true;
+          break;
+        default:
+          // All other features require premium
+          access = false;
+      }
     }
-  }, [userId, subscriptionActive, practiceQuestionsRemaining, featureType, dispatch]);
+    
+    // Update state
+    setHasAccess(access);
+  }, [subscriptionActive, practiceQuestionsRemaining, featureType]);
 
-  // Function to show subscription prompt
-  const showSubscriptionPrompt = () => {
+  // Navigate to premium feature prompt
+  const navigateToPremiumFeaturePrompt = useCallback(() => {
+    navigation.navigate('PremiumFeaturePrompt', { feature: featureType });
+  }, [navigation, featureType]);
+
+  // Show subscription prompt
+  const showSubscriptionPrompt = useCallback(() => {
     let title, message;
     
     switch (featureType) {
@@ -102,14 +91,15 @@ const usePremiumCheck = (featureType = 'premium') => {
         }
       ]
     );
-  };
+  }, [navigation, userId, featureType]);
 
-  // Function to navigate to full premium feature prompt screen
-  const navigateToPremiumFeaturePrompt = () => {
-    navigation.navigate('PremiumFeaturePrompt', { feature: featureType });
+  return { 
+    // No loading state - checks are synchronous
+    loading: false, 
+    hasAccess, 
+    showSubscriptionPrompt, 
+    navigateToPremiumFeaturePrompt 
   };
-
-  return { loading, hasAccess, showSubscriptionPrompt, navigateToPremiumFeaturePrompt };
 };
 
 export default usePremiumCheck;

@@ -8,11 +8,8 @@ import { fetchUsageLimits } from '../store/slices/userSlice';
 
 // Create module-level singleton to track initialization across all components
 const globalState = {
-  // Track which user IDs have already been initialized
   initializedUserIds: new Set(),
-  // Track pending fetches to prevent concurrent requests
   pendingFetches: {},
-  // Track last fetch time for each endpoint for each user
   lastFetchTimes: {
     userData: {},
     usageLimits: {},
@@ -142,89 +139,55 @@ const useUserData = (options = {}) => {
   
   // Effect for initialization
   useEffect(() => {
-    if (!autoFetch || !userId) {
-      setLoading(false);
+    if (!autoFetch || !userId || wasInitializedRef.current) {
       return;
     }
     
-    fetchInitialData();
+    // Set loading state only once during initial load
+    setLoading(true);
     
-    // Cleanup function
-    return () => {
-      // If component unmounts during fetch, clean up
-      const fetchKey = `init-${userId}`;
-      if (globalState.pendingFetches[fetchKey]) {
-        delete globalState.pendingFetches[fetchKey];
+    // Sequential fetching with delays to prevent rate limiting
+    const loadInitialData = async () => {
+      try {
+        // Always fetch user data first
+        await fetchData('userData');
+        
+        // Wait before fetching next data
+        setTimeout(() => {
+          // Only fetch usage limits for free users
+          if (!subscriptionActive) {
+            fetchData('usageLimits');
+          }
+          
+          // Low priority data - delay even more
+          setTimeout(() => fetchData('shopItems'), 500);
+          setTimeout(() => fetchData('achievements'), 1000);
+        }, 500);
+      } finally {
+        setLoading(false);
+        wasInitializedRef.current = true;
       }
     };
-  }, [userId, autoFetch, fetchInitialData]);
+    
+    loadInitialData();
+  }, [userId, autoFetch, fetchData, subscriptionActive]);
   
   // Manual refresh with exponential backoff
   const refreshData = useCallback(() => {
     if (!userId) return;
     
-    const refreshKey = `refresh-${userId}`;
-    
-    // Check if refresh is already in progress
-    if (globalState.pendingFetches[refreshKey]) {
-      console.log(`[useUserData] Refresh already in progress for ${userId}`);
-      return;
-    }
-    
-    // Initialize or increment backoff multiplier
-    if (!globalState.backoffMultipliers[userId]) {
-      globalState.backoffMultipliers[userId] = 1;
-    } else {
-      globalState.backoffMultipliers[userId] = Math.min(globalState.backoffMultipliers[userId] * 2, 8);
-    }
-    
-    const backoffTime = 500 * globalState.backoffMultipliers[userId]; // 500ms base * multiplier
-    const now = Date.now();
-    const lastFetchTime = globalState.lastFetchTimes.userData[userId] || 0;
-    
-    if (now - lastFetchTime < backoffTime) {
-      console.log(`[useUserData] Throttling refresh - backoff time ${backoffTime}ms not met`);
-      return;
-    }
-    
-    // Set flag to prevent concurrent refreshes
-    globalState.pendingFetches[refreshKey] = true;
     setLoading(true);
     
-    // Update timestamp immediately
-    globalState.lastFetchTimes.userData[userId] = now;
-    
-    // Perform the refresh with careful sequencing
-    const performRefresh = async () => {
-      try {
-        // Fetch user data first
-        await dispatch(fetchUserData(userId));
-        
-        // Stagger other requests
+    fetchData('userData')
+      .then(() => {
         if (!subscriptionActive) {
-          setTimeout(() => {
-            if (!globalState.pendingFetches[`usageLimits-${userId}`]) {
-              globalState.pendingFetches[`usageLimits-${userId}`] = true;
-              dispatch(fetchUsageLimits(userId)).finally(() => {
-                delete globalState.pendingFetches[`usageLimits-${userId}`];
-              });
-            }
-          }, 200);
+          return fetchData('usageLimits');
         }
-        
-        // Reset backoff on success
-        globalState.backoffMultipliers[userId] = 1;
-        
-      } catch (error) {
-        console.error(`[useUserData] Error refreshing data: ${error.message}`);
-      } finally {
-        delete globalState.pendingFetches[refreshKey];
+      })
+      .finally(() => {
         setLoading(false);
-      }
-    };
-    
-    performRefresh();
-  }, [userId, subscriptionActive, dispatch]);
+      });
+  }, [userId, fetchData, subscriptionActive]);
   
   // Get avatar URL helper with thorough error handling
   const getAvatarUrl = useCallback(() => {

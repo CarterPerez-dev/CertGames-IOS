@@ -209,7 +209,7 @@ const SubscriptionScreenIOS = () => {
   // SIMPLIFIED: handleSubscribe function that works for all users (new, expired, etc.)
   const handleSubscribe = async () => {
     // Prevent concurrent purchase attempts
-    if (purchaseInProgress) {
+    if (purchaseInProgress || loading) {
       console.log("Purchase already in progress, ignoring tap");
       return;
     }
@@ -227,49 +227,23 @@ const SubscriptionScreenIOS = () => {
       // Check if this is a new registration
       if (registrationData && !registrationCompleted) {
         try {
-          console.log("Registering new user with data:", {
-            ...registrationData,
-            password: '********' // Log masked password for security
-          });
-          
-          const existingUser = await apiClient.get(`${API.USER.DETAILS(userIdToUse)}`).catch(() => null);
+          const existingUser = await apiClient.get(`${API.USER.DETAILS(userId)}`)
+            .catch(() => null);
+            
           if (existingUser && existingUser.data) {
-            console.log("User already exists, skipping registration");
+            // User exists, update our state
             setRegistrationCompleted(true);
             userIdToUse = existingUser.data._id;
           } else {  
-            // Registration logic
+            // Register new user with simpler error handling
             const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
-            
-            if (!response.data || !response.data.user_id) {
-              throw new Error('Registration failed: No user ID returned');
-            }
-            
             userIdToUse = response.data.user_id;
-            console.log("User registered successfully, ID:", userIdToUse);
-            
-            // Save user ID to secure storage
             await SecureStore.setItemAsync('userId', userIdToUse);
-            
-            // Update Redux state
-            dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
-            
-            // Fetch user data to update Redux
-            await dispatch(fetchUserData(userIdToUse));
-            
             setRegistrationCompleted(true);
           }
-        } catch (regError) {
-          console.error('Registration error:', regError);
-          let errorMessage = 'Registration failed. Please try again.';
-          
-          if (regError.response && regError.response.data && regError.response.data.error) {
-            errorMessage = regError.response.data.error;
-          } else if (regError.message) {
-            errorMessage = regError.message;
-          }
-          
-          setError(errorMessage);
+        } catch (error) {
+          console.error('Registration error:', error);
+          setError('Registration failed. Please try again.');
           setPurchaseInProgress(false);
           setLoading(false);
           return;

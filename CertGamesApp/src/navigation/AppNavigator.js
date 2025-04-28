@@ -20,7 +20,7 @@ import NotificationOverlay from '../components/NotificationOverlay';
 import GlobalErrorHandler from '../components/GlobalErrorHandler';
 
 // Import actions
-import { fetchUserData } from '../store/slices/userSlice';
+import { fetchUserData, checkSubscription } from '../store/slices/userSlice';
 
 // Import Apple Subscription Service for iOS
 import AppleSubscriptionService from '../api/AppleSubscriptionService';
@@ -63,9 +63,9 @@ const AppNavigator = () => {
   const dispatch = useDispatch();
   
   // Extract Redux state with debug logging
-  const { userId, status, subscriptionActive, error, needsUsername, oauth_provider } = useSelector((state) => {
+  const { userId, status, subscriptionActive, error, needsUsername, oauth_provider, subscriptionType } = useSelector((state) => {
     const userData = state.user;
-    debugLog(`Redux state: userId=${userData.userId?.substring(0,8) || 'null'}, status=${userData.status}, subscriptionActive=${userData.subscriptionActive}`);
+    debugLog(`Redux state: userId=${userData.userId?.substring(0,8) || 'null'}, status=${userData.status}, subscriptionActive=${userData.subscriptionActive}, subscriptionType=${userData.subscriptionType || 'unknown'}`);
     return userData;
   }, (prev, next) => {
     // Custom equality check to prevent unnecessary re-renders
@@ -73,17 +73,26 @@ const AppNavigator = () => {
       prev.userId === next.userId && 
       prev.status === next.status && 
       prev.subscriptionActive === next.subscriptionActive &&
-      prev.needsUsername === next.needsUsername
+      prev.needsUsername === next.needsUsername &&
+      prev.subscriptionType === next.subscriptionType
     );
   });
   
   const [appIsReady, setAppIsReady] = useState(false);
   const [initError, setInitError] = useState(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
   
   // Use a ref to track whether the app has been initialized
   // This prevents duplicate initialization calls
   const appInitializedRef = React.useRef(false);
+  
+  // Store last known good state to help recover from errors
+  const lastKnownGoodState = React.useRef({
+    userId: null,
+    subscriptionActive: false,
+    needsUsername: false
+  });
 
   // Improved prepare function with better error handling and logging
   const prepare = async () => {
@@ -113,11 +122,26 @@ const AppNavigator = () => {
           const userData = await dispatch(fetchUserData(storedUserId)).unwrap();
           debugLog(`User data fetched successfully for ${storedUserId.substring(0,8)}`);
           
-          // Verify the data is usable
-          if (!userData || !userData._id) {
-            debugLog("User data incomplete or invalid");
-          } else {
-            debugLog(`User data loaded: subscription=${userData.subscriptionActive}`);
+          // Store last known good state
+          if (userData && userData._id) {
+            lastKnownGoodState.current = {
+              userId: userData._id,
+              subscriptionActive: !!userData.subscriptionActive,
+              needsUsername: !!userData.needs_username,
+              subscriptionType: userData.subscriptionType || 'free'
+            };
+            debugLog(`Updated last known good state: ${JSON.stringify(lastKnownGoodState.current)}`);
+          }
+          
+          // Explicitly check subscription status
+          if (userData && userData._id) {
+            try {
+              await dispatch(checkSubscription(userData._id)).unwrap();
+              debugLog("Subscription status checked and updated");
+            } catch (subError) {
+              debugLog(`Error checking subscription: ${subError.message}`);
+              // Non-fatal - continue with last known subscription status
+            }
           }
         } catch (fetchError) {
           debugLog(`Error fetching user data: ${fetchError.message}`);
@@ -126,9 +150,15 @@ const AppNavigator = () => {
           if (fetchError.message && fetchError.message.includes('network')) {
             setInitError("Could not fetch user data. Please check your network connection.");
           } else {
-            // If it's not a network error, try to clear userId as it might be invalid
-            await SecureStore.deleteItemAsync('userId');
-            debugLog("Cleared userId from SecureStore due to fetch error");
+            // If recovery attempt is too high, clear userId and start fresh
+            if (recoveryAttempt > 2) {
+              await SecureStore.deleteItemAsync('userId');
+              debugLog("Cleared userId from SecureStore after multiple failures");
+            } else {
+              // Increment recovery attempt for next time
+              setRecoveryAttempt(prev => prev + 1);
+              debugLog(`Increased recovery attempt to ${recoveryAttempt + 1}`);
+            }
           }
         }
         
@@ -138,6 +168,24 @@ const AppNavigator = () => {
             debugLog("Initializing IAP connection");
             await AppleSubscriptionService.initializeConnection();
             debugLog("IAP connection initialized successfully");
+            
+            // Verify subscription status with Apple
+            if (subscriptionActive) {
+              try {
+                const verificationResult = await AppleSubscriptionService.verifySubscription();
+                debugLog(`Apple subscription verification: ${JSON.stringify(verificationResult)}`);
+                
+                // Update subscription in store if verification failed but we thought active
+                if (!verificationResult.active && subscriptionActive) {
+                  debugLog("Subscription verification failed - updating store");
+                  // This will trigger a re-render with correct subscription state
+                  await dispatch(checkSubscription(storedUserId)).unwrap();
+                }
+              } catch (verifyError) {
+                debugLog(`Error verifying subscription: ${verifyError.message}`);
+                // Non-fatal - continue with stored subscription state
+              }
+            }
           } catch (iapError) {
             debugLog(`Error initializing IAP: ${iapError.message}`);
             // Non-fatal error, continue without IAP
@@ -193,12 +241,29 @@ const AppNavigator = () => {
     }
   }, [subscriptionActive]);
 
+  // Retry app initialization on error
+  const handleRetry = useCallback(() => {
+    debugLog("Retry button pressed");
+    setInitError(null);
+    appInitializedRef.current = false; // Reset initialization flag
+    setRecoveryAttempt(0); // Reset recovery attempts
+    prepare();
+  }, []);
+
+  // Handle username creation errors to prevent app crashes
+  const handleUsernameError = useCallback((error) => {
+    debugLog(`Username creation error: ${error.message}`);
+    // Fall back to last known good state
+    return false; // Return false to allow default error handling
+  }, []);
+
   // Determine which navigator to render based on auth and subscription status
   const renderNavigator = useCallback(() => {
     debugLog(`renderNavigator called with: 
       userId = ${userId?.substring(0,8) || 'null'}, 
       status = ${status}, 
       subscriptionActive = ${subscriptionActive},
+      subscriptionType = ${subscriptionType || 'unknown'},
       needsUsername = ${needsUsername},
       initialLoadComplete = ${initialLoadComplete}`);
 
@@ -214,12 +279,7 @@ const AppNavigator = () => {
               paddingHorizontal: 20,
               borderRadius: 8
             }}
-            onPress={() => {
-              debugLog("Retry button pressed");
-              setInitError(null);
-              appInitializedRef.current = false; // Reset initialization flag
-              prepare();
-            }}
+            onPress={handleRetry}
           >
             <Text style={{color: '#FFFFFF', fontWeight: 'bold'}}>Retry</Text>
           </TouchableOpacity>
@@ -256,7 +316,8 @@ const AppNavigator = () => {
             component={CreateUsernameScreen} 
             initialParams={{ 
               userId: userId,
-              provider: oauth_provider || 'oauth' 
+              provider: oauth_provider || 'oauth',
+              onError: handleUsernameError
             }}
             options={{ headerShown: false }}
           />
@@ -283,7 +344,36 @@ const AppNavigator = () => {
         <MainStack.Screen name="PremiumFeaturePrompt" component={PremiumFeaturePrompt} />
       </MainStack.Navigator>
     );
-  }, [userId, status, needsUsername, initialLoadComplete, initError]);
+  }, [userId, status, needsUsername, subscriptionType, initialLoadComplete, initError, handleRetry, handleUsernameError, oauth_provider]);
+
+  // Handle severe errors by attempting recovery
+  useEffect(() => {
+    if (error && error.includes('critical')) {
+      debugLog(`Critical error detected: ${error}`);
+      
+      // Try to recover using last known good state
+      const recover = async () => {
+        debugLog("Attempting recovery from critical error");
+        try {
+          // If we have a last known good userId, try to refetch data
+          if (lastKnownGoodState.current.userId) {
+            await dispatch(fetchUserData(lastKnownGoodState.current.userId)).unwrap();
+            debugLog("Recovery successful");
+          } else {
+            // If no recovery state, reset to login
+            await SecureStore.deleteItemAsync('userId');
+            debugLog("No recovery state - resetting to login");
+          }
+        } catch (recoverError) {
+          debugLog(`Recovery failed: ${recoverError.message}`);
+          // If recovery fails, clear all and start fresh
+          await SecureStore.deleteItemAsync('userId');
+        }
+      };
+      
+      recover();
+    }
+  }, [error, dispatch]);
 
   if (!appIsReady) {
     debugLog("App not ready yet, returning null");
@@ -293,7 +383,7 @@ const AppNavigator = () => {
   debugLog("Rendering full app with NavigationContainer");
   return (
     <View style={styles.container}>
-      <NavigationContainer theme={DarkTheme}>
+      <NavigationContainer theme={DarkTheme} fallback={<ActivityIndicator size="large" color="#6543CC" />}>
         {renderNavigator()}
       </NavigationContainer>
       <GlobalErrorHandler />

@@ -26,6 +26,8 @@ import testService from '../../api/testService';
 import { fetchUserData } from '../../store/slices/userSlice';
 import useUserData from '../../hooks/useUserData';
 import { DIFFICULTY_CATEGORIES, TEST_LENGTHS, EXAM_MODE_INFO } from '../../constants/testConstants';
+import usePremiumCheck from '../../hooks/usePremiumCheck';
+import QuestionLimitBanner from '../../components/QuestionLimitBanner';
 
 const { width } = Dimensions.get('window');
 
@@ -75,7 +77,9 @@ const TestListScreen = ({ route, navigation }) => {
 
   // Difficulty categories with colors and levels
   const difficultyCategories = DIFFICULTY_CATEGORIES;
-
+  const { hasAccess, navigateToPremiumFeaturePrompt } = usePremiumCheck('questions');
+  const { subscriptionActive, practiceQuestionsRemaining } = useSelector(state => state.user);
+  
   // Start animations on mount
   useEffect(() => {
     // Animate main content
@@ -345,13 +349,23 @@ const TestListScreen = ({ route, navigation }) => {
     }));
   };
 
-  // Confirm and start test with selected length
   const confirmTestLength = () => {
+    // First check if user can access test
+    if (!subscriptionActive && practiceQuestionsRemaining <= 0) {
+      // Close the modal first
+      setShowTestLengthModal(false);
+      
+      // Then navigate to premium prompt
+      navigateToPremiumFeaturePrompt();
+      return;
+    }
+    
+    // Normal flow continues if they have questions remaining
     const length = selectedLengths[testForLength] || 100;
     setShowTestLengthModal(false);
     createNewAttempt(testForLength, length);
   };
-
+  
   // Render each test item in the list
   const renderTestItem = ({ item, index }) => {
     // Handle if item is a test object or just a number

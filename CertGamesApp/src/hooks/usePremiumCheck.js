@@ -24,25 +24,22 @@ const usePremiumCheck = (featureType = 'premium') => {
   
   const [hasAccess, setHasAccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
   const navigation = useNavigation();
 
   // Load usage limits when needed
   useEffect(() => {
-    // Only fetch usage limits if not already loading and we're on a metered feature
-    if (
-      userId && 
-      !subscriptionActive && 
-      usageLimitsStatus !== 'loading' && 
-      (featureType === 'questions' || featureType === 'free_question_check')
-    ) {
+    if (userId && !subscriptionActive && !hasChecked && usageLimitsStatus !== 'loading' && 
+       (featureType === 'questions' || featureType === 'free_question_check')) {
       setLoading(true);
+      setHasChecked(true); // Add this flag
       
       dispatch(fetchUsageLimits(userId))
         .finally(() => {
           setLoading(false);
         });
     }
-  }, [userId, subscriptionActive, usageLimitsStatus, dispatch, featureType]);
+  }, [userId, subscriptionActive, usageLimitsStatus, dispatch, featureType, hasChecked]);
 
   // Determine access based on subscription status and feature type
   useEffect(() => {

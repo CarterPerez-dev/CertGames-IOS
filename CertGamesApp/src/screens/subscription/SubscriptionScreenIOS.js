@@ -444,34 +444,24 @@ const SubscriptionScreenIOS = () => {
   const handleContinueFree = async () => {
     // Prevent concurrent attempts
     if (loading) {
-      console.log("Already processing, ignoring tap");
       return;
     }
   
-    console.log("=== CONTINUE WITH FREE (FINAL SOLUTION) ===");
     setLoading(true);
     setError(null);
     
-    // Use a flag to track if registration succeeded
-    let registrationSuccess = false;
-    let userIdToUse = userId;
-    
-    // STEP 1: Handle user registration if needed
     try {
+      let userIdToUse = userId;
+      
+      // Handle registration if needed
       if (registrationData && !registrationCompleted) {
         try {
-          console.log("Registering new user:", {
-            ...registrationData,
-            password: "********"
-          });
-          
           // Check if user already exists
           const existingUser = await apiClient.get(`${API.USER.DETAILS(userIdToUse)}`).catch(() => null);
           if (existingUser && existingUser.data) {
             console.log("User already exists, skipping registration");
             setRegistrationCompleted(true);
             userIdToUse = existingUser.data._id;
-            registrationSuccess = true;
           } else {  
             // Register the user
             const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
@@ -481,53 +471,26 @@ const SubscriptionScreenIOS = () => {
             }
             
             userIdToUse = response.data.user_id;
-            console.log("User registered successfully, ID:", userIdToUse);
             
-            // Save user ID to secure storage - CRITICAL
+            // Save user ID to secure storage
             await SecureStore.setItemAsync('userId', userIdToUse);
-            
-            // Mark registration as successful
-            registrationSuccess = true;
             setRegistrationCompleted(true);
           }
         } catch (regError) {
           console.error('Registration error:', regError);
-          let errorMessage = 'Registration failed. Please try again.';
-          
-          if (regError.response && regError.response.data && regError.response.data.error) {
-            errorMessage = regError.response.data.error;
-          } else if (regError.message) {
-            errorMessage = regError.message;
-          }
-          
-          setError(errorMessage);
+          setError(regError.message || 'Registration failed. Please try again.');
           setLoading(false);
           return;
         }
-      } else {
-        // If no registration needed, mark as success
-        registrationSuccess = true;
       }
       
-      // If registration wasn't successful, exit early
-      if (!registrationSuccess) {
-        console.error("Registration not successful");
-        setLoading(false);
-        return;
-      }
-      
-      // STEP 2: Ensure userId is valid
       if (!userIdToUse) {
-        console.error("No user ID available");
         setError('User ID is missing. Please try again.');
         setLoading(false);
         return;
       }
       
-      // STEP 3: Update Redux state with both minimal data and setCurrentUserId
-      console.log("Updating Redux state with userId:", userIdToUse);
-      
-      // Update with minimal data first
+      // Update Redux state with BOTH actions
       dispatch({ 
         type: 'user/setUser', 
         payload: { 
@@ -538,55 +501,23 @@ const SubscriptionScreenIOS = () => {
         } 
       });
       
-      // Also update with the action expected by AppNavigator
       dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
-      
-      // CRITICAL: Reset API status to ensure clean navigation
       dispatch({ type: 'user/resetApiStatus' });
       
-      // STEP 4: Give Redux state time to update
-      console.log("Waiting for state updates to propagate...");
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // CRITICAL: Wait longer before navigation (1000ms instead of 500ms)
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // STEP 5: NAVIGATION - Complete app reset approach
-      console.log("EXECUTING DIRECT APP RESET NAVIGATION");
-      
-      // Create a completely fresh navigation state reset
-      const resetAction = CommonActions.reset({
+      // IMPORTANT: Keep loading true until after navigation
+      // Use the simpler navigation.reset approach
+      navigation.reset({
         index: 0,
         routes: [{ name: 'Main' }]
       });
       
-      // Dispatch the reset action and check for errors
-      try {
-        // Using setLoading(false) BEFORE navigation
+      // Set loading to false AFTER navigation attempt
+      setTimeout(() => {
         setLoading(false);
-        
-        // Execute the navigation after a short pause
-        setTimeout(() => {
-          navigation.dispatch(resetAction);
-          
-          // Give the navigation time to execute, then try fallback if needed
-          setTimeout(() => {
-            // FALLBACK: Try a different approach if we're still here
-            console.log("EXECUTING FALLBACK EXIT NAVIGATION");
-            try {
-              // Create a completely new action with a key for the root navigator
-              const rootAction = CommonActions.reset({
-                key: 'root',
-                index: 0,
-                routes: [{ name: 'Main' }]
-              });
-              navigation.dispatch(rootAction);
-            } catch (finalErr) {
-              console.error("Final navigation error:", finalErr);
-            }
-          }, 800);
-        }, 200);
-      } catch (navError) {
-        console.error("Navigation error:", navError);
-        setLoading(false);
-      }
+      }, 300);
       
     } catch (error) {
       console.error('Error during free tier setup:', error);

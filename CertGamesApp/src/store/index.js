@@ -15,11 +15,10 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        // Ignore these paths in the Redux state
         ignoredActions: [
           'user/fetchUserData/fulfilled',
           'user/claimDailyBonus/fulfilled',
-          'user/setXPAndCoins',  // Add this to support our real-time updates
+          'user/setXPAndCoins',  
           'user/checkSubscription/fulfilled',
           'network/setOfflineStatus',
           'network/setServerError'

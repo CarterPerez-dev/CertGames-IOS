@@ -5,8 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 
-const PremiumFeaturePrompt = ({ feature }) => {
+const PremiumFeaturePrompt = ({ route }) => {
   const navigation = useNavigation();
+  const feature = route.params?.feature || 'premium';
   
   const getFeatureInfo = () => {
     switch (feature) {
@@ -96,7 +97,7 @@ const PremiumFeaturePrompt = ({ feature }) => {
         
         <TouchableOpacity
           style={styles.upgradeButton}
-          onPress={() => navigation.navigate('SubscriptionIOS')}
+          onPress={() => navigation.navigate('UpgradeSubscription')}
         >
           <LinearGradient
             colors={['#6543CC', '#8A58FC']}
@@ -170,12 +171,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
+    fontFamily: 'Orbitron-Bold',
   },
   message: {
     fontSize: 16,
     color: '#AAAAAA',
     textAlign: 'center',
     marginBottom: 24,
+    fontFamily: 'ShareTechMono',
   },
   featuresContainer: {
     width: '100%',
@@ -186,6 +189,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 16,
+    fontFamily: 'Orbitron',
   },
   featureItem: {
     flexDirection: 'row',
@@ -198,6 +202,7 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: 16,
     color: '#FFFFFF',
+    fontFamily: 'ShareTechMono',
   },
   trialInfo: {
     flexDirection: 'row',
@@ -215,6 +220,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#AAAAAA',
     flex: 1,
+    fontFamily: 'ShareTechMono',
   },
   upgradeButton: {
     width: '100%',
@@ -239,6 +245,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Orbitron',
   },
   backButton: {
     padding: 12,
@@ -247,6 +254,7 @@ const styles = StyleSheet.create({
     color: '#6543CC',
     fontSize: 16,
     fontWeight: '500',
+    fontFamily: 'ShareTechMono',
   },
 });
 

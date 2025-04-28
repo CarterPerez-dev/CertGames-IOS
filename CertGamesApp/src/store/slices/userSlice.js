@@ -118,7 +118,7 @@ export const fetchUsageLimits = createAsyncThunk(
     const now = Date.now();
     
     // Skip if we fetched within the last 30 seconds
-    if (now - lastUsageLimitsFetch < 10000) {
+    if (now - lastUsageLimitsFetch < 500) {
       console.log("Skipping usage limits fetch - throttled");
       return {
         practiceQuestionsRemaining: state.user.practiceQuestionsRemaining,

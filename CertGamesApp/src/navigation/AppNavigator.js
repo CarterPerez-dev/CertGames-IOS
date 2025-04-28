@@ -276,6 +276,8 @@ const AppNavigator = () => {
   }, []);
 
   // FIX: More robust navigator renderer with better error handling
+  // Find the renderNavigator function in AppNavigator.js and replace it with this enhanced version
+  
   const renderNavigator = useCallback(() => {
     debugLog(`renderNavigator called with: 
       userId = ${userId?.substring(0,8) || 'null'}, 
@@ -284,7 +286,7 @@ const AppNavigator = () => {
       subscriptionType = ${subscriptionType || 'unknown'},
       needsUsername = ${needsUsername},
       initialLoadComplete = ${initialLoadComplete}`);
-
+  
     if (initError) {
       debugLog("Showing error screen due to init error");
       return (
@@ -347,13 +349,26 @@ const AppNavigator = () => {
         </UsernameStack.Navigator>
       );
     }
-
+  
     // For the freemium model: Always show MainNavigator, regardless of subscription status
-    // Feature restrictions are handled within screens, not by navigation changes
     debugLog("Showing MainNavigator - freemium model allows access regardless of subscription");
     
     // Create main stack with all screens
     const MainStack = createNativeStackNavigator();
+    
+    // Check if we're coming from a subscription screen (either from auth flow or directly)
+    // This special check helps ensure the navigation stack is properly reset
+    const isFromSubscription = route?.name === 'SubscriptionIOS';
+    if (isFromSubscription) {
+      debugLog("Detected navigation from subscription screen - forcing stack reset");
+      // Force a navigation reset to Main after a slight delay
+      setTimeout(() => {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }]
+        });
+      }, 100);
+    }
     
     return (
       <MainStack.Navigator 

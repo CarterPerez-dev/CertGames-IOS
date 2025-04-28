@@ -15,13 +15,13 @@ import {
   Dimensions
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import AppleSubscriptionService, { SUBSCRIPTION_PRODUCT_ID } from '../../api/AppleSubscriptionService';
 import apiClient from '../../api/apiClient';
-import { fetchUserData, checkSubscription, logout } from '../../store/slices/userSlice';
+import { fetchUserData, checkSubscription, logout, resetApiStatus } from '../../store/slices/userSlice';
 import { API } from '../../api/apiConfig';
 
 const { width } = Dimensions.get('window');
@@ -372,8 +372,15 @@ const SubscriptionScreenIOS = () => {
   
   // FIXED: Continue with free plan function
   const handleContinueFree = async () => {
+    // Prevent multiple submits
+    if (loading || purchaseInProgress) {
+      console.log("Process already in progress, ignoring tap");
+      return;
+    }
+  
+    console.log("=== CONTINUE WITH FREE PROCESS STARTING ===");
     setLoading(true);
-    setError(null); // Clear any previous errors
+    setError(null);
     
     try {
       let userIdToUse = userId;
@@ -396,10 +403,10 @@ const SubscriptionScreenIOS = () => {
           userIdToUse = response.data.user_id;
           console.log("User registered successfully (free tier), ID:", userIdToUse);
           
-          // Save user ID to secure storage
+          // Save user ID to secure storage - CRITICAL step
           await SecureStore.setItemAsync('userId', userIdToUse);
           
-          // Update Redux state
+          // Update Redux state with the new user ID
           dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
           
           setRegistrationCompleted(true);
@@ -411,28 +418,69 @@ const SubscriptionScreenIOS = () => {
         }
       }
       
-      // Fetch user data to update Redux store
-      // Instead of trying to POST to usage-limits endpoint (which doesn't exist)
-      if (userIdToUse) {
-        console.log("Fetching user data for free tier user:", userIdToUse);
-        await dispatch(fetchUserData(userIdToUse));
+      // Ensure we have a valid userId
+      if (!userIdToUse) {
+        console.error("No user ID available - cannot proceed");
+        setError('User ID is missing. Please try again.');
+        setLoading(false);
+        return;
       }
       
-      // Wait a bit to make sure redux updates complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Clear any pending updates first
+      dispatch(resetApiStatus());
       
-      console.log("Free tier setup complete, navigating to home screen");
-      // FIX: Make sure we use navigation.reset rather than setTimeout
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }]
-      });
+      console.log(`Fetching user data for user ID: ${userIdToUse}`);
       
+      try {
+        // Use unwrap to ensure we can catch any rejected promises
+        await dispatch(fetchUserData(userIdToUse)).unwrap();
+        console.log("User data fetch completed successfully");
+      } catch (fetchError) {
+        // Log but continue - not fatal
+        console.error('Error fetching initial user data:', fetchError);
+      }
+      
+      // Small delay to ensure state updates are processed
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      try {
+        console.log("=== NAVIGATION RESET STARTING ===");
+        
+        // CRITICAL: Use CommonActions.reset for more reliable navigation
+        const { CommonActions } = require('@react-navigation/native');
+        
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              { name: 'Main' },
+            ],
+          })
+        );
+        
+        console.log("Navigation reset dispatched");
+      } catch (navError) {
+        console.error("Navigation error:", navError);
+        // As a fallback, try regular reset if CommonActions fails
+        try {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }]
+          });
+          console.log("Fallback navigation completed");
+        } catch (fallbackError) {
+          console.error("Fallback navigation also failed:", fallbackError);
+          // Final fallback - just try to navigate
+          navigation.navigate('Main');
+        }
+      }
     } catch (error) {
       console.error('Continue with free error:', error);
       setError(error.message || 'Failed to continue with free plan');
     } finally {
+      // Important to eventually set loading to false
       setLoading(false);
+      console.log("=== CONTINUE WITH FREE PROCESS COMPLETED ===");
     }
   };
   

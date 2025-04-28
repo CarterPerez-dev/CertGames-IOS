@@ -76,14 +76,36 @@ const SubscriptionScreenIOS = () => {
       try {
         setInitialLoading(true);
         
-        // Initialize connection to App Store
-        const connectionInitialized = await AppleSubscriptionService.initializeConnection();
+        // Initialize connection to App Store with retry
+        let retryCount = 0;
+        let connectionInitialized = false;
+        
+        while (retryCount < 3 && !connectionInitialized) {
+          try {
+            connectionInitialized = await AppleSubscriptionService.initializeConnection();
+            if (connectionInitialized) {
+              console.log("Successfully initialized App Store connection");
+              break;
+            }
+          } catch (initError) {
+            console.error(`Initialization attempt ${retryCount + 1} failed:`, initError);
+            retryCount++;
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+        
         if (!connectionInitialized) {
-          throw new Error('Failed to initialize App Store connection');
+          console.warn("Failed to initialize App Store connection after multiple attempts");
         }
         
         // Check for and finish any pending transactions
-        await AppleSubscriptionService.checkPendingTransactions();
+        try {
+          await AppleSubscriptionService.checkPendingTransactions();
+        } catch (pendingError) {
+          console.error("Error checking pending transactions:", pendingError);
+          // Non-fatal, continue
+        }
         
         console.log("Fetching available subscriptions...");
         
@@ -96,17 +118,15 @@ const SubscriptionScreenIOS = () => {
             setSubscriptionProduct(subscriptions[0]);
           } else {
             console.warn("No subscription products found");
-            // FIXED: Don't set error here, still allow purchase to proceed
-            console.log("Continuing without subscription products - purchase will still work");
+            // Still allow purchase to proceed
           }
         } catch (subscriptionError) {
           console.error("Error getting subscriptions:", subscriptionError);
-          // FIXED: Don't set error here, still allow purchase to proceed
-          console.log("Continuing despite subscription product error - purchase will still work");
+          // Non-fatal, continue
         }
       } catch (err) {
         console.error('Error initializing subscription:', err);
-        setError('Failed to initialize subscription services. Please try again later.');
+        // Don't set error here - let user continue
       } finally {
         setInitialLoading(false);
       }
@@ -199,14 +219,14 @@ const SubscriptionScreenIOS = () => {
         errorMessage = error.message;
       }
       
-      setError(null);
+      setError(errorMessage);
       throw error;
     } finally {
       setLoading(false);
     }
   };
   
-  // SIMPLIFIED: handleSubscribe function that works for all users (new, expired, etc.)
+  // FIXED: handleSubscribe function that works for all users
   const handleSubscribe = async () => {
     // Prevent concurrent purchase attempts
     if (purchaseInProgress || loading) {
@@ -221,29 +241,34 @@ const SubscriptionScreenIOS = () => {
       setPurchaseInProgress(true);
       setError(null);
       
-      // Check for pending transactions first
-      await AppleSubscriptionService.checkPendingTransactions();
-      
-      // Check if this is a new registration
+      // Handle new registration first if needed
       if (registrationData && !registrationCompleted) {
         try {
-          const existingUser = await apiClient.get(`${API.USER.DETAILS(userId)}`)
-            .catch(() => null);
-            
-          if (existingUser && existingUser.data) {
-            // User exists, update our state
-            setRegistrationCompleted(true);
-            userIdToUse = existingUser.data._id;
-          } else {  
-            // Register new user with simpler error handling
-            const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
-            userIdToUse = response.data.user_id;
-            await SecureStore.setItemAsync('userId', userIdToUse);
-            setRegistrationCompleted(true);
+          console.log("Registering new user for subscription:", {
+            ...registrationData,
+            password: '********' // Log masked password
+          });
+          
+          // Register the user
+          const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
+          
+          if (!response.data || !response.data.user_id) {
+            throw new Error('Registration failed: No user ID returned');
           }
-        } catch (error) {
-          console.error('Registration error:', error);
-          setError('Registration failed. Please try again.');
+          
+          userIdToUse = response.data.user_id;
+          console.log("User registered successfully, ID:", userIdToUse);
+          
+          // Save user ID to secure storage
+          await SecureStore.setItemAsync('userId', userIdToUse);
+          
+          // Update Redux state
+          dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
+          
+          setRegistrationCompleted(true);
+        } catch (regError) {
+          console.error('Registration error:', regError);
+          setError(regError.message || 'Registration failed. Please try again.');
           setPurchaseInProgress(false);
           setLoading(false);
           return;
@@ -258,24 +283,47 @@ const SubscriptionScreenIOS = () => {
         return;
       }
       
-      // SIMPLIFIED: Always attempt to purchase subscription regardless of current status
-      console.log("Requesting subscription purchase for user:", userIdToUse);
+      // Make sure the IAP connection is initialized
+      try {
+        console.log("Initializing IAP connection for subscription purchase");
+        const connectionResult = await AppleSubscriptionService.initializeConnection();
+        console.log("IAP connection initialized:", connectionResult);
+        
+        if (!connectionResult) {
+          throw new Error("Failed to initialize IAP connection");
+        }
+      } catch (initError) {
+        console.error("IAP initialization error:", initError);
+        setError("Subscription service unavailable. Please try again later.");
+        setPurchaseInProgress(false);
+        setLoading(false);
+        return;
+      }
       
-      // Request subscription purchase with improved error handling
+      try {
+        // Check for pending transactions first
+        console.log("Checking for pending transactions");
+        await AppleSubscriptionService.checkPendingTransactions();
+      } catch (pendingError) {
+        console.log("Error checking pending transactions (non-fatal):", pendingError);
+        // Continue despite errors here
+      }
+
+      // Request the subscription purchase
+      console.log("Requesting subscription purchase for user:", userIdToUse);
       const purchaseResult = await AppleSubscriptionService.purchaseSubscription(userIdToUse);
       
       console.log("Purchase result:", purchaseResult);
       
-      // Handle purchase results
       if (!purchaseResult || !purchaseResult.success) {
         const errorMessage = purchaseResult?.error || 'Failed to complete subscription purchase';
-        console.error('Purchase failed:', errorMessage);
+        console.log('Purchase status:', errorMessage);
         
-        // Show appropriate error message
+        // User cancellation shouldn't show as an error
         if (errorMessage.includes('cancel')) {
-          setError('Subscription purchase was cancelled.');
-        } else {
           setError(null);
+        } else {
+          setError(errorMessage);
         }
         
         setPurchaseInProgress(false);
@@ -283,54 +331,38 @@ const SubscriptionScreenIOS = () => {
         return;
       }
       
+      // Purchase successful!
       console.log("Subscription purchased successfully:", purchaseResult);
       
-      // Add delay to allow server sync
-      console.log("Waiting for backend sync...");
+      // Wait a moment to allow server to process the purchase
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // SEQUENTIAL UPDATES: First update subscription status in Redux
-      console.log("Checking subscription status...");
-      await dispatch(checkSubscription(userIdToUse));
-      
-      // Then update full user data
-      console.log("Fetching updated user data...");
-      const userData = await dispatch(fetchUserData(userIdToUse)).unwrap();
-      
-      console.log(`Subscription status after update: ${userData.subscriptionActive}`);
-      
-      // Verify that subscription is actually active before navigating
-      if (userData.subscriptionActive) {
-        console.log("Subscription active, navigating to Home screen");
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' }]
-        });
-      } else {
-        // Handle edge case where subscription didn't activate immediately
-        console.log("Subscription not showing as active yet, forcing navigation anyway");
-        // Force navigation after a short delay
-        setTimeout(() => {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Home' }]
-          });
-        }, 2000);
+      try {
+        // Fetch updated user data
+        await dispatch(fetchUserData(userIdToUse));
+      } catch (fetchError) {
+        console.error("Error fetching updated user data:", fetchError);
+        // Continue anyway
       }
+      
+      // Navigate to home after successful purchase
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }]
+      });
+      
     } catch (error) {
       console.error('Subscription error:', error);
       
-      let errorMessage = 'Failed to complete subscription purchase';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      }
-      
       // Handle user cancellation differently
-      if (error.message && error.message.includes('cancel')) {
-        setError('Subscription purchase was cancelled.');
+      if (error.message && (
+          error.message.includes('cancel') || 
+          error.message.includes('cancelled') ||
+          error.message.includes('canceled')
+      )) {
+        setError(null); // Don't show error for cancellation
       } else {
-        setError(null);
+        setError(error.message || 'Failed to complete subscription purchase');
       }
     } finally {
       setLoading(false);
@@ -338,9 +370,10 @@ const SubscriptionScreenIOS = () => {
     }
   };
   
-  // NEW: Handler for continuing with free plan
+  // FIXED: Continue with free plan function
   const handleContinueFree = async () => {
     setLoading(true);
+    setError(null); // Clear any previous errors
     
     try {
       let userIdToUse = userId;
@@ -369,22 +402,6 @@ const SubscriptionScreenIOS = () => {
           // Update Redux state
           dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
           
-          // Explicitly set free tier
-          try {
-            // Use a single API call instead of multiple rapid calls
-            await apiClient.post(`${API.USER.USAGE_LIMITS(userIdToUse)}`, {
-              subscriptionType: 'free',
-              practiceQuestionsRemaining: 100
-            });
-            console.log("Successfully set usage limits for new user");
-          } catch (limitError) {
-            console.error("Error setting usage limits:", limitError);
-            // Non-fatal, continue anyway
-          }
-          
-          // Fetch complete user data to update Redux - but avoid multiple API calls
-          await dispatch(fetchUserData(userIdToUse));
-          
           setRegistrationCompleted(true);
         } catch (regError) {
           console.error('Free tier registration error:', regError);
@@ -392,32 +409,24 @@ const SubscriptionScreenIOS = () => {
           setLoading(false);
           return;
         }
-      } else if (userIdToUse) {
-        // Ensure the user has freemium settings
-        try {
-          await apiClient.post(`${API.USER.USAGE_LIMITS(userIdToUse)}`, {
-            subscriptionType: 'free',
-            practiceQuestionsRemaining: 100
-          });
-          console.log("Successfully updated usage limits for existing user");
-        } catch (limitError) {
-          console.error("Error setting usage limits:", limitError);
-          // Non-fatal, continue anyway
-        }
-        
-        // Update user data in Redux
+      }
+      
+      // Fetch user data to update Redux store
+      // Instead of trying to POST to usage-limits endpoint (which doesn't exist)
+      if (userIdToUse) {
+        console.log("Fetching user data for free tier user:", userIdToUse);
         await dispatch(fetchUserData(userIdToUse));
       }
       
-      // Important: Add a small delay before navigation to ensure state updates complete
+      // Wait a bit to make sure redux updates complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       console.log("Free tier setup complete, navigating to home screen");
-      setTimeout(() => {
-        // Use navigation.reset for a clean navigation state
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }] // Navigate directly to the Main component
-        });
-      }, 300);
+      // FIX: Make sure we use navigation.reset rather than setTimeout
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }]
+      });
       
     } catch (error) {
       console.error('Continue with free error:', error);

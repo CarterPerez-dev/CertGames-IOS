@@ -1,10 +1,7 @@
 // src/hooks/useUserData.js
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchUserData } from '../store/slices/userSlice';
-import { fetchShopItems } from '../store/slices/shopSlice';
-import { fetchAchievements } from '../store/slices/achievementsSlice';
-import { fetchUsageLimits } from '../store/slices/userSlice';
+import { fetchUserData, fetchUsageLimits } from '../store/slices/userSlice';
 
 // Create module-level singleton to track initialization across all components
 const globalState = {
@@ -13,39 +10,27 @@ const globalState = {
   lastFetchTimes: {
     userData: {},
     usageLimits: {},
-    achievements: {},
-    shopItems: {}
-  },
-  // Track backoff multipliers to implement exponential backoff
-  backoffMultipliers: {}
-};
-
-// Utility for staggered fetching
-const staggeredFetch = async (dispatch, action, userId, delayMs = 100) => {
-  if (delayMs > 0) {
-    await new Promise(resolve => setTimeout(resolve, delayMs));
   }
-  return dispatch(action);
 };
 
-// Main hook implementation
+/**
+ * Custom hook for accessing and refreshing user data
+ * @param {Object} options - Configuration options
+ * @returns {Object} User data and utility functions
+ */
 const useUserData = (options = {}) => {
   const { autoFetch = true } = options;
   const dispatch = useDispatch();
   
-  // Local refs for component state
-  const initialFetchDoneRef = useRef(false);
+  // Local states for component
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const wasInitializedRef = useRef(false);
   
   // Get data from Redux with optimized selector
-  const userData = useSelector(state => state?.user || {}, (prev, next) => {
-    return prev.lastUpdated === next.lastUpdated;
-  });
-  
-  const shopState = useSelector(state => state?.shop || {});
-  const achievementsState = useSelector(state => state?.achievements || {});
-  
-  // Component state
-  const [loading, setLoading] = useState(true);
+  const userData = useSelector(state => state.user || {});
+  const { shopItems = [] } = useSelector(state => state.shop || {});
+  const { achievements: allAchievements = [] } = useSelector(state => state.achievements || {});
   
   // Destructure user data with defaults
   const { 
@@ -67,75 +52,50 @@ const useUserData = (options = {}) => {
     lastUpdated = null,
     practiceQuestionsRemaining = 0,
     subscriptionType = 'free',
+    status
   } = userData;
   
-  // Fetch initial data with guards and staggering
-  const fetchInitialData = useCallback(async () => {
+  // FIX: Function to fetch specific data type
+  const fetchData = useCallback(async (dataType) => {
     if (!userId) return;
     
-    // Create a unique key for this fetch operation
-    const fetchKey = `init-${userId}`;
+    // Create a fetch key to prevent duplicate fetches
+    const fetchKey = `${dataType}-${userId}`;
     
-    // Check if this user is already being fetched
+    // Check if this data is already being fetched
     if (globalState.pendingFetches[fetchKey]) {
-      console.log(`[useUserData] Already fetching data for ${userId}, skipping duplicate`);
+      console.log(`[useUserData] Already fetching ${dataType} for ${userId}, skipping duplicate`);
       return;
     }
-    
-    // Check if this user has already been initialized
-    if (globalState.initializedUserIds.has(userId)) {
-      console.log(`[useUserData] User ${userId} already initialized, skipping`);
-      initialFetchDoneRef.current = true;
-      setLoading(false);
-      return;
-    }
-    
-    // Set flag to prevent concurrent fetches
-    globalState.pendingFetches[fetchKey] = true;
     
     try {
-      setLoading(true);
+      // Set fetch flag to prevent duplicates
+      globalState.pendingFetches[fetchKey] = true;
       
-      // Fetch core user data first
-      if (status === 'idle') {
+      if (dataType === 'userData') {
         console.log(`[useUserData] Fetching user data for ${userId}`);
-        await dispatch(fetchUserData(userId));
+        setLoading(true);
+        
+        // Small delay before fetch to prevent UI flickering
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        await dispatch(fetchUserData(userId)).unwrap();
         globalState.lastFetchTimes.userData[userId] = Date.now();
       }
-      
-      // Stagger shop items fetch with delay
-      if (shopState.status === 'idle') {
-        console.log(`[useUserData] Fetching shop items with 150ms delay`);
-        await staggeredFetch(dispatch, fetchShopItems(), userId, 150);
-        globalState.lastFetchTimes.shopItems[userId] = Date.now();
-      }
-      
-      // Stagger achievements fetch with delay
-      if (achievementsState.status === 'idle') {
-        console.log(`[useUserData] Fetching achievements with 300ms delay`);
-        await staggeredFetch(dispatch, fetchAchievements(), userId, 300);
-        globalState.lastFetchTimes.achievements[userId] = Date.now();
-      }
-      
-      // Fetch usage limits only for free users
-      if (!subscriptionActive) {
-        console.log(`[useUserData] Fetching usage limits with 450ms delay`);
-        await staggeredFetch(dispatch, fetchUsageLimits(userId), userId, 450);
+      else if (dataType === 'usageLimits') {
+        console.log(`[useUserData] Fetching usage limits for ${userId}`);
+        await dispatch(fetchUsageLimits(userId)).unwrap();
         globalState.lastFetchTimes.usageLimits[userId] = Date.now();
       }
-      
-      // Mark this user as initialized
-      globalState.initializedUserIds.add(userId);
-      initialFetchDoneRef.current = true;
-      
-    } catch (error) {
-      console.error(`[useUserData] Error in fetchInitialData: ${error.message}`);
+    } catch (err) {
+      console.error(`[useUserData] Error fetching ${dataType}:`, err);
+      setError(err.message || `Failed to fetch ${dataType}`);
     } finally {
-      // Clear the pending flag when done
+      // Clear pending flag
       delete globalState.pendingFetches[fetchKey];
       setLoading(false);
     }
-  }, [userId, status, shopState.status, achievementsState.status, subscriptionActive, dispatch]);
+  }, [userId, dispatch]);
   
   // Effect for initialization
   useEffect(() => {
@@ -158,10 +118,6 @@ const useUserData = (options = {}) => {
           if (!subscriptionActive) {
             fetchData('usageLimits');
           }
-          
-          // Low priority data - delay even more
-          setTimeout(() => fetchData('shopItems'), 500);
-          setTimeout(() => fetchData('achievements'), 1000);
         }, 500);
       } finally {
         setLoading(false);
@@ -172,48 +128,55 @@ const useUserData = (options = {}) => {
     loadInitialData();
   }, [userId, autoFetch, fetchData, subscriptionActive]);
   
-  // Manual refresh with exponential backoff
-  const refreshData = useCallback(() => {
+  // Manual refresh with debouncing
+  const refreshData = useCallback(async () => {
     if (!userId) return;
     
     setLoading(true);
-    
-    fetchData('userData')
-      .then(() => {
-        if (!subscriptionActive) {
-          return fetchData('usageLimits');
-        }
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [userId, fetchData, subscriptionActive]);
-  
-  // Get avatar URL helper with thorough error handling
-  const getAvatarUrl = useCallback(() => {
-    if (!currentAvatar || !shopItems || !Array.isArray(shopItems) || shopItems.length === 0) {
-      return null;
-    }
+    setError(null);
     
     try {
-      const avatarItem = shopItems.find(item => item && item._id === currentAvatar);
-      if (avatarItem && avatarItem.imageUrl) {
-        return avatarItem.imageUrl;
+      // First fetch user data
+      await fetchData('userData');
+      
+      // Then fetch usage limits if needed
+      if (!subscriptionActive) {
+        await fetchData('usageLimits');
       }
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, fetchData, subscriptionActive]);
+  
+  // FIX: Get avatar URL helper with thorough error handling
+  const getAvatarUrl = useCallback(() => {
+    if (!currentAvatar) return null;
+    
+    try {
+      if (!shopItems || !Array.isArray(shopItems) || shopItems.length === 0) {
+        return null;
+      }
+      
+      const avatarItem = shopItems.find(item => 
+        item && item._id === currentAvatar
+      );
+      
+      return avatarItem?.imageUrl || null;
     } catch (error) {
       console.error("[useUserData] Error getting avatar URL:", error);
+      return null;
     }
-    
-    return null;
   }, [currentAvatar, shopItems]);
   
   // Get unlocked achievements with error handling
   const getUnlockedAchievements = useCallback(() => {
-    if (!achievements || !allAchievements || !Array.isArray(achievements) || !Array.isArray(allAchievements)) {
-      return [];
-    }
+    if (!achievements || !allAchievements) return [];
     
     try {
+      if (!Array.isArray(achievements) || !Array.isArray(allAchievements)) {
+        return [];
+      }
+      
       return allAchievements.filter(achievement => 
         achievement && achievements.includes(achievement.achievementId)
       );
@@ -223,13 +186,13 @@ const useUserData = (options = {}) => {
     }
   }, [achievements, allAchievements]);
   
-  // Check if a specific achievement is unlocked with error handling
+  // Check if a specific achievement is unlocked
   const isAchievementUnlocked = useCallback((achievementId) => {
-    if (!achievementId || !achievements || !Array.isArray(achievements)) {
-      return false;
-    }
+    if (!achievementId || !achievements) return false;
     
     try {
+      if (!Array.isArray(achievements)) return false;
+      
       return achievements.includes(achievementId);
     } catch (error) {
       console.error("[useUserData] Error checking achievement:", error);
@@ -237,12 +200,12 @@ const useUserData = (options = {}) => {
     }
   }, [achievements]);
   
-  // Freemium: Has access to premium features check
+  // Has access to premium features check
   const hasPremiumAccess = useCallback(() => {
     return subscriptionActive === true;
   }, [subscriptionActive]);
   
-  // Freemium: Check if user has practice questions remaining
+  // Check if user has practice questions remaining
   const hasPracticeQuestionsRemaining = useCallback(() => {
     return subscriptionActive || practiceQuestionsRemaining > 0;
   }, [subscriptionActive, practiceQuestionsRemaining]);
@@ -277,7 +240,7 @@ const useUserData = (options = {}) => {
     allAchievements: allAchievements || [],
     
     // Status
-    isLoading: loading,
+    isLoading: loading || status === 'loading',
     error: error || null,
     
     // Helper functions

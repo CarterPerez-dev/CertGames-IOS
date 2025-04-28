@@ -1,5 +1,5 @@
 // src/navigation/AppNavigator.js
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Platform, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -59,7 +59,6 @@ const debugLog = (message) => {
 };
 
 const AppNavigator = () => {
-  debugLog("AppNavigator rendering");
   const dispatch = useDispatch();
   
   // Extract Redux state with debug logging
@@ -85,16 +84,16 @@ const AppNavigator = () => {
   
   // Use a ref to track whether the app has been initialized
   // This prevents duplicate initialization calls
-  const appInitializedRef = React.useRef(false);
+  const appInitializedRef = useRef(false);
   
   // Store last known good state to help recover from errors
-  const lastKnownGoodState = React.useRef({
+  const lastKnownGoodState = useRef({
     userId: null,
     subscriptionActive: false,
     needsUsername: false
   });
 
-  // Improved prepare function with better error handling and logging
+  // FIX: Improved prepare function with better error handling and logging
   const prepare = async () => {
     // Prevent multiple initialization attempts
     if (appInitializedRef.current) return;
@@ -102,6 +101,16 @@ const AppNavigator = () => {
     
     debugLog("Starting prepare() function");
     try {
+      // Check if user is already logged in
+      let storedUserId;
+      try {
+        storedUserId = await SecureStore.getItemAsync('userId');
+        debugLog(`Found stored userId: ${storedUserId?.substring(0,8) || 'null'}`);
+      } catch (secureStoreError) {
+        debugLog(`Error accessing SecureStore: ${secureStoreError.message}`);
+        // Continue without userId if we can't access SecureStore
+      }
+      
       // Initialize Google Auth Service
       try {
         await GoogleAuthService.initialize();
@@ -111,9 +120,17 @@ const AppNavigator = () => {
         // Non-blocking error, continue app initialization
       }
       
-      // Check if user is already logged in
-      const storedUserId = await SecureStore.getItemAsync('userId');
-      debugLog(`Found stored userId: ${storedUserId?.substring(0,8) || 'null'}`);
+      // Initialize IAP connection for iOS
+      if (Platform.OS === 'ios') {
+        try {
+          debugLog("Initializing IAP connection");
+          await AppleSubscriptionService.initializeConnection();
+          debugLog("IAP connection initialized successfully");
+        } catch (iapError) {
+          debugLog(`Error initializing IAP: ${iapError.message}`);
+          // Non-fatal error, continue without IAP
+        }
+      }
       
       if (storedUserId) {
         // Fetch user data
@@ -152,43 +169,17 @@ const AppNavigator = () => {
           } else {
             // If recovery attempt is too high, clear userId and start fresh
             if (recoveryAttempt > 2) {
-              await SecureStore.deleteItemAsync('userId');
-              debugLog("Cleared userId from SecureStore after multiple failures");
+              try {
+                await SecureStore.deleteItemAsync('userId');
+                debugLog("Cleared userId from SecureStore after multiple failures");
+              } catch (clearError) {
+                debugLog(`Error clearing userId: ${clearError.message}`);
+              }
             } else {
               // Increment recovery attempt for next time
               setRecoveryAttempt(prev => prev + 1);
               debugLog(`Increased recovery attempt to ${recoveryAttempt + 1}`);
             }
-          }
-        }
-        
-        // Initialize IAP connection for iOS
-        if (Platform.OS === 'ios') {
-          try {
-            debugLog("Initializing IAP connection");
-            await AppleSubscriptionService.initializeConnection();
-            debugLog("IAP connection initialized successfully");
-            
-            // Verify subscription status with Apple
-            if (subscriptionActive) {
-              try {
-                const verificationResult = await AppleSubscriptionService.verifySubscription();
-                debugLog(`Apple subscription verification: ${JSON.stringify(verificationResult)}`);
-                
-                // Update subscription in store if verification failed but we thought active
-                if (!verificationResult.active && subscriptionActive) {
-                  debugLog("Subscription verification failed - updating store");
-                  // This will trigger a re-render with correct subscription state
-                  await dispatch(checkSubscription(storedUserId)).unwrap();
-                }
-              } catch (verifyError) {
-                debugLog(`Error verifying subscription: ${verifyError.message}`);
-                // Non-fatal - continue with stored subscription state
-              }
-            }
-          } catch (iapError) {
-            debugLog(`Error initializing IAP: ${iapError.message}`);
-            // Non-fatal error, continue without IAP
           }
         }
       } else {
@@ -198,23 +189,50 @@ const AppNavigator = () => {
       debugLog(`Error in prepare(): ${e.message}`);
       setInitError("Error initializing app: " + e.message);
     } finally {
-      // Tell the application to render
-      debugLog("Setting appIsReady to true");
-      setAppIsReady(true);
-      setInitialLoadComplete(true);
-      
       try {
-        await SplashScreen.hideAsync();
-      } catch (splashError) {
-        debugLog(`Error hiding splash screen: ${splashError.message}`);
+        // Tell the application to render
+        debugLog("Setting appIsReady to true");
+        setAppIsReady(true);
+        setInitialLoadComplete(true);
+        
+        // Hide splash screen with small delay to ensure UI is ready
+        setTimeout(async () => {
+          try {
+            await SplashScreen.hideAsync();
+          } catch (splashError) {
+            debugLog(`Error hiding splash screen: ${splashError.message}`);
+          }
+        }, 100);
+      } catch (finalError) {
+        debugLog(`Error in prepare() finally block: ${finalError.message}`);
       }
     }
   };
 
+  // FIX: Use a more robust useEffect for initialization
   useEffect(() => {
-    debugLog("Running initial useEffect");
-    prepare();
-    return () => debugLog("Cleanup for initial useEffect");
+    debugLog("Running initial useEffect for app initialization");
+    
+    const initializeApp = async () => {
+      try {
+        await prepare();
+      } catch (initError) {
+        debugLog(`Top-level initialization error: ${initError.message}`);
+        setInitError("App initialization failed. Please restart the app.");
+        setAppIsReady(true); // Still mark as ready so we can show error UI
+      }
+    };
+    
+    initializeApp();
+    
+    return () => {
+      debugLog("Cleanup for initial useEffect");
+      
+      // Cancel any pending operations if needed
+      if (circuitBreaker && circuitBreaker.resetTimeout) {
+        clearTimeout(circuitBreaker.resetTimeout);
+      }
+    };
   }, []);
 
   // Log deep links for debugging
@@ -231,7 +249,7 @@ const AppNavigator = () => {
   }, []);
 
   // Create a stable version of the subscription status to prevent navigation loops
-  const stableSubscriptionStatus = React.useRef(subscriptionActive);
+  const stableSubscriptionStatus = useRef(subscriptionActive);
   
   // Only update the ref when needed, not on every render
   useEffect(() => {
@@ -257,7 +275,7 @@ const AppNavigator = () => {
     return false; // Return false to allow default error handling
   }, []);
 
-  // Determine which navigator to render based on auth and subscription status
+  // FIX: More robust navigator renderer with better error handling
   const renderNavigator = useCallback(() => {
     debugLog(`renderNavigator called with: 
       userId = ${userId?.substring(0,8) || 'null'}, 
@@ -288,12 +306,12 @@ const AppNavigator = () => {
     }
     
     // Only show loading during initial app load, not during data refreshes
-    if (status === 'loading' && !initialLoadComplete) {
+    if (!initialLoadComplete) {
       debugLog("Showing loading screen for initial load only");
       return (
         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0C15'}}>
           <ActivityIndicator size="large" color="#6543CC" />
-          <Text style={{color: '#FFFFFF', marginTop: 20}}>Loading user data...</Text>
+          <Text style={{color: '#FFFFFF', marginTop: 20}}>Loading app data...</Text>
         </View>
       );
     }
@@ -338,10 +356,29 @@ const AppNavigator = () => {
     const MainStack = createNativeStackNavigator();
     
     return (
-      <MainStack.Navigator screenOptions={{ headerShown: false }}>
+      <MainStack.Navigator 
+        screenOptions={{ 
+          headerShown: false,
+          animation: 'fade' // Smoother transitions
+        }}
+      >
         <MainStack.Screen name="Main" component={MainNavigator} />
-        <MainStack.Screen name="SubscriptionIOS" component={SubscriptionScreenIOS} />
-        <MainStack.Screen name="PremiumFeaturePrompt" component={PremiumFeaturePrompt} />
+        <MainStack.Screen 
+          name="SubscriptionIOS" 
+          component={SubscriptionScreenIOS} 
+          options={{
+            animation: 'slide_from_bottom',
+            presentation: 'modal'
+          }}
+        />
+        <MainStack.Screen 
+          name="PremiumFeaturePrompt" 
+          component={PremiumFeaturePrompt}
+          options={{
+            animation: 'fade',
+            presentation: 'transparentModal'
+          }}
+        />
       </MainStack.Navigator>
     );
   }, [userId, status, needsUsername, subscriptionType, initialLoadComplete, initError, handleRetry, handleUsernameError, oauth_provider]);
@@ -383,7 +420,27 @@ const AppNavigator = () => {
   debugLog("Rendering full app with NavigationContainer");
   return (
     <View style={styles.container}>
-      <NavigationContainer theme={DarkTheme} fallback={<ActivityIndicator size="large" color="#6543CC" />}>
+      <NavigationContainer 
+        theme={DarkTheme} 
+        fallback={<ActivityIndicator size="large" color="#6543CC" />}
+        linking={{
+          prefixes: ['certgamesapp://', 'https://certgames.com'],
+          config: {
+            screens: {
+              Main: {
+                screens: {
+                  Home: 'home',
+                  Profile: 'profile',
+                  Leaderboard: 'leaderboard',
+                  Shop: 'shop'
+                }
+              },
+              SubscriptionIOS: 'subscription',
+              CreateUsername: 'create-username'
+            }
+          }
+        }}
+      >
         {renderNavigator()}
       </NavigationContainer>
       <GlobalErrorHandler />

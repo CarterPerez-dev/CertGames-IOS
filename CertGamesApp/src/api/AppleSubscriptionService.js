@@ -25,18 +25,28 @@ class AppleSubscriptionService {
     try {
       if (Platform.OS !== 'ios') return false;
       
-      console.log('Initializing IAP connection...');
-      const result = await initConnection();
-      console.log("IAP connection initialized:", result);
-      return true;
+      console.log('[AppleSubscriptionService] Initializing IAP connection...');
+      // FIX: Wrap the connection attempt in a try/catch and retry if it fails
+      try {
+        const result = await initConnection();
+        console.log("[AppleSubscriptionService] IAP connection initialized successfully:", result);
+        return true;
+      } catch (initError) {
+        console.error('[AppleSubscriptionService] First attempt failed, retrying after delay:', initError);
+        // Wait a moment and try again
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const result = await initConnection();
+        console.log("[AppleSubscriptionService] IAP connection retry succeeded:", result);
+        return true;
+      }
     } catch (error) {
-      console.error('Failed to initialize IAP connection:', error);
+      console.error('[AppleSubscriptionService] Failed to initialize IAP connection:', error);
       // Add more detailed error information
       if (error.code) {
-        console.error('Error code:', error.code);
+        console.error('[AppleSubscriptionService] Error code:', error.code);
       }
       if (error.message) {
-        console.error('Error message:', error.message);
+        console.error('[AppleSubscriptionService] Error message:', error.message);
       }
       return false;
     }
@@ -53,135 +63,176 @@ class AppleSubscriptionService {
       // FIXED: Add delay before requesting products
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      console.log("Requesting subscriptions for product ID:", SUBSCRIPTION_PRODUCT_ID);
+      console.log("[AppleSubscriptionService] Requesting subscriptions for product ID:", SUBSCRIPTION_PRODUCT_ID);
       
       // FIXED: Use getProducts instead of getSubscriptions for more reliable results
-      const products = await getProducts({
-        skus: [SUBSCRIPTION_PRODUCT_ID]
-      });
-      
-      console.log("Available products:", products);
-      return products;
+      try {
+        const products = await getProducts({
+          skus: [SUBSCRIPTION_PRODUCT_ID]
+        });
+        
+        console.log("[AppleSubscriptionService] Available products:", products);
+        return products;
+      } catch (productsError) {
+        console.error("[AppleSubscriptionService] Error getting products:", productsError);
+        
+        // Fallback attempt using getSubscriptions
+        console.log("[AppleSubscriptionService] Trying fallback with getSubscriptions");
+        const subscriptions = await getSubscriptions({
+          skus: [SUBSCRIPTION_PRODUCT_ID]
+        });
+        
+        console.log("[AppleSubscriptionService] Fallback subscriptions:", subscriptions);
+        return subscriptions;
+      }
     } catch (error) {
-      console.error('Failed to get subscriptions:', error);
+      console.error('[AppleSubscriptionService] Failed to get subscriptions:', error);
       // Instead of returning empty error object, return empty array with better logging
-      console.error('Error details:', error.stack || JSON.stringify(error));
+      console.error('[AppleSubscriptionService] Error details:', error.stack || JSON.stringify(error));
       return [];
     }
   }
 
-  // Purchase a subscription - SIMPLIFIED for all users (new and expired)
+  // Purchase a subscription - FIXED for reliable purchasing
   async purchaseSubscription(userId) {
     try {
       if (Platform.OS !== 'ios') throw new Error('Only available on iOS');
       
       // ENHANCED DEBUGGING
-      console.log("===== SUBSCRIPTION PURCHASE ATTEMPT =====");
-      console.log("User ID:", userId);     
-      
-      // Check current status but don't block purchase regardless of status
-      const subscriptionStatus = await this.checkSubscriptionStatus(userId);
-         
-      // REMOVED: Block for already subscribed users
-      // Always allow purchase attempts regardless of current subscription status
+      console.log("[AppleSubscriptionService] ===== SUBSCRIPTION PURCHASE ATTEMPT =====");
+      console.log("[AppleSubscriptionService] User ID:", userId);     
       
       // Ensure connection is initialized
       const connectionResult = await this.initializeConnection();
-      console.log("Connection initialized:", connectionResult);
+      console.log("[AppleSubscriptionService] Connection initialized:", connectionResult);
+      
+      if (!connectionResult) {
+        return { success: false, error: 'Failed to initialize payment service' };
+      }
       
       // Check for pending transactions first
-      const pendingResult = await this.checkPendingTransactions();
-      console.log("Pending transactions checked:", pendingResult);
-      
-      // Check subscription availability but don't block purchase on empty results
-      const subscriptions = await this.getAvailableSubscriptions();
-      console.log("Subscription check result:", 
-        Array.isArray(subscriptions) ? `Found ${subscriptions.length} subscriptions` : "No array returned");
-      
-      // IMPORTANT FIX: Proceed with purchase even if no subscriptions found
-      console.log("Attempting purchase for:", SUBSCRIPTION_PRODUCT_ID);
-      
-      // Request the subscription purchase - CHANGED TO TRUE
-      const result = await requestSubscription({
-        sku: SUBSCRIPTION_PRODUCT_ID,
-        andDangerouslyFinishTransactionAutomaticallyIOS: true
-      });
-   
-           
-      console.log("Purchase result:", result);
-      
-      // IMPROVED ERROR HANDLING
-      if (!result) {
-        return { success: false, error: 'No purchase result returned' };
+      try {
+        const pendingResult = await this.checkPendingTransactions();
+        console.log("[AppleSubscriptionService] Pending transactions checked:", pendingResult);
+      } catch (pendingError) {
+        console.log("[AppleSubscriptionService] Error checking pending transactions (non-fatal):", pendingError);
+        // Continue despite errors here
       }
       
-      // Validate receipt with Apple and our backend
-      if (result.transactionReceipt) {
-        await this.verifyReceiptWithBackend(userId, result.transactionReceipt);
+      // FIX: Try purchase without checking subscriptions first
+      console.log("[AppleSubscriptionService] Attempting purchase for:", SUBSCRIPTION_PRODUCT_ID);
+      
+      // Request the subscription purchase with automatic transaction finishing
+      try {
+        const result = await requestSubscription({
+          sku: SUBSCRIPTION_PRODUCT_ID,
+          andDangerouslyFinishTransactionAutomaticallyIOS: true
+        });
+       
+        console.log("[AppleSubscriptionService] Purchase result:", result);
         
-        // Since we're now using automatic transaction finishing, this is not needed
-        // But keep as a fallback just in case
-        if (result.transactionId) {
-          try {
-            await finishTransaction({ 
-              transactionId: result.transactionId,
-              isConsumable: false
-            });
-            console.log("Finished transaction (fallback):", result.transactionId);
-          } catch (finishError) {
-            console.log("Note: Transaction may already be finished:", finishError.message);
-            // Don't throw here as transaction might already be finished automatically
-          }
+        // FIX: Better null check
+        if (!result) {
+          return { success: false, error: 'No purchase result returned' };
         }
         
-        return {
-          success: true,
-          transactionId: result.transactionId || 'unknown',
-          productId: result.productId || SUBSCRIPTION_PRODUCT_ID
-        };
+        // Validate receipt with Apple and our backend
+        if (result.transactionReceipt) {
+          try {
+            await this.verifyReceiptWithBackend(userId, result.transactionReceipt);
+          } catch (verifyError) {
+            console.error("[AppleSubscriptionService] Receipt verification error (non-fatal):", verifyError);
+            // Continue despite verification errors
+          }
+          
+          // Get fallback transaction ID
+          let transactionId = result.transactionId || 'unknown';
+          
+          // Since we're using automatic transaction finishing, this is not needed
+          // But keep as a fallback just in case
+          if (transactionId !== 'unknown') {
+            try {
+              await finishTransaction({ 
+                transactionId: transactionId,
+                isConsumable: false
+              });
+              console.log("[AppleSubscriptionService] Finished transaction (fallback):", transactionId);
+            } catch (finishError) {
+              console.log("[AppleSubscriptionService] Note: Transaction may already be finished:", finishError.message);
+              // Don't throw here as transaction might already be finished automatically
+            }
+          }
+          
+          return {
+            success: true,
+            transactionId: transactionId,
+            productId: result.productId || SUBSCRIPTION_PRODUCT_ID
+          };
+        }
+        
+        // If we get here, something weird happened - no receipt
+        return { success: false, error: 'No transaction receipt found' };
+      } catch (purchaseError) {
+        // Special handling for user cancellation
+        if (purchaseError.message && (
+            purchaseError.message.includes('cancel') || 
+            purchaseError.message.includes('SKErrorDomain Error 2') ||
+            (purchaseError.code && purchaseError.code === 2)
+        )) {
+          console.log("[AppleSubscriptionService] Purchase was cancelled by user");
+          return { success: false, error: 'Purchase was cancelled.' };
+        }
+        
+        // Re-throw for other errors
+        throw purchaseError;
       }
-      
-      return { success: false, error: 'No transaction receipt found' };
     } catch (error) {
-      // Check for cancellation FIRST - before any logging happens
-      if (error.message && (
-          error.message.includes('cancel') || 
-          error.message.includes('SKErrorDomain Error 2') ||
-          (error.code && error.code === 2)
-      )) {
-        // Completely silent - no logs, no console.error, nothing at all
-        return { success: false, error: 'Purchase was cancelled.' };
-      }
-    
       // Only get here for non-cancellation errors
-      console.error('Failed to purchase subscription:', error);
-      return { success: false, error: error.message };
+      console.error('[AppleSubscriptionService] Failed to purchase subscription:', error);
+      return { success: false, error: error.message || 'Unknown purchase error' };
     }
   }
 
-  // ADDED: Check for pending transactions and finish them
+  // ADDED: Improved pending transactions check
   async checkPendingTransactions() {
     try {
       if (Platform.OS !== 'ios') return false;
       
-      const pending = await getPendingPurchases();
+      // FIX: Add a timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Pending transactions check timed out')), 5000)
+      );
+      
+      // Race condition to prevent hanging
+      const pending = await Promise.race([
+        getPendingPurchases(),
+        timeoutPromise
+      ]);
+      
       if (pending && pending.length > 0) {
-        console.log("Found pending transactions:", pending.length);
+        console.log("[AppleSubscriptionService] Found pending transactions:", pending.length);
         
         // Finish each pending transaction
         for (const purchase of pending) {
           if (purchase.transactionId) {
-            await finishTransaction({
-              transactionId: purchase.transactionId,
-              isConsumable: false
-            });
-            console.log("Finished pending transaction:", purchase.transactionId);
+            try {
+              await finishTransaction({
+                transactionId: purchase.transactionId,
+                isConsumable: false
+              });
+              console.log("[AppleSubscriptionService] Finished pending transaction:", purchase.transactionId);
+            } catch (finishError) {
+              console.error("[AppleSubscriptionService] Error finishing transaction:", finishError);
+              // Continue with other transactions
+            }
           }
         }
+      } else {
+        console.log("[AppleSubscriptionService] No pending transactions found");
       }
       return true;
     } catch (error) {
-      console.error("Error checking pending transactions:", error);
+      console.error("[AppleSubscriptionService] Error checking pending transactions:", error);
       return false;
     }
   }
@@ -189,7 +240,7 @@ class AppleSubscriptionService {
   // Verify purchase receipt with our backend
   async verifyReceiptWithBackend(userId, receiptData) {
     try {
-      console.log("Verifying receipt with backend for user:", userId);
+      console.log("[AppleSubscriptionService] Verifying receipt with backend for user:", userId);
       
       const response = await axios.post(API.SUBSCRIPTION.VERIFY_RECEIPT, {
         userId: userId,
@@ -198,10 +249,10 @@ class AppleSubscriptionService {
         productId: SUBSCRIPTION_PRODUCT_ID
       });
       
-      console.log("Receipt verification response:", response.data);
+      console.log("[AppleSubscriptionService] Receipt verification response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('Failed to verify receipt with backend:', error);
+      console.error('[AppleSubscriptionService] Failed to verify receipt with backend:', error);
       return { success: false, error: error.message };
     }
   }
@@ -209,32 +260,36 @@ class AppleSubscriptionService {
   // Check subscription status - simplified without cached/local validation
   async checkSubscriptionStatus(userId) {
     try {
-      console.log("Checking subscription status for userId:", userId);
+      console.log("[AppleSubscriptionService] Checking subscription status for userId:", userId);
       
       // Get the status directly from the backend
-      const response = await axios.get(
-        `${API.SUBSCRIPTION.CHECK_STATUS}?userId=${userId}`
-      );
-      
-      console.log("Backend subscription status:", response.data);
-      
-      // Cache the backend status for future use
       try {
-        await SecureStore.setItemAsync(
-          `subscription_status_${userId}`,
-          JSON.stringify({
-            ...response.data,
-            timestamp: Date.now()
-          })
+        const response = await axios.get(
+          `${API.SUBSCRIPTION.CHECK_STATUS}?userId=${userId}`
         );
-      } catch (cacheSetError) {
-        console.error("Error saving subscription status to cache:", cacheSetError);
+        
+        console.log("[AppleSubscriptionService] Backend subscription status:", response.data);
+        
+        // Cache the backend status for future use
+        try {
+          await SecureStore.setItemAsync(
+            `subscription_status_${userId}`,
+            JSON.stringify({
+              ...response.data,
+              timestamp: Date.now()
+            })
+          );
+        } catch (cacheSetError) {
+          console.error("[AppleSubscriptionService] Error saving subscription status to cache:", cacheSetError);
+        }
+        
+        return response.data;
+      } catch (backendError) {
+        console.error('[AppleSubscriptionService] Backend check error:', backendError);
+        throw backendError;
       }
-      
-      return response.data;
-      
     } catch (error) {
-      console.error('Failed to check subscription status:', error);
+      console.error('[AppleSubscriptionService] Failed to check subscription status:', error);
       // SIMPLIFIED: Return simple inactive status on error
       return { 
         subscriptionActive: false, 
@@ -244,29 +299,15 @@ class AppleSubscriptionService {
     }
   }
   
-  // Get subscription status from backend
-  async getSubscriptionStatusFromBackend(userId) {
-    try {
-      const response = await axios.get(
-        `${API.SUBSCRIPTION.CHECK_STATUS}?userId=${userId}`
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Failed to get subscription status from backend:', error);
-      return { subscriptionActive: false, error: error.message };
-    }
-  }
-
-  // REMOVED: restorePurchases method
-
   // Clean up transaction history
   async clearTransactions() {
     try {
       if (Platform.OS === 'ios') {
         await clearTransactionIOS();
+        console.log("[AppleSubscriptionService] Transactions cleared");
       }
     } catch (error) {
-      console.error('Failed to clear transactions:', error);
+      console.error('[AppleSubscriptionService] Failed to clear transactions:', error);
     }
   }
 }

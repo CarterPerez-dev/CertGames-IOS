@@ -14,7 +14,7 @@ const circuitBreaker = {
   isOpen: false,
   resetTimeout: null,
   threshold: 5, // Number of failures to trip the breaker
-  resetDelay: 2000, // 10 seconds before trying requests again
+  resetDelay: 2000, // 2 seconds before trying requests again
 };
 
 // Request throttling
@@ -42,7 +42,7 @@ apiClient.request = function(config) {
   
   // Check if a duplicate request is already in progress
   if (pendingRequests[requestKey]) {
-    console.log(`Duplicate request detected: ${requestKey}`);
+    console.log(`[API] Duplicate request detected: ${requestKey}`);
     return pendingRequests[requestKey];
   }
   
@@ -63,8 +63,6 @@ apiClient.request = function(config) {
   });
 };
   
-
-
 // Function to process the request queue with proper timing
 async function processRequestQueue() {
   if (requestThrottle.requestQueue.length === 0) {
@@ -109,13 +107,13 @@ function resetCircuitBreaker() {
   circuitBreaker.isOpen = false;
   circuitBreaker.failureCount = 0;
   circuitBreaker.resetTimeout = null;
-  console.log('Circuit breaker reset. Allowing requests again.');
+  console.log('[API] Circuit breaker reset. Allowing requests again.');
 }
 
 // Trip the circuit breaker
 function tripCircuitBreaker() {
   circuitBreaker.isOpen = true;
-  console.log('Circuit breaker tripped. Blocking requests for', circuitBreaker.resetDelay, 'ms');
+  console.log('[API] Circuit breaker tripped. Blocking requests for', circuitBreaker.resetDelay, 'ms');
   
   // Reset the circuit breaker after the reset delay
   if (circuitBreaker.resetTimeout) {
@@ -125,53 +123,80 @@ function tripCircuitBreaker() {
   circuitBreaker.resetTimeout = setTimeout(resetCircuitBreaker, circuitBreaker.resetDelay);
 }
 
-// Request interceptor to include userId in "X-User-Id"
+// Request interceptor with improved error handling
 apiClient.interceptors.request.use(
   async (config) => {
     try {
-      // Check network state first
-      const netInfoState = await NetInfo.fetch();
-      
-      // Only reject if BOTH conditions are false (completely offline)
-      if (!netInfoState.isConnected && !netInfoState.isInternetReachable) {
-        // Dispatch offline status to Redux if available
-        if (global.store) {
-          global.store.dispatch(setOfflineStatus(true));
-        }
-        
-        // Return a rejected promise with meaningful offline error
-        return Promise.reject({
+      // Check if circuit breaker is open
+      if (circuitBreaker.isOpen) {
+        console.log('[API] Circuit breaker is open, rejecting request to:', config.url);
+        throw {
+          circuitBreakerActive: true,
+          message: 'Service temporarily unavailable, please try again later.',
           response: {
-            status: 0,
-            data: { error: 'Network unavailable. Please check your connection.' }
-          },
-          isOffline: true // Custom flag to identify offline errors
-        });
-      } else if (global.store) {
-        // Set online status in Redux
-        global.store.dispatch(setOfflineStatus(false));
+            status: 503,
+            data: { error: 'Service temporarily unavailable. Please try again later.' }
+          }
+        };
+      }
+      
+      // Check network state first - IMPROVED with more reliable check
+      try {
+        const netInfoState = await NetInfo.fetch();
+        
+        // Only reject if clearly offline - being careful not to cause false negatives
+        if (netInfoState.type === 'none' || (
+            netInfoState.isConnected === false && 
+            netInfoState.isInternetReachable === false
+        )) {
+          // Dispatch offline status to Redux if available
+          if (global.store) {
+            global.store.dispatch(setOfflineStatus(true));
+          }
+          
+          // Return a rejected promise with meaningful offline error
+          throw {
+            isOffline: true,
+            message: 'Network unavailable. Please check your connection.',
+            response: {
+              status: 0,
+              data: { error: 'Network unavailable. Please check your connection.' }
+            }
+          };
+        } else if (global.store) {
+          // Set online status in Redux
+          global.store.dispatch(setOfflineStatus(false));
+        }
+      } catch (netError) {
+        // If the error is already our custom offline error, re-throw it
+        if (netError.isOffline) throw netError;
+        
+        // Otherwise, log but continue - don't block requests due to NetInfo errors
+        console.warn('[API] NetInfo error:', netError);
       }
       
       // Get userId from SecureStore
-      let userId;
       try {
-        userId = await SecureStore.getItemAsync('userId');
+        const userId = await SecureStore.getItemAsync('userId');
+        if (userId) {
+          // This is the fallback header the Flask code checks
+          config.headers['X-User-Id'] = userId;
+        }
       } catch (secureStoreError) {
-        console.error('SecureStore error:', secureStoreError);
-      }
-      
-      if (userId) {
-        // This is the fallback header my Flask code checks
-        config.headers['X-User-Id'] = userId;
+        console.error('[API] SecureStore error:', secureStoreError);
+        // Continue despite SecureStore errors
       }
 
-      // Set withCredentials to false
-      config.withCredentials = false;
+      // Add a timestamp to help with cache busting
+      config.params = {
+        ...config.params,
+        _t: Date.now()  // Add timestamp to prevent caching issues
+      };
 
       return config;
     } catch (error) {
-      console.error('API interceptor error:', error);
-      return config;
+      console.error('[API] Request interceptor error:', error);
+      return Promise.reject(error);
     }
   },
   (error) => Promise.reject(error)
@@ -179,21 +204,28 @@ apiClient.interceptors.request.use(
 
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    // Circuit breaker error - pass through
-    if (error.circuitBreakerActive) {
-      return Promise.reject(error);
+  (response) => {
+    // Success response - reset failure count
+    if (circuitBreaker.failureCount > 0) {
+      circuitBreaker.failureCount = 0;
     }
     
-    // Already identified as offline in request interceptor
-    if (error.isOffline) {
+    // Reset server error state in Redux if we've recovered
+    if (global.store && response.status >= 200 && response.status < 300) {
+      global.store.dispatch(setServerError(false));
+    }
+    
+    return response;
+  },
+  async (error) => {
+    // Already rejected by request interceptor
+    if (error.circuitBreakerActive || error.isOffline) {
       return Promise.reject(error);
     }
     
     // Network error (no response received)
     if (!error.response) {
-      console.error('Network error - no response:', error);
+      console.error('[API] Network error - no response:', error);
       
       // Increment failure count for circuit breaker
       circuitBreaker.failureCount++;
@@ -216,15 +248,9 @@ apiClient.interceptors.response.use(
       });
     }
     
-    // Handle specific status codes
-    if (error.response.status === 401) {
-      // Auth issue, but don't increment circuit breaker here
-      // This is a valid error response, not a service issue
-    }
-    
     // Server errors
     if (error.response.status >= 500) {
-      console.error('Server error:', error.response.status);
+      console.error('[API] Server error:', error.response.status);
       
       // Increment failure count for circuit breaker
       circuitBreaker.failureCount++;
@@ -247,15 +273,9 @@ apiClient.interceptors.response.use(
       });
     }
     
-    // Clear the failure count if we have a success
-    if (circuitBreaker.failureCount > 0 && Date.now() - circuitBreaker.lastFailureTime > 5000) {
-      // Reset failure count after 5 seconds of successful requests
-      circuitBreaker.failureCount = 0;
-    }
-    
     // If the request times out
     if (error.code === 'ECONNABORTED') {
-      console.error('Request timeout:', error);
+      console.error('[API] Request timeout:', error);
       
       // Increment failure count for circuit breaker
       circuitBreaker.failureCount++;
@@ -272,6 +292,18 @@ apiClient.interceptors.response.use(
           data: { error: 'Request timed out. Please try again.' }
         }
       });
+    }
+    
+    // Handle auth errors for specific routes that shouldn't increment circuit breaker
+    if (error.response.status === 401 || error.response.status === 403) {
+      // Auth errors are specific to the user, not a system failure
+      if (error.config.url.includes('/login') || 
+          error.config.url.includes('/register') ||
+          error.config.url.includes('/oauth') ||
+          error.config.url.includes('/user') ||
+          error.config.url.includes('/auth')) {
+        return Promise.reject(error);
+      }
     }
     
     return Promise.reject(error);

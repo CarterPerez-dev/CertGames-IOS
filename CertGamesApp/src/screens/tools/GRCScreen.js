@@ -16,6 +16,7 @@ import {
   Platform,
   Animated
 } from 'react-native';
+import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -25,6 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 import { useNavigation } from '@react-navigation/native';
+import usePremiumCheck from '../../hooks/usePremiumCheck';
 
 const { width, height } = Dimensions.get('window');
 
@@ -55,6 +57,8 @@ const GRCScreen = () => {
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
   
+  const { subscriptionActive } = useSelector(state => state.user);
+
   // Animated values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -74,8 +78,8 @@ const GRCScreen = () => {
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [fetchAttempts, setFetchAttempts] = useState(0); // Track fetch attempts for retries
-
+  const [fetchAttempts, setFetchAttempts] = useState(0);
+  const { hasAccess, navigateToPremiumFeaturePrompt } = usePremiumCheck('grc');
   // Ref for scroll view
   const scrollViewRef = useRef(null);
 
@@ -189,6 +193,13 @@ const GRCScreen = () => {
 
   // The main "fetch question" logic - now with better error handling and retries
   const fetchQuestion = async (retryAttempt = 0) => {
+    // Check for premium access
+    if (!hasAccess) {
+      // Navigate to premium prompt
+      navigateToPremiumFeaturePrompt();
+      return;
+    }
+  
     setLoading(true);
     setQuestionData(null);
     setSelectedOption(null);
@@ -382,12 +393,71 @@ const GRCScreen = () => {
       <StatusBar style="light" />
 
       {/* Fixed back button in top left */}
+      {/* Back button */}
       <TouchableOpacity 
         style={[styles.backButton, { backgroundColor: theme.colors.surface + 'CC', borderColor: theme.colors.border }]}
         onPress={() => navigation.goBack()}
       >
         <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
       </TouchableOpacity>
+      
+      {/* Premium Banner */}
+      {!subscriptionActive && (
+        <Animated.View 
+          style={[
+            styles.premiumBanner, 
+            { 
+              borderColor: theme.colors.primary + '50',
+              shadowColor: theme.colors.primary,
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={[theme.colors.primary + '30', theme.colors.primary + '10']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.premiumGradient}
+          >
+            <View style={styles.premiumContent}>
+              <View style={styles.premiumIconContainer}>
+                <Ionicons name="diamond" size={20} color={theme.colors.primary} />
+              </View>
+              <View style={styles.premiumTextContainer}>
+                <Text style={[styles.premiumLabel, { 
+                  color: theme.colors.primary,
+                  fontFamily: 'Orbitron-Bold'
+                }]}>
+                  PREMIUM FEATURE
+                </Text>
+                <Text style={[styles.premiumSubtext, { 
+                  color: theme.colors.textSecondary,
+                }]}>
+                  Unlock unlimited access
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.upgradeButtonSmall, { backgroundColor: theme.colors.primary }]}
+                onPress={() => navigateToPremiumFeaturePrompt()}
+              >
+                <Text style={[styles.upgradeButtonText, { 
+                  color: theme.colors.buttonText,
+                }]}>
+                  UPGRADE
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+      )}
+
+
+
+
+
+
+
+
+
 
       {/* Main Header */}
       <Animated.View 
@@ -1027,9 +1097,10 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    paddingTop: Platform.OS === 'ios' ? 50 : RNStatusBar.currentHeight + 10,
+    paddingTop: Platform.OS === 'ios' ? 15 : RNStatusBar.currentHeight + 10,
     paddingHorizontal: 20,
     paddingBottom: 15,
+    borderRadius: 15,
   },
   title: {
     fontSize: 28,
@@ -1051,6 +1122,58 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1,
     textAlign: 'center',
+  },
+  premiumBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginHorizontal: 15,
+    marginVertical: 18,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
+    marginTop: 35,    
+  },
+  premiumGradient: {
+    width: '100%',
+  },
+  premiumContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+  },
+  premiumIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  premiumTextContainer: {
+    flex: 1,
+  },
+  premiumLabel: {
+    fontSize: 14,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  premiumSubtext: {
+    fontSize: 12,
+  },
+  upgradeButtonSmall: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  upgradeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   scrollView: {
     flex: 1,

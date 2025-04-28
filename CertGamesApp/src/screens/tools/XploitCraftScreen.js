@@ -17,6 +17,7 @@ import {
   Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSelector } from 'react-redux';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -26,6 +27,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 import { useNavigation } from '@react-navigation/native';
 import { VULNERABILITIES, EVASION_TECHNIQUES } from './xploits';
+import usePremiumCheck from '../../hooks/usePremiumCheck';
 // Removed previous syntax highlighter imports
 const { width, height } = Dimensions.get('window');
 
@@ -513,6 +515,8 @@ const XploitCraftScreen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const [cardAnims] = useState([...Array(5)].map(() => new Animated.Value(0)));
 
+
+  const { subscriptionActive } = useSelector(state => state.user);
   // State variables
   const [vulnerability, setVulnerability] = useState('');
   const [evasionTechnique, setEvasionTechnique] = useState('');
@@ -528,6 +532,7 @@ const XploitCraftScreen = () => {
   const [showVulnerabilitySuggestions, setShowVulnerabilitySuggestions] = useState(false);
   const [evasionTechniqueSuggestions, setEvasionTechniqueSuggestions] = useState([]);
   const [showEvasionTechniqueSuggestions, setShowEvasionTechniqueSuggestions] = useState(false);
+  const { hasAccess, navigateToPremiumFeaturePrompt } = usePremiumCheck('xploit');
   
   const scrollViewRef = useRef();
 
@@ -649,7 +654,14 @@ const XploitCraftScreen = () => {
       Alert.alert('Error', 'Please enter at least one of vulnerability or evasion technique');
       return;
     }
-
+  
+    // Check for premium access
+    if (!hasAccess) {
+      // Navigate to premium prompt
+      navigateToPremiumFeaturePrompt();
+      return;
+    }
+  
     // Provide haptic feedback
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -776,12 +788,62 @@ const XploitCraftScreen = () => {
       <ExpoStatusBar style="light" />
       
       {/* Fixed back button in top right */}
+      {/* Back button */}
       <TouchableOpacity 
         style={[styles.backButton, { backgroundColor: theme.colors.surface + 'CC', borderColor: theme.colors.border }]}
         onPress={() => navigation.goBack()}
       >
         <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
       </TouchableOpacity>
+      
+      {/* Premium Banner */}
+      {!subscriptionActive && (
+        <Animated.View 
+          style={[
+            styles.premiumBanner, 
+            { 
+              borderColor: theme.colors.primary + '50',
+              shadowColor: theme.colors.primary,
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={[theme.colors.primary + '30', theme.colors.primary + '10']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.premiumGradient}
+          >
+            <View style={styles.premiumContent}>
+              <View style={styles.premiumIconContainer}>
+                <Ionicons name="diamond" size={20} color={theme.colors.primary} />
+              </View>
+              <View style={styles.premiumTextContainer}>
+                <Text style={[styles.premiumLabel, { 
+                  color: theme.colors.primary,
+                  fontFamily: 'Orbitron-Bold'
+                }]}>
+                  PREMIUM FEATURE
+                </Text>
+                <Text style={[styles.premiumSubtext, { 
+                  color: theme.colors.textSecondary,
+                }]}>
+                  Unlock unlimited access
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.upgradeButtonSmall, { backgroundColor: theme.colors.primary }]}
+                onPress={() => navigateToPremiumFeaturePrompt()}
+              >
+                <Text style={[styles.upgradeButtonText, { 
+                  color: theme.colors.buttonText,
+                }]}>
+                  UPGRADE
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+      )}
       
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -1422,6 +1484,58 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  premiumBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginHorizontal: 15,
+    marginVertical: 1,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
+    marginTop: 35,    
+  },
+  premiumGradient: {
+    width: '100%',
+  },
+  premiumContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+  },
+  premiumIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  premiumTextContainer: {
+    flex: 1,
+  },
+  premiumLabel: {
+    fontSize: 14,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  premiumSubtext: {
+    fontSize: 12,
+  },
+  upgradeButtonSmall: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  upgradeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
   keyboardAvoid: {
     flex: 1,
   },
@@ -1434,7 +1548,7 @@ const styles = StyleSheet.create({
   // Header with title
   headerContainer: {
     width: '100%',
-    height: 150,
+    height: 120,
   },
   headerBackground: {
     flex: 1,

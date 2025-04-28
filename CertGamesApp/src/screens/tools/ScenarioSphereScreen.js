@@ -325,26 +325,62 @@ const ScenarioSphereScreen = () => {
   return (
     <SafeAreaView style={[globalStyles.screen, styles.container]}>
       <StatusBar style="light" />
-      
-      {/* Fixed back button in top left */}
+
       <TouchableOpacity 
         style={[styles.backButton, { backgroundColor: theme.colors.surface + 'CC', borderColor: theme.colors.border }]}
         onPress={() => navigation.goBack()}
       >
         <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
       </TouchableOpacity>
-
-       {!subscriptionActive && (
-         <View style={[styles.premiumBanner, { backgroundColor: theme.colors.primary + '20' }]}>
-           <Ionicons name="lock-closed" size={18} color={theme.colors.primary} />
-           <Text style={[styles.premiumText, { 
-             color: theme.colors.primary,
-             fontFamily: 'ShareTechMono'
-           }]}>
-             PREMIUM FEATURE - UPGRADE TO UNLOCK
-           </Text>
-         </View>
-       )}
+      
+      {/* Premium Banner */}
+      {!subscriptionActive && (
+        <Animated.View 
+          style={[
+            styles.premiumBanner, 
+            { 
+              borderColor: theme.colors.primary + '50',
+              shadowColor: theme.colors.primary,
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={[theme.colors.primary + '30', theme.colors.primary + '10']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.premiumGradient}
+          >
+            <View style={styles.premiumContent}>
+              <View style={styles.premiumIconContainer}>
+                <Ionicons name="diamond" size={20} color={theme.colors.primary} />
+              </View>
+              <View style={styles.premiumTextContainer}>
+                <Text style={[styles.premiumLabel, { 
+                  color: theme.colors.primary,
+                  fontFamily: 'Orbitron-Bold'
+                }]}>
+                  PREMIUM FEATURE
+                </Text>
+                <Text style={[styles.premiumSubtext, { 
+                  color: theme.colors.textSecondary,
+                }]}>
+                  Unlock unlimited access
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.upgradeButtonSmall, { backgroundColor: theme.colors.primary }]}
+                onPress={() => navigateToPremiumFeaturePrompt()}
+              >
+                <Text style={[styles.upgradeButtonText, { 
+                  color: theme.colors.buttonText,
+                }]}>
+                  UPGRADE
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+      )}
 
       <ScrollView 
         style={styles.scrollView} 
@@ -1284,19 +1320,57 @@ const styles = StyleSheet.create({
     height: 150,
   },
   premiumBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginHorizontal: 15,
+    marginVertical: 5,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
+    marginTop: 35,    
+  },
+  premiumGradient: {
+    width: '100%',
+  },
+  premiumContent: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
-    marginHorizontal: 15,
-    marginBottom: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginTop: 35,
   },
-  premiumText: {
-    marginLeft: 8,
+  premiumIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  premiumTextContainer: {
+    flex: 1,
+  },
+  premiumLabel: {
     fontSize: 14,
-  },   
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  premiumSubtext: {
+    fontSize: 12,
+  },
+  upgradeButtonSmall: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  upgradeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
   headerBackground: {
     flex: 1,
     justifyContent: 'center',

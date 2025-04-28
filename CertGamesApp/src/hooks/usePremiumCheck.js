@@ -102,6 +102,13 @@ const usePremiumCheck = (featureType = 'premium') => {
         title = 'Premium Feature';
         message = 'Accessing resource links is only available with a premium subscription.';
         break;
+      // Add these new cases right here  
+      case 'scenario':
+      case 'grc':
+      case 'xploitcraft':
+        title = 'Premium Feature';
+        message = 'This advanced tool requires a premium subscription.';
+        break;
       default:
         title = 'Premium Feature';
         message = 'This feature is only available with a premium subscription.';

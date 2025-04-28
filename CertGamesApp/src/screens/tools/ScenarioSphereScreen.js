@@ -18,6 +18,7 @@ import {
   StatusBar as RNStatusBar,
   Animated
 } from 'react-native';
+import { useSelector } from 'react-redux';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -28,6 +29,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 import { useNavigation } from '@react-navigation/native';
+import usePremiumCheck from '../../hooks/usePremiumCheck';
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,6 +58,7 @@ const ScenarioSphereScreen = () => {
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
   
+  const { subscriptionActive } = useSelector(state => state.user);
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -94,7 +97,7 @@ const ScenarioSphereScreen = () => {
   const [questionsExpanded, setQuestionsExpanded] = useState(true);
   const [generationComplete, setGenerationComplete] = useState(false);
   const [scenarioGenerated, setScenarioGenerated] = useState(false);
-
+  const { hasAccess, navigateToPremiumFeaturePrompt } = usePremiumCheck('scenario');
   // Refs for scrolling
   const scrollViewRef = useRef();
   const scenarioOutputRef = useRef();
@@ -191,6 +194,13 @@ const ScenarioSphereScreen = () => {
       Alert.alert('Missing Information', 'Please enter the Type of Attack', [{ text: 'OK' }]);
       return;
     }
+
+    if (!hasAccess) {
+      // Navigate to premium prompt
+      navigateToPremiumFeaturePrompt();
+      return;
+    }
+
 
     // Haptic feedback
     if (Platform.OS === 'ios') {
@@ -323,6 +333,18 @@ const ScenarioSphereScreen = () => {
       >
         <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
       </TouchableOpacity>
+
+       {!subscriptionActive && (
+         <View style={[styles.premiumBanner, { backgroundColor: theme.colors.primary + '20' }]}>
+           <Ionicons name="lock-closed" size={18} color={theme.colors.primary} />
+           <Text style={[styles.premiumText, { 
+             color: theme.colors.primary,
+             fontFamily: 'ShareTechMono'
+           }]}>
+             PREMIUM FEATURE - UPGRADE TO UNLOCK
+           </Text>
+         </View>
+       )}
 
       <ScrollView 
         style={styles.scrollView} 
@@ -1261,6 +1283,20 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 150,
   },
+  premiumBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    marginHorizontal: 15,
+    marginBottom: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 35,
+  },
+  premiumText: {
+    marginLeft: 8,
+    fontSize: 14,
+  },   
   headerBackground: {
     flex: 1,
     justifyContent: 'center',

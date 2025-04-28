@@ -371,14 +371,15 @@ const SubscriptionScreenIOS = () => {
   };
   
   // FIXED: Continue with free plan function
+  // Replace the handleContinueFree function with this much simpler approach
   const handleContinueFree = async () => {
-    // Prevent multiple submits
+    // Prevent clicking multiple times
     if (loading || purchaseInProgress) {
-      console.log("Process already in progress, ignoring tap");
+      console.log("Already processing, ignoring tap");
       return;
     }
   
-    console.log("=== CONTINUE WITH FREE PROCESS STARTING ===");
+    console.log("=== CONTINUE WITH FREE (DIRECT NAVIGATION) ===");
     setLoading(true);
     setError(null);
     
@@ -388,9 +389,9 @@ const SubscriptionScreenIOS = () => {
       // For new registration, create the user first
       if (registrationData && !registrationCompleted) {
         try {
-          console.log("Registering new user for free tier:", {
+          console.log("Registering new user:", {
             ...registrationData,
-            password: '********' // Log masked password
+            password: '********'
           });
           
           // Register the user
@@ -401,17 +402,17 @@ const SubscriptionScreenIOS = () => {
           }
           
           userIdToUse = response.data.user_id;
-          console.log("User registered successfully (free tier), ID:", userIdToUse);
+          console.log("User registered successfully, ID:", userIdToUse);
           
-          // Save user ID to secure storage - CRITICAL step
+          // Save user ID to secure storage
           await SecureStore.setItemAsync('userId', userIdToUse);
           
-          // Update Redux state with the new user ID
+          // Update Redux state
           dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
           
           setRegistrationCompleted(true);
         } catch (regError) {
-          console.error('Free tier registration error:', regError);
+          console.error('Registration error:', regError);
           setError(regError.message || 'Registration failed. Please try again.');
           setLoading(false);
           return;
@@ -420,67 +421,45 @@ const SubscriptionScreenIOS = () => {
       
       // Ensure we have a valid userId
       if (!userIdToUse) {
-        console.error("No user ID available - cannot proceed");
+        console.error("No user ID available");
         setError('User ID is missing. Please try again.');
         setLoading(false);
         return;
       }
-      
-      // Clear any pending updates first
-      dispatch(resetApiStatus());
-      
-      console.log(`Fetching user data for user ID: ${userIdToUse}`);
-      
+  
+      // Fetch user data to update Redux store
       try {
-        // Use unwrap to ensure we can catch any rejected promises
         await dispatch(fetchUserData(userIdToUse)).unwrap();
-        console.log("User data fetch completed successfully");
-      } catch (fetchError) {
-        // Log but continue - not fatal
-        console.error('Error fetching initial user data:', fetchError);
+        console.log("User data fetched successfully");
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        // Non-fatal, continue
       }
       
-      // Small delay to ensure state updates are processed
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // CRITICAL: The navigation approach that should work even with modal presentation
+      console.log("Executing direct navigation to home");
       
-      try {
-        console.log("=== NAVIGATION RESET STARTING ===");
-        
-        // CRITICAL: Use CommonActions.reset for more reliable navigation
-        const { CommonActions } = require('@react-navigation/native');
-        
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [
-              { name: 'Main' },
-            ],
-          })
-        );
-        
-        console.log("Navigation reset dispatched");
-      } catch (navError) {
-        console.error("Navigation error:", navError);
-        // As a fallback, try regular reset if CommonActions fails
-        try {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Main' }]
-          });
-          console.log("Fallback navigation completed");
-        } catch (fallbackError) {
-          console.error("Fallback navigation also failed:", fallbackError);
-          // Final fallback - just try to navigate
-          navigation.navigate('Main');
-        }
-      }
+      const { CommonActions } = require('@react-navigation/native');
+      
+      // This uses CommonActions to reset navigation completely
+      navigation.dispatch(state => {
+        // Remove all existing screens and replace with just Main
+        return CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
+      });
+      
+      console.log("Navigation dispatch completed");
+      
     } catch (error) {
-      console.error('Continue with free error:', error);
+      console.error('Error during free tier setup:', error);
       setError(error.message || 'Failed to continue with free plan');
     } finally {
-      // Important to eventually set loading to false
-      setLoading(false);
-      console.log("=== CONTINUE WITH FREE PROCESS COMPLETED ===");
+      // Set loading to false with a delay
+      setTimeout(() => {
+        setLoading(false);
+      }, 800);
     }
   };
   

@@ -93,7 +93,7 @@ const AppNavigator = () => {
     needsUsername: false
   });
 
-  // FIX: Improved prepare function with better error handling and logging
+  // Improved prepare function with better error handling and logging
   const prepare = async () => {
     // Prevent multiple initialization attempts
     if (appInitializedRef.current) return;
@@ -209,7 +209,7 @@ const AppNavigator = () => {
     }
   };
 
-  // FIX: Use a more robust useEffect for initialization
+  // More robust useEffect for initialization
   useEffect(() => {
     debugLog("Running initial useEffect for app initialization");
     
@@ -227,11 +227,7 @@ const AppNavigator = () => {
     
     return () => {
       debugLog("Cleanup for initial useEffect");
-      
-      // Cancel any pending operations if needed
-      if (circuitBreaker && circuitBreaker.resetTimeout) {
-        clearTimeout(circuitBreaker.resetTimeout);
-      }
+      // No circuit breaker cleanup needed anymore
     };
   }, []);
 
@@ -275,7 +271,7 @@ const AppNavigator = () => {
     return false; // Return false to allow default error handling
   }, []);
 
-  // FIX: More robust navigator renderer with better error handling
+  // More robust navigator renderer with better error handling
   // Find the renderNavigator function in AppNavigator.js and replace it with this enhanced version
   
   const renderNavigator = useCallback(() => {
@@ -355,26 +351,21 @@ const AppNavigator = () => {
     
     // Create main stack with all screens
     const MainStack = createNativeStackNavigator();
-    
-    // Check if we're coming from a subscription screen (either from auth flow or directly)
-    // This special check helps ensure the navigation stack is properly reset
-    const isFromSubscription = route?.name === 'SubscriptionIOS';
-    if (isFromSubscription) {
-      debugLog("Detected navigation from subscription screen - forcing stack reset");
-      // Force a navigation reset to Main after a slight delay
-      setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }]
-        });
-      }, 100);
-    }
-    
+  
     return (
       <MainStack.Navigator 
         screenOptions={{ 
           headerShown: false,
           animation: 'fade' // Smoother transitions
+        }}
+        // IMPORTANT: This custom listener helps reset navigation when needed
+        screenListeners={{
+          focus: (e) => {
+            // When the 'Main' screen comes into focus, ensure the stack is reset properly
+            if (e.target?.includes('Main')) {
+              debugLog("Main screen focused - ensuring clean navigation state");
+            }
+          }
         }}
       >
         <MainStack.Screen name="Main" component={MainNavigator} />

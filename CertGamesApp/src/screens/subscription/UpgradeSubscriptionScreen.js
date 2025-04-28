@@ -198,6 +198,9 @@ const UpgradeSubscriptionScreen = () => {
       
       console.log("Requesting subscription purchase for user:", userId);
       
+      // TESTFLIGHT FIX: Add a small delay before starting purchase
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       // Request subscription purchase
       const purchaseResult = await AppleSubscriptionService.purchaseSubscription(userId);
       
@@ -222,9 +225,9 @@ const UpgradeSubscriptionScreen = () => {
       
       console.log("Subscription purchased successfully:", purchaseResult);
       
-      // Add delay to allow server sync
+      // TESTFLIGHT FIX: Add significant delay to allow transaction to process
       console.log("Waiting for backend sync...");
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Update subscription status in Redux
       console.log("Checking subscription status...");
@@ -251,7 +254,7 @@ const UpgradeSubscriptionScreen = () => {
           duration: 500,
           useNativeDriver: true
         }),
-        Animated.delay(500)
+        Animated.delay(1500)  // TESTFLIGHT FIX: Increase success display time
       ]).start();
       
       // Apply success haptic feedback
@@ -275,8 +278,11 @@ const UpgradeSubscriptionScreen = () => {
         setError(errorMessage);
       }
     } finally {
-      setLoading(false);
-      setPurchaseInProgress(false);
+      // TESTFLIGHT FIX: Add delay for UI updates
+      setTimeout(() => {
+        setLoading(false);
+        setPurchaseInProgress(false);
+      }, 500);
     }
   };
   

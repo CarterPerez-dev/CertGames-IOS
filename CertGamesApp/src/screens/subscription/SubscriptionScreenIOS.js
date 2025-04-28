@@ -227,6 +227,7 @@ const SubscriptionScreenIOS = () => {
   };
   
 
+  // Fix for handleSubscribe in SubscriptionScreenIOS.js
   const handleSubscribe = async () => {
     // Prevent concurrent purchase attempts
     if (purchaseInProgress || loading) {
@@ -249,7 +250,7 @@ const SubscriptionScreenIOS = () => {
         // Continue despite errors here
       }
       
-      // Check if this is a new registration
+      // STEP 1: Handle new user registration if needed
       if (registrationData && !registrationCompleted) {
         try {
           console.log("Registering new user with data:", {
@@ -301,7 +302,7 @@ const SubscriptionScreenIOS = () => {
         }
       }
       
-      // Ensure we have a user ID
+      // STEP 2: Ensure we have a user ID for the purchase
       if (!userIdToUse) {
         setError('User ID is missing. Please try again.');
         setPurchaseInProgress(false);
@@ -309,8 +310,11 @@ const SubscriptionScreenIOS = () => {
         return;
       }
       
-      // SIMPLIFIED: Always attempt to purchase subscription regardless of current status
+      // STEP 3: Make the actual purchase request
       console.log("Requesting subscription purchase for user:", userIdToUse);
+      
+      // TESTFLIGHT FIX: Add a small delay before starting purchase
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       // Request subscription purchase with improved error handling
       const purchaseResult = await AppleSubscriptionService.purchaseSubscription(userIdToUse);
@@ -336,14 +340,12 @@ const SubscriptionScreenIOS = () => {
       
       console.log("Subscription purchased successfully:", purchaseResult);
       
-      // Add delay to allow server sync
+      // TESTFLIGHT FIX: Add significant delay to allow transaction to process
       console.log("Waiting for backend sync...");
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Force Redux to fully update by dispatching a simple action
-      dispatch({ type: 'user/resetApiStatus' });
-      
-      // SEQUENTIAL UPDATES: First update subscription status in Redux
+      // STEP 4: Update Redux state
+      // First update subscription status in Redux
       console.log("Checking subscription status...");
       try {
         await dispatch(checkSubscription(userIdToUse));
@@ -362,53 +364,36 @@ const SubscriptionScreenIOS = () => {
         // Continue despite this error
       }
       
-
-      console.log("Navigation - APPROACH 1: Primary navigation with reset to Home");
+      // STEP 5: Navigation - Only navigate after purchase is complete
+      // TESTFLIGHT FIX: Use a safe navigation method with guards
       try {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }]
-        });
-        
-        // BACKUP NAVIGATION: Second approach with slight delay
+        // Check if navigation is available
+        if (navigation && navigation.reset) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }]
+          });
+        } else {
+          // Fallback in case navigation object is unavailable
+          console.error("Navigation object unavailable, using fallback");
+          setTimeout(() => {
+            try {
+              navigation.navigate('Main');
+            } catch (navError) {
+              console.error("Final navigation error:", navError);
+            }
+          }, 500);
+        }
+      } catch (navError) {
+        console.error("Navigation error:", navError);
+        // Try alternate navigation as fallback
         setTimeout(() => {
           try {
-            console.log("Navigation - APPROACH 2: Secondary navigation with CommonActions");
-            navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: 'Main' }],
-              })
-            );
-          } catch (navError2) {
-            console.error("Secondary navigation error:", navError2);
-            
-            // LAST RESORT: Third approach if everything else fails
-            setTimeout(() => {
-              try {
-                console.log("Navigation - APPROACH 3: Simple navigation");
-                navigation.navigate('Main');
-              } catch (navError3) {
-                console.error("Final navigation error:", navError3);
-              }
-            }, 500);
+            navigation.navigate('Main');
+          } catch (altNavError) {
+            console.error("Alternate navigation error:", altNavError);
           }
-        }, 1000);
-      } catch (navError) {
-        console.error("Primary navigation error:", navError);
-        
-
-        try {
-          console.log("Navigation - APPROACH 2: Immediate fallback after primary failure");
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: 'Main' }],
-            })
-          );
-        } catch (fallbackError) {
-          console.error("Fallback navigation error:", fallbackError);
-        }
+        }, 500);
       }
     } catch (error) {
       console.error('Subscription error:', error);
@@ -419,14 +404,14 @@ const SubscriptionScreenIOS = () => {
         errorMessage = error.message;
       }
       
-
       if (error.message && error.message.includes('cancel')) {
         setError('Subscription purchase was cancelled.');
       } else {
         setError(errorMessage);
       }
     } finally {
-
+      // Make sure we reset loading states even if there's an error
+      // TESTFLIGHT FIX: Add delay to ensure UI updates properly
       setTimeout(() => {
         setLoading(false);
         setPurchaseInProgress(false);
@@ -435,18 +420,27 @@ const SubscriptionScreenIOS = () => {
   };
 
   
+  
+  // Fix for handleContinueFree in SubscriptionScreenIOS.js
   const handleContinueFree = async () => {
-      // Prevent concurrent attempts
-      if (loading) {
-        console.log("Already processing, ignoring tap");
-        return;
-      }
+    // Prevent concurrent attempts
+    if (loading) {
+      console.log("Already processing, ignoring tap");
+      return;
+    }
   
-      console.log("=== [handleContinueFree] START (Simplified Dispatch) ===");
-      setLoading(true);
-      setError(null);
+    console.log("=== [handleContinueFree] START ===");
+    console.log("Current flow state:", { 
+      isOauthFlow, 
+      isNewUsername, 
+      userId: userId?.substring(0, 8), 
+      registrationData: registrationData ? "present" : "not present" 
+    });
+    
+    setLoading(true);
+    setError(null);
   
-      let userIdToUse = userId;
+    let userIdToUse = userId;
   
     try {
       // STEP 1: Handle user registration if needed
@@ -480,37 +474,83 @@ const SubscriptionScreenIOS = () => {
         }
       }
   
-        if (!userIdToUse) {
-           setLoading(false); 
-           return;
-        }
-  
-        // STEP 3: Dispatch ONE comprehensive Redux update
-        console.log("Updating Redux state atomically with userId:", userIdToUse);
-        dispatch({
-          type: 'user/setUser', 
-          payload: {
-            user_id: userIdToUse,
-            _id: userIdToUse,
-            subscriptionActive: false,
-            subscriptionType: 'free',
-            needsUsername: false
-           
-          }
-        });
-  
-
-  
-      } catch (error) {
-        console.error('Error during free tier setup:', error);
-        setError(error.message || 'An unexpected error occurred.');
-      } finally {
-
-          setLoading(false);
-          console.log("=== [handleContinueFree] END (Simplified Dispatch) ===");
+      // STEP 2: Validate userId
+      if (!userIdToUse) {
+        console.error("No userIdToUse after registration step!");
+        setError("Failed to get valid user ID. Please try again.");
+        setLoading(false);
+        return;
       }
-  };
   
+      // STEP 3: Update Redux state - FIXED for OAuth flow
+      console.log("Updating Redux state with userId:", userIdToUse);
+      
+      // Create a more comprehensive payload with subscription data
+      const payload = {
+        user_id: userIdToUse,
+        _id: userIdToUse,
+        subscriptionActive: false,
+        subscriptionType: 'free',
+        needsUsername: false
+      };
+      
+      // For OAuth flow, fetch user data first to preserve other fields
+      if (isOauthFlow || isNewUsername) {
+        console.log("OAUTH flow detected, fetching user data first");
+        try {
+          // Fetch existing user data to merge with our updates
+          await dispatch(fetchUserData(userIdToUse)).unwrap();
+          
+          // Important: Wait for fetchUserData to complete
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          // Now update with subscription data
+          dispatch({ type: 'user/setUser', payload });
+        } catch (fetchError) {
+          console.error("Error fetching user data:", fetchError);
+          // Even if fetch fails, still try to update Redux
+          dispatch({ type: 'user/setUser', payload });
+        }
+      } else {
+        // For regular flow, just set the user data directly
+        dispatch({ type: 'user/setUser', payload });
+      }
+  
+      // STEP 4: Navigation
+      console.log("Navigating to Main screen...");
+      
+      // Add delay for state updates to complete
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Use try-catch for navigation
+      try {
+        if (navigation && navigation.reset) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }]
+          });
+        } else {
+          throw new Error("Navigation.reset not available");
+        }
+      } catch (navError) {
+        console.error("Navigation error:", navError);
+        // Fallback navigation approach
+        try {
+          navigation.navigate('Main');
+        } catch (fallbackError) {
+          console.error("Fallback navigation error:", fallbackError);
+        }
+      }
+  
+    } catch (error) {
+      console.error('Error during free tier setup:', error);
+      setError(error.message || 'An unexpected error occurred.');
+    } finally {
+      // Always reset loading state
+      setLoading(false);
+      console.log("=== [handleContinueFree] END ===");
+    }
+  };
   // Get subscription type - prioritize OAuth/New Username flow over renewal
   const getSubscriptionType = () => {
     // Add more verbose debugging to understand what's happening

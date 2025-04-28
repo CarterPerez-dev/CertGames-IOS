@@ -455,7 +455,7 @@ const LoginScreen = () => {
                     <Ionicons name="lock-closed-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Enter your password"
+                      placeholder="Enter updated password"
                       placeholderTextColor="#AAAAAA"
                       value={password}
                       onChangeText={setPassword}

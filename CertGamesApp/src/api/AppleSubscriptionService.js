@@ -93,7 +93,7 @@ class AppleSubscriptionService {
     }
   }
 
-  // Purchase a subscription - FIXED for reliable purchasing
+  // Purchase a subscription - FIXED for reliable purchasing in TestFlight
   async purchaseSubscription(userId) {
     try {
       if (Platform.OS !== 'ios') throw new Error('Only available on iOS');
@@ -119,14 +119,17 @@ class AppleSubscriptionService {
         // Continue despite errors here
       }
       
-      // FIX: Try purchase without checking subscriptions first
+      // TESTFLIGHT FIX: Add a small delay to ensure UI is ready
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       console.log("[AppleSubscriptionService] Attempting purchase for:", SUBSCRIPTION_PRODUCT_ID);
       
-      // Request the subscription purchase with automatic transaction finishing
+      // FIX: Make sure not to finish transaction automatically for TestFlight
       try {
         const result = await requestSubscription({
           sku: SUBSCRIPTION_PRODUCT_ID,
-          andDangerouslyFinishTransactionAutomaticallyIOS: true
+          // IMPORTANT: Set this to false for TestFlight to ensure purchase dialog appears
+          andDangerouslyFinishTransactionAutomaticallyIOS: false 
         });
        
         console.log("[AppleSubscriptionService] Purchase result:", result);
@@ -148,18 +151,20 @@ class AppleSubscriptionService {
           // Get fallback transaction ID
           let transactionId = result.transactionId || 'unknown';
           
-          // Since we're using automatic transaction finishing, this is not needed
-          // But keep as a fallback just in case
+          // TESTFLIGHT FIX: Manually finish transaction with delay
           if (transactionId !== 'unknown') {
             try {
+              // Add delay before finishing transaction
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
               await finishTransaction({ 
                 transactionId: transactionId,
                 isConsumable: false
               });
-              console.log("[AppleSubscriptionService] Finished transaction (fallback):", transactionId);
+              console.log("[AppleSubscriptionService] Finished transaction:", transactionId);
             } catch (finishError) {
-              console.log("[AppleSubscriptionService] Note: Transaction may already be finished:", finishError.message);
-              // Don't throw here as transaction might already be finished automatically
+              console.log("[AppleSubscriptionService] Error finishing transaction:", finishError.message);
+              // Non-fatal error
             }
           }
           
@@ -193,7 +198,7 @@ class AppleSubscriptionService {
     }
   }
 
-  // ADDED: Improved pending transactions check
+  // IMPROVED: Better pending transactions check for TestFlight
   async checkPendingTransactions() {
     try {
       if (Platform.OS !== 'ios') return false;
@@ -257,7 +262,7 @@ class AppleSubscriptionService {
     }
   }
 
-  // Check subscription status - simplified without cached/local validation
+  // Check subscription status
   async checkSubscriptionStatus(userId) {
     try {
       console.log("[AppleSubscriptionService] Checking subscription status for userId:", userId);
@@ -290,7 +295,6 @@ class AppleSubscriptionService {
       }
     } catch (error) {
       console.error('[AppleSubscriptionService] Failed to check subscription status:', error);
-      // SIMPLIFIED: Return simple inactive status on error
       return { 
         subscriptionActive: false, 
         subscriptionStatus: 'unknown',

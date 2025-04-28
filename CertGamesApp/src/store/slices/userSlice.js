@@ -112,7 +112,7 @@ export const fetchUsageLimits = createAsyncThunk(
     const state = getState();
     const lastUsageLimitsFetch = state.user.lastUsageLimitsUpdate || 0;
     const now = Date.now();
-    if (now - lastUsageLimitsFetch < 500) { // Throttle check
+    if (now - lastUsageLimitsFetch < 50) { // Throttle check
       console.log("Skipping usage limits fetch - throttled");
       // Return current state values to avoid disrupting things
       return {

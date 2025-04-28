@@ -278,49 +278,29 @@ const AppNavigator = () => {
 
   // Navigation Effect Using InteractionManager
   useEffect(() => {
-    if (!appIsReady) {
-      return; // Don't run if app isn't ready
-    }
+    if (!appIsReady) return;
     
-    // Log current state for debugging the effect trigger
-    debugLog(`Navigation effect check: userId=${userId?.substring(0,8) || 'null'}, prevUserId=${prevUserId?.substring(0,8) || 'null'}, needsUsername=${needsUsername}`);
-
+    debugLog(`Navigation state check: userId=${userId?.substring(0,8) || 'null'}, prevUserId=${prevUserId?.substring(0,8) || 'null'}, needsUsername=${needsUsername}`);
+  
     // Condition 1: User just logged in successfully and doesn't need a username
     if (userId && !prevUserId && !needsUsername) {
-      debugLog(`>>> Detected LOGIN transition (userId: ${userId.substring(0,8)}). Scheduling reset via InteractionManager.`);
-
-      // Use InteractionManager to run AFTER interactions/animations finish
-      const interactionHandle = InteractionManager.runAfterInteractions(() => {
-        debugLog(`>>> InteractionManager callback running. Checking navigation ref...`);
-        
+      debugLog(`>>> Detected LOGIN transition (userId: ${userId.substring(0,8)}). Navigating to Main.`);
+      
+      // Simple setTimeout to allow current render to complete
+      setTimeout(() => {
         if (navigationRef.isReady()) {
-          // Double-check the condition *inside* the callback, state might have changed again
-          if (store.getState().user.userId === userId && !store.getState().user.needsUsername) {
-            debugLog(`>>> Dispatching navigation reset action to Main via ref (after interactions).`);
-            
-            navigationRef.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: 'Main' }], // Target the 'Main' screen in MainStack
-              })
-            );
-          } else {
-            debugLog(`>>> State changed before InteractionManager dispatch. Aborting reset. Current userId=${store.getState().user.userId}, needsUsername=${store.getState().user.needsUsername}`);
-          }
-        } else {
-          debugLog(`>>> Navigation ref STILL not ready after interactions.`);
+          debugLog(`>>> Dispatching navigation reset to Main`);
+          navigationRef.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            })
+          );
         }
-      });
-
-      // Update state immediately after scheduling
+      }, 150); // Short timeout instead of InteractionManager
+      
       setPrevUserId(userId);
-
-      // Return cleanup function for InteractionManager handle
-      return () => {
-        debugLog(`>>> Cleaning up InteractionManager handle for login transition effect.`);
-        InteractionManager.clearInteractionHandle(interactionHandle);
-      };
-    }
+    } 
     // Condition 2: User just logged out
     else if (!userId && prevUserId) {
       debugLog(`>>> Detected LOGOUT transition.`);
@@ -331,11 +311,9 @@ const AppNavigator = () => {
       debugLog(`>>> Detected login transition needing username (userId: ${userId.substring(0,8)}).`);
       setPrevUserId(userId);
     }
-
-    // Default: No cleanup needed if none of the conditions were met
-    return undefined;
   }, [userId, needsUsername, appIsReady, prevUserId, navigationRef]);
-
+  
+  
   // Retry App Initialization Callback
   const handleRetry = useCallback(() => {
     debugLog("Retry button pressed");

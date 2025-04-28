@@ -677,7 +677,7 @@ const DailyStationScreen = () => {
                                 }
                               ]}
                               onPress={() => setSelectedAnswer(index)}
-                              disabled={!subscriptionActive || selectedOption !== null}
+                              disabled={!subscriptionActive || selectedAnswer !== null}
                             >
                               <Text style={[
                                 globalStyles.text,

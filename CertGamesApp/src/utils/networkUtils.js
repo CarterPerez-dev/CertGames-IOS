@@ -16,17 +16,10 @@ function updateGlobalRequestCount() {
   if (timeElapsed > 60000) {
     globalRequestState.requestsInLastMinute = 0;
     globalRequestState.lastMinuteTimestamp = now;
-  } else {
-    // Apply a decay factor based on time elapsed
-    const decayFactor = 1 - (timeElapsed / 60000);
-    globalRequestState.requestsInLastMinute = Math.floor(
-      globalRequestState.requestsInLastMinute * decayFactor
-    );
   }
   
   // Increment request count
   globalRequestState.requestCount++;
-  globalRequestState.requestsInLastMinute++;
   
   return globalRequestState.requestsInLastMinute;
 }

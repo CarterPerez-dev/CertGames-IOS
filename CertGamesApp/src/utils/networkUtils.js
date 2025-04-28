@@ -130,7 +130,7 @@ export const fetchWithRetry = async (
  * @param {number} delayBetween - Delay between requests in milliseconds
  * @returns {Promise<Array>} - Array of results in the same order as input functions
  */
-export const sequentialFetch = async (fetchFunctions, delayBetween = 300) => {
+export const sequentialFetch = async (fetchFunctions, delayBetween = 100) => {
   const results = [];
   
   for (let i = 0; i < fetchFunctions.length; i++) {

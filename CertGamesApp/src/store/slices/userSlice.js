@@ -118,7 +118,7 @@ export const fetchUsageLimits = createAsyncThunk(
     const now = Date.now();
     
     // Skip if we fetched within the last 30 seconds
-    if (now - lastUsageLimitsFetch < 30000) {
+    if (now - lastUsageLimitsFetch < 10000) {
       console.log("Skipping usage limits fetch - throttled");
       return {
         practiceQuestionsRemaining: state.user.practiceQuestionsRemaining,
@@ -161,7 +161,7 @@ export const decrementQuestions = createAsyncThunk(
     const lastUpdate = state.user.lastUsageLimitsUpdate || 0;
     const now = Date.now();
     
-    if (now - lastUpdate < 10000) {
+    if (now - lastUpdate < 1000) {
       console.log("Skipping server decrement - throttled");
       return {
         practiceQuestionsRemaining: currentRemaining - 1

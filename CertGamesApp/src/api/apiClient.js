@@ -13,14 +13,14 @@ const circuitBreaker = {
   lastFailureTime: 0,
   isOpen: false,
   resetTimeout: null,
-  threshold: 5, // Number of failures to trip the breaker
-  resetDelay: 2000, // 2 seconds before trying requests again
+  threshold: 7, // Number of failures to trip the breaker
+  resetDelay: 500, // 2 seconds before trying requests again
 };
 
 // Request throttling
 const requestThrottle = {
   lastRequestTime: 0,
-  minInterval: 100, // Minimum 100ms between requests
+  minInterval: 50, 
   requestQueue: [],
   isProcessingQueue: false,
 };

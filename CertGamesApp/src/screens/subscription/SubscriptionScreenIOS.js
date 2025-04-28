@@ -437,171 +437,86 @@ const SubscriptionScreenIOS = () => {
       }, 500);
     }
   };
-  // FIXED: Continue with free plan function
-  // Replace the handleContinueFree function with this much simpler approach
-  // AGGRESSIVE FIX: handleContinueFree with direct modal dismissal
-  // FINAL FIX: Using direct navigation reset and App state refresh
-  // Replace the ENTIRE handleContinueFree function in SubscriptionScreenIOS.js
-  // with this EXTREMELY VERBOSE version:
-  
-  // Replace the ENTIRE handleContinueFree function in SubscriptionScreenIOS.js
-  // with this version:
+
   
   const handleContinueFree = async () => {
-    // Prevent concurrent attempts
-    if (loading) {
-      console.log("[handleContinueFree] Already processing, ignoring tap");
-      return;
-    }
+      // Prevent concurrent attempts
+      if (loading) {
+        console.log("Already processing, ignoring tap");
+        return;
+      }
   
-    console.log("=== [handleContinueFree] START ===");
-    setLoading(true); // Set loading immediately
-    setError(null);
+      console.log("=== [handleContinueFree] START (Simplified Dispatch) ===");
+      setLoading(true);
+      setError(null);
   
-    let registrationSuccess = false;
-    let userIdToUse = userId; // Use local variable based on potentially updated ID
+      let userIdToUse = userId;
   
     try {
-      // STEP 1: Handle user registration if needed (Async operations inside)
+      // STEP 1: Handle user registration if needed
       if (registrationData && !registrationCompleted) {
-        console.log("[handleContinueFree] Registration required.");
         try {
-          console.log("[handleContinueFree] Checking if user already exists...");
-          // Defensive check: See if user somehow exists before trying to register
+          console.log("Checking if user already exists...");
           const existingUserCheck = await apiClient.get(`${API.USER.DETAILS(userIdToUse)}`).catch(() => null);
   
           if (existingUserCheck && existingUserCheck.data) {
-              console.log("[handleContinueFree] User already exists, skipping registration. User ID:", existingUserCheck.data._id);
-              userIdToUse = existingUserCheck.data._id; // Ensure we use the correct ID
-              setRegistrationCompleted(true);
-              registrationSuccess = true;
+            console.log("User already exists, skipping registration");
+            userIdToUse = existingUserCheck.data._id;
+            setRegistrationCompleted(true);
           } else {
-              console.log("[handleContinueFree] Registering new user with data:", {
-                  ...registrationData,
-                  password: "********" // Mask password in logs
-              });
+            console.log("Registering new user");
+            const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
   
-              // --- Start Async Registration ---
-              const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
-              // --- End Async Registration ---
+            if (!response.data || !response.data.user_id) {
+              throw new Error('Registration failed: No user ID returned from API');
+            }
   
-              if (!response.data || !response.data.user_id) {
-                  throw new Error('Registration failed: No user ID returned from API');
-              }
-  
-              userIdToUse = response.data.user_id; // Capture the new user ID
-              console.log("[handleContinueFree] User registered successfully, ID:", userIdToUse);
-  
-              // --- Start Async SecureStore Write ---
-              console.log("[handleContinueFree] Saving userId to SecureStore...");
-              await SecureStore.setItemAsync('userId', userIdToUse);
-              console.log("[handleContinueFree] userId saved to SecureStore.");
-              // --- End Async SecureStore Write ---
-  
-              registrationSuccess = true;
-              setRegistrationCompleted(true); // Update component state
+            userIdToUse = response.data.user_id;
+            console.log("User registered successfully, ID:", userIdToUse);
+            await SecureStore.setItemAsync('userId', userIdToUse);
+            setRegistrationCompleted(true);
           }
         } catch (regError) {
-          console.error('[handleContinueFree] Registration error:', regError);
-          let errorMessage = 'Registration failed. Please try again.';
-          if (regError.response?.data?.error) {
-            errorMessage = regError.response.data.error;
-          } else if (regError.message) {
-            errorMessage = regError.message;
-          }
-          setError(errorMessage);
-          // Don't proceed if registration fails
-          // setLoading(false) will be handled by the finally block
+          console.error('Registration error:', regError);
+          setError(regError.message || 'Registration failed. Please try again.');
+          setLoading(false);
           return;
         }
-      } else {
-        // If no registration data or already completed, registration is considered successful for this flow
-        registrationSuccess = true;
-        console.log("[handleContinueFree] No registration needed or already completed.");
       }
   
-      // Exit if registration step failed
-      if (!registrationSuccess) {
-        console.error("[handleContinueFree] Registration was not successful, exiting.");
-        // setLoading(false) handled by finally
-        return;
-      }
-  
-      // STEP 2: Ensure userId is valid *after* potential registration
-      if (!userIdToUse) {
-        console.error("[handleContinueFree] No valid user ID available after registration check.");
-        setError('User ID is missing. Cannot proceed.');
-        // setLoading(false) handled by finally
-        return;
-      }
-      console.log("[handleContinueFree] Using userId:", userIdToUse);
-  
-      // STEP 3: Update Redux state (Dispatch actions - potentially async)
-      console.log("[handleContinueFree] Dispatching Redux actions...");
-      // Dispatch minimal data first (might help AppNavigator react faster)
-      dispatch({
-        type: 'user/setUser',
-        payload: {
-          user_id: userIdToUse,
-          _id: userIdToUse,
-          subscriptionActive: false, // Explicitly set free status
-          subscriptionType: 'free',
-          needsUsername: false // Assume username is handled or not needed here
-          // Add other essential fields AppNavigator might check if necessary
+        if (!userIdToUse) {
+           setLoading(false); 
+           return;
         }
-      });
-      // Ensure the primary userId field is set if AppNavigator relies on it
-      dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
-      // CRITICAL: Reset any loading/error states in the user slice
-      dispatch({ type: 'user/resetApiStatus' });
-      console.log("[handleContinueFree] Redux actions dispatched.");
   
-      // STEP 4: Short delay for Redux state propagation (Crucial for Navigators)
-      // Give React Navigation and Redux state listeners time to process the updates.
-      // 300ms is often enough, but adjust if needed.
-      const propagationDelay = 300;
-      console.log(`[handleContinueFree] Waiting ${propagationDelay}ms for state propagation...`);
-      await new Promise(resolve => setTimeout(resolve, propagationDelay));
-      console.log("[handleContinueFree] State propagation delay finished.");
-  
-      // STEP 5: Perform Navigation (Directly, without setTimeout wrapper)
-      console.log("[handleContinueFree] Attempting navigation reset to Main...");
-      const resetAction = CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'Main' }] // Navigate to the MainNavigator stack
-      });
-  
-      try {
-          navigation.dispatch(resetAction);
-          console.log("[handleContinueFree] Navigation reset dispatched successfully.");
-          // If dispatch succeeds, we assume navigation will happen.
-          // setLoading(false) is handled by the finally block below.
-  
-      } catch (navError) {
-          console.error("[handleContinueFree] Primary navigation dispatch failed:", navError);
-          setError(`Navigation failed: ${navError.message}. Please try restarting the app.`);
-          // Attempt a simpler fallback navigation just in case
-          try {
-              console.log("[handleContinueFree] Attempting fallback navigation.navigate('Main')...");
-              navigation.navigate('Main');
-          } catch (fallbackError) {
-              console.error("[handleContinueFree] Fallback navigation also failed:", fallbackError);
+        // STEP 3: Dispatch ONE comprehensive Redux update
+        console.log("Updating Redux state atomically with userId:", userIdToUse);
+        dispatch({
+          type: 'user/setUser', // This action now sets userId, needsUsername, AND status='idle'
+          payload: {
+            user_id: userIdToUse,
+            _id: userIdToUse,
+            subscriptionActive: false,
+            subscriptionType: 'free',
+            needsUsername: false
+            // No need to explicitly set status here, the reducer does it
           }
-          // setLoading(false) handled by finally
-      }
+        });
   
-    } catch (error) {
-      // Catch errors from the overall process (outside registration/navigation specific blocks)
-      console.error('[handleContinueFree] General error during free tier setup:', error);
-      setError(error.message || 'An unexpected error occurred. Please try again.');
-      // setLoading(false) handled by finally
-    } finally {
-      // THIS IS KEY: Ensure loading state is *always* reset, regardless of success or failure
-      console.log("[handleContinueFree] Finally block reached, setting loading to false.");
-      setLoading(false);
-      console.log("=== [handleContinueFree] END ===");
-    }
+
+  
+        // Let AppNavigator handle navigation based on the single state update
+  
+      } catch (error) {
+        console.error('Error during free tier setup:', error);
+        setError(error.message || 'An unexpected error occurred.');
+      } finally {
+          // Use finally block for robustness
+          setLoading(false);
+          console.log("=== [handleContinueFree] END (Simplified Dispatch) ===");
+      }
   };
+  
   // Get subscription type - prioritize OAuth/New Username flow over renewal
   const getSubscriptionType = () => {
     // Add more verbose debugging to understand what's happening

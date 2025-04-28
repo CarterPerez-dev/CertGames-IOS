@@ -48,7 +48,7 @@ export const fetchWithRetry = async (
 ) => {
   // Default options
   const defaultOptions = {
-    maxBackoffTime: 10000, // Maximum backoff time in ms
+    maxBackoffTime: 100, // Maximum backoff time in ms
     addJitter: true, // Add randomness to backoff times
     retryableStatusCodes: [408, 429, 500, 502, 503, 504], // HTTP status codes to retry
     logRetries: true, // Log retry attempts
@@ -130,7 +130,7 @@ export const fetchWithRetry = async (
  * @param {number} delayBetween - Delay between requests in milliseconds
  * @returns {Promise<Array>} - Array of results in the same order as input functions
  */
-export const sequentialFetch = async (fetchFunctions, delayBetween = 100) => {
+export const sequentialFetch = async (fetchFunctions, delayBetween = 10) => {
   const results = [];
   
   for (let i = 0; i < fetchFunctions.length; i++) {
@@ -161,7 +161,7 @@ export const sequentialFetch = async (fetchFunctions, delayBetween = 100) => {
  * @param {number} interval - Time interval in milliseconds
  * @returns {Function} - Throttled function
  */
-export const throttle = (fn, limit, interval = 1000) => {
+export const throttle = (fn, limit, interval = 3000) => {
   let calls = 0;
   let lastReset = Date.now();
   let queued = [];

@@ -440,6 +440,7 @@ const SubscriptionScreenIOS = () => {
   // FIXED: Continue with free plan function
   // Replace the handleContinueFree function with this much simpler approach
   // AGGRESSIVE FIX: handleContinueFree with direct modal dismissal
+  // FINAL FIX: Using direct navigation reset and App state refresh
   const handleContinueFree = async () => {
     // Prevent concurrent attempts
     if (loading) {
@@ -447,14 +448,16 @@ const SubscriptionScreenIOS = () => {
       return;
     }
   
-    console.log("=== CONTINUE WITH FREE (AGGRESSIVE FIX) ===");
+    console.log("=== CONTINUE WITH FREE (FINAL SOLUTION) ===");
     setLoading(true);
     setError(null);
     
+    // Use a flag to track if registration succeeded
+    let registrationSuccess = false;
+    let userIdToUse = userId;
+    
+    // STEP 1: Handle user registration if needed
     try {
-      let userIdToUse = userId;
-      
-      // For new registration, create the user first
       if (registrationData && !registrationCompleted) {
         try {
           console.log("Registering new user:", {
@@ -468,6 +471,7 @@ const SubscriptionScreenIOS = () => {
             console.log("User already exists, skipping registration");
             setRegistrationCompleted(true);
             userIdToUse = existingUser.data._id;
+            registrationSuccess = true;
           } else {  
             // Register the user
             const response = await apiClient.post(API.AUTH.REGISTER, registrationData);
@@ -482,17 +486,8 @@ const SubscriptionScreenIOS = () => {
             // Save user ID to secure storage - CRITICAL
             await SecureStore.setItemAsync('userId', userIdToUse);
             
-            // Update Redux state directly with minimal data
-            dispatch({ 
-              type: 'user/setUser', 
-              payload: { 
-                user_id: userIdToUse,
-                _id: userIdToUse,
-                subscriptionActive: false,
-                subscriptionType: 'free'
-              } 
-            });
-            
+            // Mark registration as successful
+            registrationSuccess = true;
             setRegistrationCompleted(true);
           }
         } catch (regError) {
@@ -509,9 +504,19 @@ const SubscriptionScreenIOS = () => {
           setLoading(false);
           return;
         }
+      } else {
+        // If no registration needed, mark as success
+        registrationSuccess = true;
       }
       
-      // Ensure we have a valid userId
+      // If registration wasn't successful, exit early
+      if (!registrationSuccess) {
+        console.error("Registration not successful");
+        setLoading(false);
+        return;
+      }
+      
+      // STEP 2: Ensure userId is valid
       if (!userIdToUse) {
         console.error("No user ID available");
         setError('User ID is missing. Please try again.');
@@ -519,47 +524,69 @@ const SubscriptionScreenIOS = () => {
         return;
       }
       
-      // CRITICAL: Force update Redux state to ensure navigation works properly
-      console.log("Forcing Redux state update with userId:", userIdToUse);
+      // STEP 3: Update Redux state with both minimal data and setCurrentUserId
+      console.log("Updating Redux state with userId:", userIdToUse);
+      
+      // Update with minimal data first
+      dispatch({ 
+        type: 'user/setUser', 
+        payload: { 
+          user_id: userIdToUse,
+          _id: userIdToUse,
+          subscriptionActive: false,
+          subscriptionType: 'free'
+        } 
+      });
+      
+      // Also update with the action expected by AppNavigator
+      dispatch({ type: 'user/setCurrentUserId', payload: userIdToUse });
+      
+      // CRITICAL: Reset API status to ensure clean navigation
       dispatch({ type: 'user/resetApiStatus' });
       
-      // Add a short delay to allow state to update
-      setTimeout(() => {
-        try {
-          // APPROACH 1: Direct navigation to Main screen instead of reset
-          console.log("NAVIGATION ATTEMPT 1: Direct replacement with Main");
-          // This effectively replaces the current screen with Main
-          navigation.replace('Main');
+      // STEP 4: Give Redux state time to update
+      console.log("Waiting for state updates to propagate...");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // STEP 5: NAVIGATION - Complete app reset approach
+      console.log("EXECUTING DIRECT APP RESET NAVIGATION");
+      
+      // Create a completely fresh navigation state reset
+      const resetAction = CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'Main' }]
+      });
+      
+      // Dispatch the reset action and check for errors
+      try {
+        // Using setLoading(false) BEFORE navigation
+        setLoading(false);
+        
+        // Execute the navigation after a short pause
+        setTimeout(() => {
+          navigation.dispatch(resetAction);
           
-          // Set loading to false right away
-          setLoading(false);
-          
-          // Add a backup approach with short delay
+          // Give the navigation time to execute, then try fallback if needed
           setTimeout(() => {
+            // FALLBACK: Try a different approach if we're still here
+            console.log("EXECUTING FALLBACK EXIT NAVIGATION");
             try {
-              // APPROACH 2: Try goBack() which is designed for modals
-              console.log("NAVIGATION ATTEMPT 2: Modal dismissal with goBack");
-              navigation.goBack();
-              
-              // Add a third backup approach with another delay
-              setTimeout(() => {
-                try {
-                  // APPROACH 3: Most aggressive - navigate directly to home tab
-                  console.log("NAVIGATION ATTEMPT 3: Direct navigation to Home tab");
-                  navigation.navigate('Main', { screen: 'Home' });
-                } catch (err3) {
-                  console.error("Navigation error (approach 3):", err3);
-                }
-              }, 300);
-            } catch (err2) {
-              console.error("Navigation error (approach 2):", err2);
+              // Create a completely new action with a key for the root navigator
+              const rootAction = CommonActions.reset({
+                key: 'root',
+                index: 0,
+                routes: [{ name: 'Main' }]
+              });
+              navigation.dispatch(rootAction);
+            } catch (finalErr) {
+              console.error("Final navigation error:", finalErr);
             }
-          }, 300);
-        } catch (err1) {
-          console.error("Navigation error (approach 1):", err1);
-          setLoading(false);
-        }
-      }, 300);
+          }, 800);
+        }, 200);
+      } catch (navError) {
+        console.error("Navigation error:", navError);
+        setLoading(false);
+      }
       
     } catch (error) {
       console.error('Error during free tier setup:', error);

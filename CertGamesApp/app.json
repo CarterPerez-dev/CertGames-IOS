@@ -63,28 +63,9 @@
               "pathPrefix": "/oauth-callback"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "certgames.com",
-              "pathPrefix": "/oauth-callback"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
-      ],
-      "package": "com.certgames.app"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -112,9 +93,7 @@
       }
     },
     "owner": "certgames",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.6",
     "privacy": "unlisted",
     "primaryColor": "#6543CC"
   }

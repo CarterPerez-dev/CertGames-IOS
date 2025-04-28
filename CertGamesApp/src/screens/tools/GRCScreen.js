@@ -476,7 +476,7 @@ const GRCScreen = () => {
             GRC <Text style={{ color: theme.colors.primary }}>WIZARD</Text>
           </Text>
           <View style={styles.headerSubtitleBox}>
-            <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+            <Text style={[styles.subtitle, { color: theme.colors.textSecondary}]}>
               MASTER THE ART OF GOVERNANCE, RISK, AND COMPLIANCE
             </Text>
           </View>
@@ -534,7 +534,7 @@ const GRCScreen = () => {
           }]}>
             <View style={styles.controls}>
               {/* Category selection */}
-              <Text style={[styles.label, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+              <Text style={[styles.label, { color: theme.colors.textSecondary}]}>
                 CATEGORY
               </Text>
               <TouchableOpacity
@@ -556,7 +556,7 @@ const GRCScreen = () => {
               </TouchableOpacity>
 
               {/* Difficulty row of chips */}
-              <Text style={[styles.label, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+              <Text style={[styles.label, { color: theme.colors.textSecondary}]}>
                 DIFFICULTY
               </Text>
               <View style={styles.chipRow}>
@@ -586,7 +586,6 @@ const GRCScreen = () => {
                           styles.chipText, 
                           { 
                             color: active ? theme.colors.buttonText : theme.colors.textSecondary,
-                            fontFamily: 'ShareTechMono'
                           }
                         ]}
                       >
@@ -668,7 +667,6 @@ const GRCScreen = () => {
               <Ionicons name="warning" size={20} color={theme.colors.error} />
               <Text style={[styles.errorText, { 
                 color: theme.colors.error,
-                fontFamily: 'ShareTechMono'
               }]}>
                 {errorMessage}
               </Text>
@@ -706,7 +704,6 @@ const GRCScreen = () => {
               </Text>
               <Text style={[styles.loadingSubtext, { 
                 color: theme.colors.textMuted,
-                fontFamily: 'ShareTechMono'
               }]}>
                 THIS WILL ONLY TAKE A MOMENT, PLEASE WAIT.
               </Text>
@@ -764,7 +761,6 @@ const GRCScreen = () => {
                     />
                     <Text style={[styles.questionCategory, { 
                       color: theme.colors.textSecondary,
-                      fontFamily: 'ShareTechMono'
                     }]}>
                       {category}
                     </Text>
@@ -785,7 +781,6 @@ const GRCScreen = () => {
                       styles.questionDifficulty, 
                       { 
                         color: getDifficultyColor(difficulty),
-                        fontFamily: 'ShareTechMono'
                       }
                     ]}>
                       {difficulty.toUpperCase()}
@@ -804,7 +799,6 @@ const GRCScreen = () => {
               <View style={styles.questionContent}>
                 <Text style={[styles.questionText, { 
                   color: theme.colors.text,
-                  fontFamily: 'ShareTechMono'
                 }]}>
                   {questionData.question}
                 </Text>
@@ -864,7 +858,6 @@ const GRCScreen = () => {
                           </View>
                           <Text style={[styles.optionText, { 
                             color: theme.colors.text,
-                            fontFamily: 'ShareTechMono'
                           }]}>
                             {option}
                           </Text>
@@ -922,7 +915,6 @@ const GRCScreen = () => {
                           <Ionicons name="checkmark" size={16} color={theme.colors.buttonText} />
                           <Text style={[styles.copyButtonText, { 
                             color: theme.colors.buttonText,
-                            fontFamily: 'ShareTechMono'
                           }]}>
                             COPIED
                           </Text>
@@ -932,7 +924,6 @@ const GRCScreen = () => {
                           <Ionicons name="copy" size={16} color={theme.colors.buttonText} />
                           <Text style={[styles.copyButtonText, { 
                             color: theme.colors.buttonText,
-                            fontFamily: 'ShareTechMono'
                           }]}>
                             COPY
                           </Text>
@@ -954,7 +945,6 @@ const GRCScreen = () => {
                       </Text>
                       <Text style={[styles.explanationText, { 
                         color: theme.colors.textSecondary,
-                        fontFamily: 'ShareTechMono'
                       }]}>
                         {getExplanationText(selectedOption)}
                       </Text>
@@ -976,7 +966,6 @@ const GRCScreen = () => {
                       <Text style={[styles.tipText, { 
                         color: theme.colors.textSecondary, 
                         borderLeftColor: theme.colors.warning,
-                        fontFamily: 'ShareTechMono'
                       }]}>
                         {getExamTip()}
                       </Text>

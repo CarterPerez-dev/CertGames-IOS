@@ -23,7 +23,9 @@ const ResourceRandomModal = ({
   resource, 
   onClose, 
   onGetAnother, 
-  isLoading 
+  isLoading,
+  subscriptionActive = false, // Added prop for subscription status
+  onPremiumPrompt = null // Added callback for premium prompt
 }) => {
   // Access theme
   const { theme } = useTheme();
@@ -61,6 +63,7 @@ const ResourceRandomModal = ({
     }
   }, [visible, resource]);
   
+  // Modified to handle premium restrictions
   const handleOpenResource = async () => {
     if (resource && resource.url) {
       try {
@@ -69,6 +72,20 @@ const ResourceRandomModal = ({
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
         
+        // Check if user is premium
+        if (!subscriptionActive) {
+          // Close modal first, then show premium prompt
+          handleClose();
+          // Wait for modal to close before showing prompt
+          setTimeout(() => {
+            if (onPremiumPrompt) {
+              onPremiumPrompt(resource);
+            }
+          }, 300);
+          return;
+        }
+        
+        // For premium users, open the URL
         const canOpen = await Linking.canOpenURL(resource.url);
         if (canOpen) {
           await Linking.openURL(resource.url);
@@ -185,6 +202,11 @@ const ResourceRandomModal = ({
               fontFamily: 'ShareTechMono'
             }]}>
               {resource.name}
+              
+              {/* Premium crown indicator for free users */}
+              {!subscriptionActive && (
+                <Text style={{ color: theme.colors.goldBadge }}> <Ionicons name="diamond" size={16} /></Text>
+              )}
             </Text>
             
             <View style={[styles.descriptionBox, { 
@@ -194,23 +216,42 @@ const ResourceRandomModal = ({
             }]}>
               <Text style={[styles.modalDescription, { 
                 color: theme.colors.textSecondary,
-                fontFamily: 'ShareTechMono'
               }]}>
                 Expand your cybersecurity knowledge with this curated resource from our database.
+                
+                {/* Premium message for free users */}
+                {!subscriptionActive && (
+                  '\n\nUpgrade to premium to access all resource links.'
+                )}
               </Text>
             </View>
             
+            {/* Modified button based on subscription status */}
             <TouchableOpacity 
-              style={[styles.openButton, { backgroundColor: theme.colors.primary }]} 
+              style={[
+                styles.openButton, 
+                { 
+                  backgroundColor: subscriptionActive ? theme.colors.primary : theme.colors.surface,
+                  borderWidth: subscriptionActive ? 0 : 1,
+                  borderColor: subscriptionActive ? 'transparent' : theme.colors.primary
+                }
+              ]} 
               onPress={handleOpenResource}
             >
-              <Text style={[styles.openButtonText, { 
-                color: theme.colors.buttonText,
-                fontFamily: 'Orbitron'
-              }]}>
-                OPEN RESOURCE
+              <Text style={[
+                styles.openButtonText, 
+                { 
+                  color: subscriptionActive ? theme.colors.buttonText : theme.colors.primary,
+                  fontFamily: 'Orbitron'
+                }
+              ]}>
+                {subscriptionActive ? 'OPEN RESOURCE' : 'UNLOCK RESOURCE'}
               </Text>
-              <Ionicons name="open-outline" size={18} color={theme.colors.buttonText} />
+              <Ionicons 
+                name={subscriptionActive ? "open-outline" : "lock-closed"} 
+                size={18} 
+                color={subscriptionActive ? theme.colors.buttonText : theme.colors.primary}
+              />
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -271,6 +312,7 @@ const ResourceRandomModal = ({
 };
 
 const styles = StyleSheet.create({
+  // Original styles unchanged
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',

@@ -876,7 +876,7 @@ const XploitCraftScreen = () => {
                   <Text style={{ color: theme.colors.primary }}>XPLOIT</Text>CRAFT
                 </Text>
                 <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
-                <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                <Text style={[styles.subtitle, { color: theme.colors.textSecondary}]}>
                   GENERATE PAYLOADS FOR LEARNING
                 </Text>
               </View>
@@ -922,7 +922,7 @@ const XploitCraftScreen = () => {
               <View style={styles.cardContent}>
                 <View style={styles.inputContainer}>
                   {/* Vulnerability Input with Suggestions */}
-                  <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                  <Text style={[styles.inputLabel, { color: theme.colors.textSecondary}]}>
                     VULNERABILITY OR EXPLOIT:
                   </Text>
                   <View style={styles.inputWithSuggestionsContainer}>
@@ -933,7 +933,6 @@ const XploitCraftScreen = () => {
                           backgroundColor: theme.colors.inputBackground,
                           color: theme.colors.inputText,
                           borderColor: theme.colors.inputBorder,
-                          fontFamily: 'ShareTechMono'
                         }
                       ]}
                       placeholder="E.g. SQL Injection"
@@ -967,7 +966,6 @@ const XploitCraftScreen = () => {
                             >
                               <Text style={[styles.suggestionText, { 
                                 color: theme.colors.text,
-                                fontFamily: 'ShareTechMono'
                               }]}>
                                 {suggestion}
                               </Text>
@@ -987,7 +985,6 @@ const XploitCraftScreen = () => {
                             >
                               <Text style={[styles.showMoreText, { 
                                 color: theme.colors.primary,
-                                fontFamily: 'ShareTechMono'
                               }]}>
                                 Show More ({vulnerabilitySuggestions.length})
                               </Text>
@@ -999,7 +996,7 @@ const XploitCraftScreen = () => {
                   </View>
                   
                   {/* Evasion Technique Input with Suggestions */}
-                  <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                  <Text style={[styles.inputLabel, { color: theme.colors.textSecondary}]}>
                     EVASION TECHNIQUE OR DELIVERY METHOD:
                   </Text>
                   <View style={styles.inputWithSuggestionsContainer}>
@@ -1010,7 +1007,6 @@ const XploitCraftScreen = () => {
                           backgroundColor: theme.colors.inputBackground,
                           color: theme.colors.inputText,
                           borderColor: theme.colors.inputBorder,
-                          fontFamily: 'ShareTechMono'
                         }
                       ]}
                       placeholder="E.g. Obfuscation"
@@ -1064,7 +1060,6 @@ const XploitCraftScreen = () => {
                             >
                               <Text style={[styles.showMoreText, { 
                                 color: theme.colors.primary,
-                                fontFamily: 'ShareTechMono'
                               }]}>
                                 Show More ({evasionTechniqueSuggestions.length})
                               </Text>
@@ -1176,7 +1171,6 @@ const XploitCraftScreen = () => {
                     />
                     <Text style={[styles.copyAllText, { 
                       color: theme.colors.buttonText,
-                      fontFamily: 'ShareTechMono'
                     }]}>
                       {copySuccess ? "COPIED" : "COPY ALL"}
                     </Text>
@@ -1207,7 +1201,6 @@ const XploitCraftScreen = () => {
                           styles.tabButtonText, 
                           { 
                             color: activeTab === 'code' ? theme.colors.buttonText : theme.colors.text,
-                            fontFamily: 'ShareTechMono'
                           }
                         ]}
                       >
@@ -1236,7 +1229,6 @@ const XploitCraftScreen = () => {
                           styles.tabButtonText, 
                           { 
                             color: activeTab === 'explanation' ? theme.colors.buttonText : theme.colors.text,
-                            fontFamily: 'ShareTechMono'
                           }
                         ]}
                       >
@@ -1276,7 +1268,6 @@ const XploitCraftScreen = () => {
                             <Ionicons name="copy-outline" size={16} color={theme.colors.buttonText} />
                             <Text style={[styles.copyText, { 
                               color: theme.colors.buttonText,
-                              fontFamily: 'ShareTechMono'
                             }]}>
                               COPY
                             </Text>
@@ -1313,7 +1304,6 @@ const XploitCraftScreen = () => {
                         </Text>
                         <Text style={[styles.explanationText, { 
                           color: theme.colors.text,
-                          fontFamily: 'ShareTechMono'
                         }]}>
                           {explanation.text.split('\n').map((paragraph, pIndex) => (
                             <Text key={pIndex}>{paragraph}{'\n\n'}</Text>
@@ -1335,7 +1325,6 @@ const XploitCraftScreen = () => {
                   ]}>
                     <Text style={[styles.explanationText, { 
                       color: theme.colors.text,
-                      fontFamily: 'ShareTechMono'
                     }]}>
                       {generatedPayload}
                     </Text>
@@ -1371,7 +1360,6 @@ const XploitCraftScreen = () => {
                 </Text>
                 <Text style={[styles.loadingSubtext, { 
                   color: theme.colors.textMuted,
-                  fontFamily: 'ShareTechMono'
                 }]}>
                   THIS MAY TAKE A MOMENT, PLEASE WAIT.
                 </Text>
@@ -1423,7 +1411,6 @@ const XploitCraftScreen = () => {
                     </Text>
                     <Text style={[styles.tipText, { 
                       color: theme.colors.textSecondary,
-                      fontFamily: 'ShareTechMono'
                     }]}>
                       SPECIFY THE VULNERABILITY TYPE TO TARGET (E.G., SQL INJECTION, XSS, BUFFER OVERFLOW, PATH TRAVERSAL)
                     </Text>
@@ -1442,7 +1429,6 @@ const XploitCraftScreen = () => {
                     </Text>
                     <Text style={[styles.tipText, { 
                       color: theme.colors.textSecondary,
-                      fontFamily: 'ShareTechMono'
                     }]}>
                       OPTIONALLY SPECIFY EVASION METHODS (OBFUSCATION, ENCODING, POLYGLOT PAYLOADS) TO BYPASS SECURITY CONTROLS
                     </Text>
@@ -1461,7 +1447,6 @@ const XploitCraftScreen = () => {
                     </Text>
                     <Text style={[styles.tipText, { 
                       color: theme.colors.textSecondary,
-                      fontFamily: 'ShareTechMono'
                     }]}>
                       ONLY USE GENERATED PAYLOADS FOR AUTHORIZED SECURITY TESTING AND EDUCATIONAL PURPOSES
                     </Text>

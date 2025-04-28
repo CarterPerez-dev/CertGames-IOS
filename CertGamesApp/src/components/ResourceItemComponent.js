@@ -5,10 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 
-const ResourceItemComponent = ({ resource, listMode = false }) => {
-  // Access theme
+const ResourceItemComponent = ({ resource, listMode = false, subscriptionActive = false, onPremiumPrompt }) => {
+  // Access theme and navigation
   const { theme } = useTheme();
+  const navigation = useNavigation();
   
   // Function to get the source icon based on URL or name
   const getSourceIcon = () => {
@@ -32,11 +34,23 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
     return { name: 'link-outline', color: theme.colors.primary };
   };
   
-  const openURL = async () => {
+  const handleResourcePress = async () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     
+    // If not a premium user, show premium prompt
+    if (!subscriptionActive) {
+      if (onPremiumPrompt) {
+        onPremiumPrompt(resource);
+      } else {
+        // Fallback to direct navigation
+        navigation.navigate('PremiumFeaturePrompt', { feature: 'resources' });
+      }
+      return;
+    }
+    
+    // For premium users, open the URL
     try {
       const canOpen = await Linking.canOpenURL(resource.url);
       if (canOpen) {
@@ -69,7 +83,7 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
             elevation: 2,
           }
         ]} 
-        onPress={openURL}
+        onPress={handleResourcePress}
         activeOpacity={0.7}
       >
         <View style={[styles.listIconContainer, { backgroundColor: sourceIcon.color + '20' }]}>
@@ -81,9 +95,18 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
           ellipsizeMode="tail"
         >
           {resource.name}
+          {!subscriptionActive && (
+            <View style={styles.premiumIndicator}>
+              <Ionicons name="diamond" size={12} color={theme.colors.goldBadge} />
+            </View>
+          )}
         </Text>
         <View style={[styles.listArrow, { backgroundColor: theme.colors.surfaceHighlight }]}>
-          <Ionicons name="chevron-forward" size={16} color={theme.colors.icon} />
+          {!subscriptionActive ? (
+            <Ionicons name="lock-closed" size={16} color={theme.colors.primary} />
+          ) : (
+            <Ionicons name="chevron-forward" size={16} color={theme.colors.icon} />
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -104,7 +127,7 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
           elevation: 3,
         }
       ]} 
-      onPress={openURL}
+      onPress={handleResourcePress}
       activeOpacity={0.7}
     >
       <LinearGradient
@@ -124,10 +147,19 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
               ellipsizeMode="tail"
             >
               {resource.name}
+              {!subscriptionActive && (
+                <View style={styles.premiumIndicator}>
+                  <Ionicons name="diamond" size={14} color={theme.colors.goldBadge} />
+                </View>
+              )}
             </Text>
           </View>
           <View style={[styles.arrowContainer, { backgroundColor: theme.colors.surfaceHighlight }]}>
-            <Ionicons name="open-outline" size={18} color={theme.colors.icon} />
+            {!subscriptionActive ? (
+              <Ionicons name="lock-closed" size={18} color={theme.colors.primary} />
+            ) : (
+              <Ionicons name="open-outline" size={18} color={theme.colors.icon} />
+            )}
           </View>
         </View>
       </LinearGradient>
@@ -136,7 +168,7 @@ const ResourceItemComponent = ({ resource, listMode = false }) => {
 };
 
 const styles = StyleSheet.create({
-  // Card mode styles
+  // All existing styles...
   card: {
     borderRadius: 12,
     marginBottom: 10,
@@ -205,6 +237,12 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  
+  // New styles for premium indicators
+  premiumIndicator: {
+    marginLeft: 5,
+    paddingHorizontal: 4,
   },
 });
 

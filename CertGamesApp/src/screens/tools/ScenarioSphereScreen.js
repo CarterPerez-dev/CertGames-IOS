@@ -318,7 +318,7 @@ const ScenarioSphereScreen = () => {
       ]} 
       onPress={() => selectSuggestion(item)}
     >
-      <Text style={[styles.modalSuggestionText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>{item}</Text>
+      <Text style={[styles.modalSuggestionText, { color: theme.colors.text}]}>{item}</Text>
     </TouchableOpacity>
   );
 
@@ -409,7 +409,7 @@ const ScenarioSphereScreen = () => {
                 <Text style={{ color: theme.colors.primary }}>SCENARIO</Text> SPHERE
               </Text>
               <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
-              <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+              <Text style={[styles.subtitle, { color: theme.colors.textSecondary}]}>
                 CYBERSECURITY SCENARIOS
               </Text>
             </View>
@@ -424,7 +424,7 @@ const ScenarioSphereScreen = () => {
             marginHorizontal: 15
           }]}>
             <Ionicons name="warning" size={20} color={theme.colors.error} />
-            <Text style={[styles.errorText, { color: theme.colors.error, fontFamily: 'ShareTechMono' }]}>
+            <Text style={[styles.errorText, { color: theme.colors.error}]}>
               {errorMessage}
             </Text>
             <TouchableOpacity style={styles.errorCloseButton} onPress={() => setErrorMessage('')}>
@@ -480,7 +480,7 @@ const ScenarioSphereScreen = () => {
                 <Text style={[styles.scoreValue, { color: theme.colors.text, fontFamily: 'Orbitron-Bold' }]}>
                   <Text style={[styles.scoreHighlight, { color: theme.colors.primary }]}>{scoreCounter}</Text>/3
                 </Text>
-                <Text style={[styles.scoreLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                <Text style={[styles.scoreLabel, { color: theme.colors.textSecondary}]}>
                   CORRECT
                 </Text>
               </View>
@@ -489,7 +489,7 @@ const ScenarioSphereScreen = () => {
             <View style={styles.paramsContent}>
               {/* Industry */}
               <View style={styles.paramGroup}>
-                <Text style={[styles.paramLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                <Text style={[styles.paramLabel, { color: theme.colors.textSecondary}]}>
                   <Ionicons name="business" size={16} color={theme.colors.primary} /> INDUSTRY
                 </Text>
                 <TouchableOpacity
@@ -503,7 +503,6 @@ const ScenarioSphereScreen = () => {
                   <Ionicons name="list" size={16} color={theme.colors.primary} />
                   <Text style={[styles.industryButtonText, { 
                     color: theme.colors.inputText,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     {industry}
                   </Text>
@@ -513,7 +512,7 @@ const ScenarioSphereScreen = () => {
 
               {/* Attack type */}
               <View style={styles.paramGroup}>
-                <Text style={[styles.paramLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                <Text style={[styles.paramLabel, { color: theme.colors.textSecondary}]}>
                   <Ionicons name="skull" size={16} color={theme.colors.primary} /> ATTACK TYPE
                 </Text>
                 <View style={[styles.inputWrapper, { 
@@ -524,7 +523,6 @@ const ScenarioSphereScreen = () => {
                   <TextInput
                     style={[styles.textInput, { 
                       color: theme.colors.inputText,
-                      fontFamily: 'ShareTechMono'
                     }]}
                     placeholder="Enter attack type"
                     placeholderTextColor={theme.colors.placeholder}
@@ -547,7 +545,6 @@ const ScenarioSphereScreen = () => {
                       >
                         <Text style={[styles.suggestionPreviewText, { 
                           color: theme.colors.text,
-                          fontFamily: 'ShareTechMono'
                         }]}>
                           {sug}
                         </Text>
@@ -560,7 +557,6 @@ const ScenarioSphereScreen = () => {
                       >
                         <Text style={[styles.showAllText, { 
                           color: theme.colors.primary,
-                          fontFamily: 'ShareTechMono'
                         }]}>
                           SHOW ALL ({suggestions.length})
                         </Text>
@@ -572,7 +568,7 @@ const ScenarioSphereScreen = () => {
 
               {/* Skill level chips */}
               <View style={styles.paramGroup}>
-                <Text style={[styles.paramLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                <Text style={[styles.paramLabel, { color: theme.colors.textSecondary}]}>
                   <Ionicons name="person" size={16} color={theme.colors.primary} /> ATTACKER SKILL LEVEL
                 </Text>
                 <View style={styles.chipRow}>
@@ -616,7 +612,7 @@ const ScenarioSphereScreen = () => {
               {/* Threat Intensity Slider */}
               <View style={styles.paramGroup}>
                 <View style={styles.sliderLabelContainer}>
-                  <Text style={[styles.paramLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                  <Text style={[styles.paramLabel, { color: theme.colors.textSecondary}]}>
                     <Ionicons name="thermometer" size={16} color={theme.colors.primary} /> THREAT INTENSITY
                   </Text>
                   <View style={[styles.intensityBadge, { backgroundColor: theme.colors.primary }]}>
@@ -643,19 +639,16 @@ const ScenarioSphereScreen = () => {
                 <View style={styles.sliderMarkers}>
                   <Text style={[styles.sliderMarker, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     LOW
                   </Text>
                   <Text style={[styles.sliderMarker, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     MEDIUM
                   </Text>
                   <Text style={[styles.sliderMarker, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     HIGH
                   </Text>
@@ -768,7 +761,6 @@ const ScenarioSphereScreen = () => {
                           </View>
                           <Text style={[styles.progressLabel, { 
                             color: theme.colors.buttonText,
-                            fontFamily: 'ShareTechMono'
                           }]}>
                             GENERATING...
                           </Text>
@@ -792,7 +784,7 @@ const ScenarioSphereScreen = () => {
                     contentContainerStyle={styles.outputContentContainer}
                   >
                     {scenarioText ? (
-                      <Text style={[styles.scenarioText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                      <Text style={[styles.scenarioText, { color: theme.colors.text}]}>
                         {scenarioText}
                         {isGenerating && <Text style={[styles.cursor, { color: theme.colors.primary }]}>|</Text>}
                       </Text>
@@ -801,7 +793,6 @@ const ScenarioSphereScreen = () => {
                         <ActivityIndicator color={theme.colors.primary} size="large" animating={isGenerating} />
                         <Text style={[styles.placeholderText, { 
                           color: theme.colors.textSecondary,
-                          fontFamily: 'ShareTechMono'
                         }]}>
                           SCENARIO WILL APPEAR HERE...
                         </Text>
@@ -896,7 +887,6 @@ const ScenarioSphereScreen = () => {
                             </Text>
                             <Text style={[styles.scoreMessage, { 
                               color: theme.colors.textSecondary,
-                              fontFamily: 'ShareTechMono'
                             }]}>
                               YOU SCORED {scoreCounter} OUT OF {interactiveQuestions.length} CORRECT
                             </Text>
@@ -941,7 +931,6 @@ const ScenarioSphereScreen = () => {
                                       styles.statusText, 
                                       { 
                                         color: isCorrect ? theme.colors.success : theme.colors.error,
-                                        fontFamily: 'ShareTechMono'
                                       }
                                     ]}
                                   >
@@ -953,7 +942,6 @@ const ScenarioSphereScreen = () => {
 
                             <Text style={[styles.questionText, { 
                               color: theme.colors.text,
-                              fontFamily: 'ShareTechMono'
                             }]}>
                               {question.question}
                             </Text>
@@ -1014,7 +1002,6 @@ const ScenarioSphereScreen = () => {
 
                                       <Text style={[styles.optionText, { 
                                         color: theme.colors.text,
-                                        fontFamily: 'ShareTechMono'
                                       }]}>
                                         {optionText}
                                       </Text>
@@ -1038,7 +1025,6 @@ const ScenarioSphereScreen = () => {
                                 <Ionicons name="bulb" size={20} color={theme.colors.warning} style={styles.feedbackIcon} />
                                 <Text style={[styles.feedbackExplanation, { 
                                   color: theme.colors.text,
-                                  fontFamily: 'ShareTechMono'
                                 }]}>
                                   {questionFeedback.explanation}
                                 </Text>
@@ -1100,7 +1086,6 @@ const ScenarioSphereScreen = () => {
                   </Text>
                   <Text style={[styles.tipText, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     CHOOSE THE INDUSTRY SECTOR THAT BEST MATCHES YOUR INTERESTS OR PROFESSIONAL DOMAIN
                   </Text>
@@ -1119,7 +1104,6 @@ const ScenarioSphereScreen = () => {
                   </Text>
                   <Text style={[styles.tipText, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     ENTER A SPECIFIC ATTACK VECTOR LIKE RANSOMWARE, PHISHING, SUPPLY CHAIN ATTACK, OR INSIDER THREAT
                   </Text>
@@ -1138,7 +1122,6 @@ const ScenarioSphereScreen = () => {
                   </Text>
                   <Text style={[styles.tipText, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     ADJUST ATTACKER SKILL LEVEL FROM BASIC (SCRIPT KIDDIE) TO HIGHLY ADVANCED (APT)
                   </Text>
@@ -1157,7 +1140,6 @@ const ScenarioSphereScreen = () => {
                   </Text>
                   <Text style={[styles.tipText, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     CONTROL THE SEVERITY AND IMPACT LEVEL OF THE CYBER THREAT WITH THE INTENSITY SLIDER
                   </Text>
@@ -1229,7 +1211,6 @@ const ScenarioSphereScreen = () => {
                     >
                       <Text style={[styles.industryItemText, { 
                         color: theme.colors.text,
-                        fontFamily: 'ShareTechMono'
                       }]}>
                         {item.label}
                       </Text>

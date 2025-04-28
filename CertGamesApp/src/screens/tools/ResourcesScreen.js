@@ -25,11 +25,15 @@ import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import { useSelector } from 'react-redux';
+import usePremiumCheck from '../../hooks/usePremiumCheck';
+import ResourcePremiumBanner from '../../components/ResourcePremiumBanner';
 
 const ResourcesScreen = () => {
   // Navigation
   const navigation = useNavigation();
-  
+  const { subscriptionActive } = useSelector(state => state.user);
+  const { hasAccess, navigateToPremiumFeaturePrompt } = usePremiumCheck('resources_view');  
   // Access theme
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
@@ -103,6 +107,11 @@ const ResourcesScreen = () => {
     });
   }, []);
   
+
+  const handlePremiumPrompt = (resource) => {
+    navigateToPremiumFeaturePrompt();
+  };
+
   // Handle category selection
   const handleCategorySelect = useCallback((categoryId) => {
     if (Platform.OS === 'ios') {
@@ -191,6 +200,11 @@ const ResourcesScreen = () => {
       >
         <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
       </TouchableOpacity>
+      
+      {/* Premium Banner - only show for non-premium users */}
+      {!subscriptionActive && (
+        <ResourcePremiumBanner theme={theme} />
+      )}
       
       {/* Main Header - Smaller */}
       <View style={styles.header}>
@@ -337,6 +351,8 @@ const ResourcesScreen = () => {
         onClose={() => setShowRandomModal(false)}
         onGetAnother={handleGetRandomResource}
         isLoading={loadingRandom}
+        subscriptionActive={subscriptionActive} 
+        onPremiumPrompt={(resource) => navigateToPremiumFeaturePrompt()} 
       />
     </SafeAreaView>
   );
@@ -348,13 +364,12 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    paddingTop: Platform.OS === 'ios' ? 15 : StatusBar.currentHeight + 5,
+    paddingTop: Platform.OS === 'ios' ? 5 : StatusBar.currentHeight + 5,
     paddingHorizontal: 20,
     paddingBottom: 5,
-    marginTop: 5,
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     letterSpacing: 1,
     marginBottom: 3,
@@ -395,11 +410,11 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    margin: 15,
+    margin: 5,
     marginTop: 5,
     borderRadius: 10,
     paddingHorizontal: 15,
-    height: 50,
+    height: 30,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -422,17 +437,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 15,
-    marginBottom: 10,
+    marginBottom: 5,
     marginTop: 0,
   },
   resultsCount: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
     borderRadius: 20,
     borderWidth: 1,
   },
   resultsText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     letterSpacing: 0.5,
   },
@@ -441,8 +456,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionButton: {
-    width: 40,
-    height: 40,
+    width: 25,
+    height: 25,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',

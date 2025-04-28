@@ -158,10 +158,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 15,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   header: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     letterSpacing: 1,
     MarginRight: 5,
@@ -172,8 +172,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   toggleGradient: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
   },
   toggleText: {
     fontSize: 11,
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   categoryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 2,
     paddingHorizontal: 16,
     borderRadius: 20,
     marginHorizontal: 5,

@@ -59,7 +59,6 @@ const usePremiumCheck = (featureType = 'premium') => {
           access = practiceQuestionsRemaining > 0;
           break;
         case 'analogy':
-        case 'resources_view':
         case 'daily_view':
         case 'free_tool':
           // These features are free
@@ -89,6 +88,9 @@ const usePremiumCheck = (featureType = 'premium') => {
     let title, message;
     
     switch (featureType) {
+      case 'resources':
+        access = subscriptionActive;
+        break;
       case 'questions':
       case 'free_question_check':
         title = 'Question Limit Reached';

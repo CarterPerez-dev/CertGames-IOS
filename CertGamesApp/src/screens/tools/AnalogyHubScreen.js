@@ -247,7 +247,7 @@ const AnalogyHubScreen = () => {
       ]}
       onPress={() => handleCategorySelect(item.value)}
     >
-      <Text style={[styles.categoryItemText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+      <Text style={[styles.categoryItemText, { color: theme.colors.text}]}>
         {item.label}
       </Text>
       {item.value === analogyCategory && (
@@ -296,7 +296,7 @@ const AnalogyHubScreen = () => {
                 <Text style={{ color: theme.colors.primary }}>ANALOGY</Text> HUB
               </Text>
               <View style={[styles.headerDivider, { backgroundColor: theme.colors.primary }]} />
-              <Text style={[styles.subtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+              <Text style={[styles.subtitle, { color: theme.colors.textSecondary}]}>
                 CREATE POWERFUL ANALOGIES TO EXPLAIN COMPLEX CONCEPTS
               </Text>
             </View>
@@ -342,7 +342,7 @@ const AnalogyHubScreen = () => {
             <View style={styles.cardContent}>
               {/* Analogy Type Selection */}
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary}]}>
                   1. SELECT ANALOGY TYPE
                 </Text>
                 <View style={styles.chipRow}>
@@ -372,7 +372,6 @@ const AnalogyHubScreen = () => {
                             styles.chipText, 
                             { 
                               color: isActive ? theme.colors.buttonText : theme.colors.textSecondary,
-                              fontFamily: 'ShareTechMono'
                             }
                           ]}
                         >
@@ -386,13 +385,13 @@ const AnalogyHubScreen = () => {
 
               {/* Input fields for concepts */}
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary}]}>
                   2. ENTER CONCEPTS
                 </Text>
                 <View style={styles.inputFields}>
                   {inputValues.map((value, index) => (
                     <View key={index} style={styles.inputWrapper}>
-                      <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                      <Text style={[styles.inputLabel, { color: theme.colors.textSecondary}]}>
                         CONCEPT {index + 1}
                       </Text>
                       <TextInput
@@ -421,7 +420,7 @@ const AnalogyHubScreen = () => {
 
               {/* Category Selection */}
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary}]}>
                   3. CHOOSE A CATEGORY
                 </Text>
                 <TouchableOpacity
@@ -436,7 +435,7 @@ const AnalogyHubScreen = () => {
                   disabled={isStreaming}
                 >
                   <Ionicons name="albums-outline" size={18} color={theme.colors.primary} />
-                  <Text style={[styles.selectCategoryText, { color: theme.colors.inputText, fontFamily: 'ShareTechMono' }]}>
+                  <Text style={[styles.selectCategoryText, { color: theme.colors.inputText}]}>
                     {getCategoryLabel(analogyCategory)}
                   </Text>
                   <Ionicons name="chevron-down" size={18} color={theme.colors.inputText} />
@@ -537,7 +536,7 @@ const AnalogyHubScreen = () => {
                       size={16} 
                       color={theme.colors.buttonText} 
                     />
-                    <Text style={[styles.copyText, { color: theme.colors.buttonText, fontFamily: 'ShareTechMono' }]}>
+                    <Text style={[styles.copyText, { color: theme.colors.buttonText}]}>
                       {copySuccess ? "COPIED" : "COPY"}
                     </Text>
                   </TouchableOpacity>
@@ -553,7 +552,7 @@ const AnalogyHubScreen = () => {
                       borderColor: theme.colors.border
                     }
                   ]}>
-                    <Text style={[styles.analogyText, { color: theme.colors.text, fontFamily: 'ShareTechMono' }]}>
+                    <Text style={[styles.analogyText, { color: theme.colors.text}]}>
                       {generatedAnalogy}
                     </Text>
                   </View>
@@ -563,7 +562,7 @@ const AnalogyHubScreen = () => {
                     <Text style={[styles.loadingText, { color: theme.colors.textSecondary, fontFamily: 'Orbitron' }]}>
                       GENERATING ANALOGY...
                     </Text>
-                    <Text style={[styles.loadingSubtext, { color: theme.colors.textMuted, fontFamily: 'ShareTechMono' }]}>
+                    <Text style={[styles.loadingSubtext, { color: theme.colors.textMuted}]}>
                       THIS MAY TAKE A MOMENT TO CRAFT THE PERFECT COMPARISON.
                     </Text>
                   </View>
@@ -618,7 +617,6 @@ const AnalogyHubScreen = () => {
                   </Text>
                   <Text style={[styles.tipText, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     ENTER A COMPLEX CONCEPT YOU WANT EXPLAINED AS AN ANALOGY
                   </Text>
@@ -631,13 +629,11 @@ const AnalogyHubScreen = () => {
                 }]}>
                   <Text style={[styles.tipItemTitle, { 
                     color: theme.colors.text,
-                    fontFamily: 'Orbitron'
                   }]}>
                     COMPARISON TYPE
                   </Text>
                   <Text style={[styles.tipText, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     ENTER TWO CONCEPTS TO CREATE AN ANALOGY COMPARING THEIR SIMILARITIES AND DIFFERENCES
                   </Text>
@@ -650,13 +646,11 @@ const AnalogyHubScreen = () => {
                 }]}>
                   <Text style={[styles.tipItemTitle, { 
                     color: theme.colors.text,
-                    fontFamily: 'Orbitron'
                   }]}>
                     TRIPLE COMPARISON
                   </Text>
                   <Text style={[styles.tipText, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     ENTER THREE CONCEPTS TO EXPLORE COMPLEX RELATIONSHIPS BETWEEN THEM
                   </Text>
@@ -675,7 +669,6 @@ const AnalogyHubScreen = () => {
                   </Text>
                   <Text style={[styles.tipText, { 
                     color: theme.colors.textSecondary,
-                    fontFamily: 'ShareTechMono'
                   }]}>
                     CHOOSE A CATEGORY THAT RELATES TO YOUR INTERESTS FOR MORE EFFECTIVE MEMORIZATION
                   </Text>

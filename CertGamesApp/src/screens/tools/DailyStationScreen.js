@@ -12,7 +12,7 @@ import {
   Modal,
   Animated
 } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
@@ -24,6 +24,7 @@ import FormattedQuestion from '../../components/FormattedQuestion';
 import { useTheme } from '../../context/ThemeContext';
 import { createGlobalStyles } from '../../styles/globalStyles';
 import useUserData from '../../hooks/useUserData';
+import usePremiumCheck from '../../hooks/usePremiumCheck';
 
 // Helper to format seconds as HH:MM:SS
 function formatCountdown(seconds) {
@@ -37,9 +38,10 @@ const DailyStationScreen = () => {
   // Theme integration
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
-
-  const dispatch = useDispatch();
   
+    const { subscriptionActive } = useSelector(state => state.user);
+  const dispatch = useDispatch();
+  const { hasAccess, navigateToPremiumFeaturePrompt } = usePremiumCheck('daily');
   // Use our custom hook for user data - this will ensure it's always up-to-date
   const { 
     userId, 
@@ -341,6 +343,12 @@ const DailyStationScreen = () => {
       return;
     }
     
+    // Check premium access before attempting submission
+    if (!hasAccess) {
+      navigateToPremiumFeaturePrompt();
+      return;
+    }
+    
     setQuestionError(null);
     
     try {
@@ -379,7 +387,19 @@ const DailyStationScreen = () => {
         }
       }
     } catch (err) {
-      setQuestionError('Error: ' + err.message);
+      // Check if error is due to subscription requirement
+      const errorResponse = err.response?.data;
+      if (
+        errorResponse?.status === 'subscription_required' || 
+        errorResponse?.tier === 'premium_required' ||
+        (typeof errorResponse?.error === 'string' && 
+         errorResponse.error.includes('subscription required'))
+      ) {
+        // Navigate to premium prompt instead of showing error
+        navigateToPremiumFeaturePrompt();
+      } else {
+        setQuestionError('Error: ' + (err.message || 'Failed to submit answer'));
+      }
     }
   };
 
@@ -439,7 +459,7 @@ const DailyStationScreen = () => {
             </View>
           )}
         </View>
-
+  
         {/* Main Content */}
         <View style={[globalStyles.container, styles.content]}>
           {!userId ? (
@@ -513,7 +533,7 @@ const DailyStationScreen = () => {
                   </View>
                 </View>
               </View>
-
+  
               {/* Daily Question Card */}
               <View style={[globalStyles.card, styles.card]}>
                 <LinearGradient
@@ -550,6 +570,52 @@ const DailyStationScreen = () => {
                       <View style={[styles.questionPrompt, { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border }]}>
                         <FormattedQuestion questionText={questionData.prompt} />
                       </View>
+                      
+                      {/* Premium Banner for non-premium users */}
+                      {!questionData.alreadyAnswered && !subscriptionActive && (
+                        <View style={[styles.premiumBanner, { 
+                          borderColor: theme.colors.primary + '50',
+                          shadowColor: theme.colors.primary,
+                          marginTop: 10,
+                          marginBottom: 10
+                        }]}>
+                          <LinearGradient
+                            colors={[theme.colors.primary + '30', theme.colors.primary + '10']}
+                            start={{x: 0, y: 0}}
+                            end={{x: 1, y: 0}}
+                            style={styles.premiumGradient}
+                          >
+                            <View style={styles.premiumContent}>
+                              <View style={styles.premiumIconContainer}>
+                                <Ionicons name="diamond" size={20} color={theme.colors.primary} />
+                              </View>
+                              <View style={styles.premiumTextContainer}>
+                                <Text style={[styles.premiumLabel, { 
+                                  color: theme.colors.primary,
+                                  fontFamily: 'Orbitron-Bold'
+                                }]}>
+                                  PREMIUM FEATURE
+                                </Text>
+                                <Text style={[styles.premiumSubtext, { 
+                                  color: theme.colors.textSecondary,
+                                }]}>
+                                  Answering requires premium
+                                </Text>
+                              </View>
+                              <TouchableOpacity
+                                style={[styles.upgradeButtonSmall, { backgroundColor: theme.colors.primary }]}
+                                onPress={() => navigateToPremiumFeaturePrompt()}
+                              >
+                                <Text style={[styles.upgradeButtonText, { 
+                                  color: theme.colors.buttonText,
+                                }]}>
+                                  UPGRADE
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          </LinearGradient>
+                        </View>
+                      )}
                       
                       {questionData.alreadyAnswered ? (
                         <View style={styles.questionAnswered}>
@@ -606,16 +672,18 @@ const DailyStationScreen = () => {
                                 styles.optionItem,
                                 { backgroundColor: theme.colors.surfaceHighlight, borderColor: theme.colors.border },
                                 selectedAnswer === index && { 
-                                  backgroundColor: `${theme.colors.primary}30`, 
+                                  backgroundColor: `${theme.colors.primary}20`, 
                                   borderColor: theme.colors.primary 
                                 }
                               ]}
                               onPress={() => setSelectedAnswer(index)}
+                              disabled={!subscriptionActive || selectedOption !== null}
                             >
                               <Text style={[
                                 globalStyles.text,
                                 styles.optionText,
-                                selectedAnswer === index && { fontWeight: '600' }
+                                selectedAnswer === index && { fontWeight: '600' },
+                                !subscriptionActive && { opacity: 0.7 }
                               ]}>
                                 {option}
                               </Text>
@@ -625,18 +693,26 @@ const DailyStationScreen = () => {
                             </TouchableOpacity>
                           ))}
                           
+                          {/* Updated Submit Button */}
                           <TouchableOpacity 
                             style={[
                               globalStyles.buttonPrimary,
                               styles.submitButton,
-                              selectedAnswer === null && { 
+                              (selectedAnswer === null || !subscriptionActive) && { 
                                 backgroundColor: `${theme.colors.primary}80`,
                               }
                             ]}
-                            onPress={handleSubmitAnswer}
+                            onPress={subscriptionActive ? handleSubmitAnswer : () => navigateToPremiumFeaturePrompt()}
                             disabled={selectedAnswer === null}
                           >
-                            <Text style={globalStyles.buttonText}>Submit Answer</Text>
+                            <View style={styles.buttonContent}>
+                              {!subscriptionActive && (
+                                <Ionicons name="lock-closed" size={18} color={theme.colors.buttonText} />
+                              )}
+                              <Text style={[globalStyles.buttonText, styles.buttonText]}>
+                                {subscriptionActive ? "Submit Answer" : "Premium Required"}
+                              </Text>
+                            </View>
                           </TouchableOpacity>
                           
                           <View style={styles.nextQuestion}>
@@ -675,6 +751,43 @@ const DailyStationScreen = () => {
           </View>
         </Animated.View>
       )}
+  
+      {/* Correct/Wrong Answer Animations */}
+      {showCorrectAnimation && (
+        <Animated.View style={[styles.overlay, {opacity: fadeAnim, backgroundColor: theme.colors.overlay}]}>
+          <View style={[styles.bonusAnimation, { 
+            backgroundColor: theme.colors.surface, 
+            borderColor: theme.colors.success,
+            shadowColor: theme.colors.success
+          }]}>
+            <Ionicons name="checkmark-circle" size={60} color={theme.colors.success} style={styles.bonusIcon} />
+            <View style={styles.bonusAnimationText}>
+              <Text style={[globalStyles.title, styles.bonusAnimationTitle]}>Correct Answer!</Text>
+              <Text style={[globalStyles.textSecondary, styles.bonusAnimationSubtitle]}>
+                {submitResult ? `+${submitResult.awardedCoins} coins added to your account` : 'Good job!'}
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+      )}
+      
+      {showWrongAnimation && (
+        <Animated.View style={[styles.overlay, {opacity: fadeAnim, backgroundColor: theme.colors.overlay}]}>
+          <View style={[styles.bonusAnimation, { 
+            backgroundColor: theme.colors.surface, 
+            borderColor: theme.colors.error,
+            shadowColor: theme.colors.error
+          }]}>
+            <Ionicons name="close-circle" size={60} color={theme.colors.error} style={styles.bonusIcon} />
+            <View style={styles.bonusAnimationText}>
+              <Text style={[globalStyles.title, styles.bonusAnimationTitle]}>Not Quite Right</Text>
+              <Text style={[globalStyles.textSecondary, styles.bonusAnimationSubtitle]}>
+                {submitResult ? `But you still got +${submitResult.awardedCoins} coins!` : 'Better luck next time!'}
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 };
@@ -683,6 +796,62 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+   premiumBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginVertical: 10,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,    
+  },
+  premiumGradient: {
+    width: '100%',
+  },
+  premiumContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+  },
+  premiumIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  premiumTextContainer: {
+    flex: 1,
+  },
+  premiumLabel: {
+    fontSize: 14,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  premiumSubtext: {
+    fontSize: 12,
+  },
+  upgradeButtonSmall: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  upgradeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  }, 
   header: {
     padding: 20,
     borderBottomWidth: 1,

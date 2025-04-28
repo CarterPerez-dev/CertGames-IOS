@@ -367,9 +367,12 @@ const UpgradeSubscriptionScreen = () => {
       >
         <Ionicons name="arrow-back" size={24} color="#AAAAAA" />
         <Text style={styles.backButtonText}>Back</Text>
+        <View style={{flex: 1}}/>
+        <View style={styles.swipeIndicator} /> 
       </TouchableOpacity>
-      
-      <ScrollView 
+
+    
+      <ScrollView     
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
@@ -445,7 +448,7 @@ const UpgradeSubscriptionScreen = () => {
                     <Ionicons name="flash" size={18} color="#FFFFFF" />
                   </LinearGradient>
                 </View>
-                <Text style={styles.headerTitle}>Upgrade to Premium</Text>
+                <Text style={styles.headerTitle}>Unlimited</Text>
                 <Text style={styles.subtitle}>Unlimited Access to All Features</Text>
               </View>
               
@@ -490,7 +493,7 @@ const UpgradeSubscriptionScreen = () => {
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                      <Text style={styles.statValue}>5+</Text>
+                      <Text style={styles.statValue}>10+</Text>
                       <Text style={styles.statLabel}>Premium Tools</Text>
                     </View>
                     <View style={styles.statDivider} />
@@ -499,15 +502,8 @@ const UpgradeSubscriptionScreen = () => {
                       <Text style={styles.statLabel}>Certification Paths</Text>
                     </View>
                   </View>
-                  
-                  {/* Current status box */}
-                  <View style={styles.currentStatusBox}>
-                    <Ionicons name="information-circle" size={20} color="#6543CC" />
-                    <Text style={styles.currentStatusText}>
-                      You have <Text style={styles.highlightText}>{practiceQuestionsRemaining}</Text> free questions remaining
-                    </Text>
-                  </View>
-                  
+         
+         
                   {/* Subscribe Button */}
                   <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
                     <TouchableOpacity 
@@ -537,7 +533,16 @@ const UpgradeSubscriptionScreen = () => {
                     </TouchableOpacity>
                   </Animated.View>
                 </View>
-              )}
+              )}         
+                  
+                  {/* Current status box */}
+                  <View style={styles.currentStatusBox}>
+                    <Ionicons name="information-circle" size={20} color="#6543CC" />
+                    <Text style={styles.currentStatusText}>
+                      You have <Text style={styles.highlightText}>{practiceQuestionsRemaining}</Text> free questions remaining
+                    </Text>
+                  </View>
+                  
               
               <View style={styles.benefitsContainer}>
                 <View style={styles.benefitsList}>
@@ -640,16 +645,38 @@ const styles = StyleSheet.create({
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
-    marginLeft: 15,
-    marginBottom: 10,
+    padding: 15,
+    paddingTop: 15,
+    paddingBottom: 10,
     zIndex: 10,
+    backgroundColor: 'rgba(23, 26, 35, 0.95)', // Match card background
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    width: '100%',
+    marginBottom: -1, // Ensure seamless connection with card
   },
   backButtonText: {
     color: '#AAAAAA',
-    marginLeft: 8,
-    fontSize: 16,
-    fontFamily: 'ShareTechMono',
+    marginLeft: 9,
+    fontSize: 17,
+  },
+  contentContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 0, // Remove top padding as it's now part of the header
+    paddingBottom: 40,
+  },
+  swipeIndicator: {
+    width: 40,
+    height: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 2.5,
+    alignSelf: 'center',
+    marginTop: 5,
+    marginBottom: 8,
   },
   contentContainer: {
     flexGrow: 1,
@@ -715,7 +742,7 @@ const styles = StyleSheet.create({
     borderColor: '#1A1A2A',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 8,
@@ -728,7 +755,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#AAAAAA',
     textAlign: 'center',
-    fontFamily: 'ShareTechMono',
   },
   errorContainer: {
     flexDirection: 'row',
@@ -773,7 +799,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 3,
   },
   priceType: {
     color: '#FFFFFF',
@@ -802,40 +828,35 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: 'bold',
-    marginTop: 8,
+    marginTop: 12,
     fontFamily: 'Orbitron-Bold',
   },
   price: {
     color: '#FFFFFF',
-    fontSize: 48,
+    fontSize: 38,
     fontWeight: 'bold',
     lineHeight: 55,
-    fontFamily: 'Orbitron-Bold',
   },
   priceDetails: {
-    marginTop: 10,
+    marginTop: 15,
   },
   priceCents: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    fontFamily: 'Orbitron-Bold',
   },
   pricePeriod: {
     color: '#AAAAAA',
-    fontSize: 14,
-    fontFamily: 'ShareTechMono',
+    fontSize: 13,
   },
   priceBilled: {
     color: '#AAAAAA',
-    fontSize: 14,
-    fontFamily: 'ShareTechMono',
+    fontSize: 12,
   },
   priceCancelAnytime: {
     color: '#2ebb77',
-    fontSize: 14,
+    fontSize: 12,
     marginTop: 5,
-    fontFamily: 'ShareTechMono',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -851,36 +872,34 @@ const styles = StyleSheet.create({
   },
   statValue: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 5,
-    fontFamily: 'Orbitron-Bold',
   },
   statLabel: {
     color: '#AAAAAA',
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
-    fontFamily: 'ShareTechMono',
   },
   statDivider: {
     width: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginHorizontal: 10,
+    marginHorizontal: 5,
   },
   currentStatusBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(101, 67, 204, 0.1)',
-    padding: 12,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 13,
     marginBottom: 20,
+    marginHorizontal: 10,
   },
   currentStatusText: {
     color: '#FFFFFF',
     marginLeft: 10,
-    fontSize: 14,
+    fontSize: 12,
     flex: 1,
-    fontFamily: 'ShareTechMono',
   },
   highlightText: {
     color: '#FF4C8B',
@@ -942,7 +961,7 @@ const styles = StyleSheet.create({
   },
   benefitTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     marginBottom: 4,
     fontFamily: 'Orbitron',
@@ -951,7 +970,6 @@ const styles = StyleSheet.create({
     color: '#AAAAAA',
     fontSize: 14,
     lineHeight: 20,
-    fontFamily: 'ShareTechMono',
   },
   guaranteeContainer: {
     flexDirection: 'row',
@@ -965,9 +983,8 @@ const styles = StyleSheet.create({
   guaranteeText: {
     color: '#2ebb77',
     marginLeft: 10,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    fontFamily: 'ShareTechMono',
   },
   testimonialsContainer: {
     padding: 20,
@@ -987,25 +1004,22 @@ const styles = StyleSheet.create({
   },
   testimonialBadgeText: {
     color: '#FFD700',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     marginLeft: 5,
-    fontFamily: 'ShareTechMono',
   },
   testimonialText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 17,
     fontStyle: 'italic',
     textAlign: 'center',
     marginBottom: 10,
     lineHeight: 24,
-    fontFamily: 'ShareTechMono',
   },
   testimonialAuthor: {
     color: '#AAAAAA',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
-    fontFamily: 'ShareTechMono',
   },
   // Success card styles
   successCard: {
@@ -1015,6 +1029,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
+    width: '100%', 
+    minHeight: 400, 
   },
   successIconContainer: {
     marginBottom: 20,
@@ -1032,19 +1048,18 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   successTitle: {
-    fontSize: 26,
+    fontSize: 27,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 15,
-    fontFamily: 'Orbitron-Bold',
   },
   successText: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#AAAAAA',
     textAlign: 'center',
     marginBottom: 30,
     lineHeight: 24,
-    fontFamily: 'ShareTechMono',
+    paddingHorizontal: 10, 
   },
   successButton: {
     height: 56,
@@ -1059,9 +1074,8 @@ const styles = StyleSheet.create({
   },
   successButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: 'bold',
-    fontFamily: 'Orbitron',
   },
 });
 

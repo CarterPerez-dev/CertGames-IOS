@@ -41,7 +41,7 @@ const QuestionLimitBanner = () => {
       
       <TouchableOpacity
         style={styles.upgradeButton}
-        onPress={() => navigation.navigate('SubscriptionIOS')}
+        onPress={() => navigation.navigate('PremiumFeaturePrompt', { feature: 'questions' })}
       >
         <Text style={styles.upgradeText}>Upgrade</Text>
         <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />

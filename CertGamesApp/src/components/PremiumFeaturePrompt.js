@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   title: {
-    fontSize: 24,
+    fontSize: 23,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 8,
@@ -174,11 +174,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Orbitron-Bold',
   },
   message: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#AAAAAA',
     textAlign: 'center',
-    marginBottom: 24,
-    fontFamily: 'ShareTechMono',
+    marginBottom: 18,
   },
   featuresContainer: {
     width: '100%',
@@ -188,8 +187,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 16,
-    fontFamily: 'Orbitron',
+    marginBottom: 15,
   },
   featureItem: {
     flexDirection: 'row',
@@ -202,12 +200,11 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: 16,
     color: '#FFFFFF',
-    fontFamily: 'ShareTechMono',
   },
   trialInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 19,
     backgroundColor: 'rgba(101, 67, 204, 0.1)',
     borderRadius: 8,
     padding: 12,
@@ -220,11 +217,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#AAAAAA',
     flex: 1,
-    fontFamily: 'ShareTechMono',
+    fontStyle: 'italic',
   },
   upgradeButton: {
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 9,
     borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#6543CC',
@@ -245,7 +242,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
-    fontFamily: 'Orbitron',
   },
   backButton: {
     padding: 12,
@@ -254,7 +250,6 @@ const styles = StyleSheet.create({
     color: '#6543CC',
     fontSize: 16,
     fontWeight: '500',
-    fontFamily: 'ShareTechMono',
   },
 });
 

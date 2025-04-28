@@ -4,9 +4,8 @@ import { enableScreens } from 'react-native-screens';
 
 enableScreens();
 
-
 import React, { useEffect, useState } from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, TextInput, Platform } from 'react-native';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
@@ -16,8 +15,17 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { NetworkProvider } from './src/context/NetworkContext';
 
+const originalRender = TextInput.render;
 
-
+// Override the render method to inject the keyboardAppearance prop
+TextInput.render = function render(props, ref) {
+  // Only apply to iOS
+  const newProps = Platform.OS === 'ios' 
+    ? { ...props, keyboardAppearance: 'dark' } 
+    : props;
+  
+  return originalRender.call(this, newProps, ref);
+};
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();

@@ -228,9 +228,9 @@ const HomeScreen = ({ navigation }) => {
   // Tools config
   const toolsOptions = [
     { name: "Analogy Hub", icon: 'game-controller-outline', screen: 'AnalogyHub' },
-    { name: "Resources", icon: 'library-outline', screen: 'Resources' },
-    { name: "Scenarios", icon: 'document-text-outline', screen: 'ScenarioSphere' },
-    { name: "GRC", icon: 'eye-outline', screen: 'GRC' },
+    { name: "Study Resources", icon: 'library-outline', screen: 'Resources' },
+    { name: "Scenario Sphere", icon: 'document-text-outline', screen: 'ScenarioSphere' },
+    { name: "GRC Wizard", icon: 'eye-outline', screen: 'GRC' },
     { name: "XploitCraft", icon: 'finger-print-outline', screen: 'XploitCraft' },
     { name: "Support", icon: 'help-circle-outline', screen: 'Support' }
   ];
@@ -505,7 +505,7 @@ const HomeScreen = ({ navigation }) => {
               </View>
               <View style={styles.actionTextContainer}>
                 <Text style={[styles.actionTitle, { color: theme.colors.text, fontFamily: 'Orbitron' }]}>
-                  DAILY BONUS
+                  DAILY PBQ
                 </Text>
                 <Text style={[styles.actionSubtitle, { color: theme.colors.textSecondary, fontFamily: 'ShareTechMono' }]}>
                   CHECK REWARDS

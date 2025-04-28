@@ -11,7 +11,7 @@ const AWSCloudScreen = ({ navigation, route }) => {
   const params = {
     ...route.params,
     category: route.params?.category || 'awscloud',
-    title: route.params?.title || 'AWS Cloud Practitioner (CLE-002) 🌥️',
+    title: route.params?.title || 'AWS Cloud Practitioner (CLF-C02) 🌥️',
   };
 
   return (

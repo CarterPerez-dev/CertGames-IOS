@@ -152,7 +152,7 @@ const SubscriptionScreenIOS = () => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.01,
+          toValue: 1.03,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true
@@ -226,8 +226,7 @@ const SubscriptionScreenIOS = () => {
     }
   };
   
-  // FIXED: handleSubscribe function that works for all users
-  // IMPROVED: handleSubscribe function with robust navigation handling
+
   const handleSubscribe = async () => {
     // Prevent concurrent purchase attempts
     if (purchaseInProgress || loading) {
@@ -363,10 +362,7 @@ const SubscriptionScreenIOS = () => {
         // Continue despite this error
       }
       
-      // IMPROVED NAVIGATION: Implement the robust multi-approach navigation
-      // Always attempt to navigate regardless of subscription state verification
-      
-      // PRIMARY NAVIGATION: Use your existing method first
+
       console.log("Navigation - APPROACH 1: Primary navigation with reset to Home");
       try {
         navigation.reset({
@@ -401,7 +397,7 @@ const SubscriptionScreenIOS = () => {
       } catch (navError) {
         console.error("Primary navigation error:", navError);
         
-        // If first approach fails, try the second one immediately
+
         try {
           console.log("Navigation - APPROACH 2: Immediate fallback after primary failure");
           navigation.dispatch(
@@ -423,14 +419,14 @@ const SubscriptionScreenIOS = () => {
         errorMessage = error.message;
       }
       
-      // Handle user cancellation differently
+
       if (error.message && error.message.includes('cancel')) {
         setError('Subscription purchase was cancelled.');
       } else {
         setError(errorMessage);
       }
     } finally {
-      // Delayed cleanup to ensure navigation has a chance to complete
+
       setTimeout(() => {
         setLoading(false);
         setPurchaseInProgress(false);
@@ -478,7 +474,7 @@ const SubscriptionScreenIOS = () => {
           }
         } catch (regError) {
           console.error('Registration error:', regError);
-          setError(regError.message || 'Registration failed. Please try again.');
+          setError(regError.message || 'Username is already taken, try again with a different username');
           setLoading(false);
           return;
         }
@@ -492,26 +488,24 @@ const SubscriptionScreenIOS = () => {
         // STEP 3: Dispatch ONE comprehensive Redux update
         console.log("Updating Redux state atomically with userId:", userIdToUse);
         dispatch({
-          type: 'user/setUser', // This action now sets userId, needsUsername, AND status='idle'
+          type: 'user/setUser', 
           payload: {
             user_id: userIdToUse,
             _id: userIdToUse,
             subscriptionActive: false,
             subscriptionType: 'free',
             needsUsername: false
-            // No need to explicitly set status here, the reducer does it
+           
           }
         });
   
 
   
-        // Let AppNavigator handle navigation based on the single state update
-  
       } catch (error) {
         console.error('Error during free tier setup:', error);
         setError(error.message || 'An unexpected error occurred.');
       } finally {
-          // Use finally block for robustness
+
           setLoading(false);
           console.log("=== [handleContinueFree] END (Simplified Dispatch) ===");
       }
@@ -546,8 +540,8 @@ const SubscriptionScreenIOS = () => {
   const benefits = [
     {
       icon: 'game-controller-outline',
-      title: '13,0000+ Practice Questions',
-      description: '13,0000+ practice questions across 12 different certfications'
+      title: '13,000+ Practice Questions',
+      description: '13,000+ practice questions across 12 different certifications'
     },
     {
       icon: 'analytics-outline',
@@ -662,13 +656,21 @@ const SubscriptionScreenIOS = () => {
             <View style={styles.cardAccent} />
             
             <View style={styles.header}>
-              <LinearGradient
-                colors={['#6543CC', '#8A58FC']}
-                style={styles.logoContainer}
-              >
-                <Ionicons name="game-controller-outline" size={50} color="#FFFFFF" />
-              </LinearGradient>
-              <Text style={styles.headerTitle}>Cert Games</Text>
+              <View style={styles.logoStack}>
+                <LinearGradient
+                  colors={['#6543CC', '#8A58FC']}
+                  style={styles.logoContainer}
+                >
+                  <Ionicons name="rocket" size={44} color="#FFFFFF" />
+                </LinearGradient>
+                <LinearGradient
+                  colors={['#FF4C8B', '#FF7950']}
+                  style={styles.badgeContainer}
+                >
+                  <Ionicons name="flash" size={20} color="#FFFFFF" />
+                </LinearGradient>
+              </View>
+              <Text style={styles.headerTitle}>Unlimited Access</Text>
               <Text style={styles.subtitle}>Unlock your full certification potential</Text>
             </View>
             
@@ -697,8 +699,12 @@ const SubscriptionScreenIOS = () => {
               <View style={styles.pricingContainer}>
                 <View style={styles.priceBox}>
                   <View style={styles.priceHeader}>
-                    <Text style={styles.priceType}>Unlimited Access</Text>
+                    <Text style={styles.priceType}>Premium Membership</Text>
+                    <View style={styles.popularBadge}>
+                      <Text style={styles.popularText}>POPULAR</Text>
+                    </View>
                   </View>
+                  
                   <View style={styles.priceRow}>
                     <Text style={styles.dollarSign}>$</Text>
                     <Text style={styles.price}>9</Text>
@@ -707,7 +713,30 @@ const SubscriptionScreenIOS = () => {
                       <Text style={styles.pricePeriod}>/month</Text>
                     </View>
                   </View>
-                  <Text style={styles.priceBilled}>3-day free trial, then billed monthly, cancel anytime</Text>
+                  
+                  <Text style={styles.priceBilled}>
+                    3-day free trial, then billed monthly
+                  </Text>
+                  <Text style={styles.priceCancelAnytime}>
+                    Cancel anytime
+                  </Text>
+                </View>
+                
+                <View style={styles.statsContainer}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>13,000+</Text>
+                    <Text style={styles.statLabel}>Practice Questions</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>10+</Text>
+                    <Text style={styles.statLabel}>Premium Tools</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>12</Text>
+                    <Text style={styles.statLabel}>Certification Paths</Text>
+                  </View>
                 </View>
                 
                 {/* Subscribe Button */}
@@ -731,7 +760,7 @@ const SubscriptionScreenIOS = () => {
                         </View>
                       ) : (
                         <View style={styles.buttonContent}>
-                          <Text style={styles.buttonText}>Free Trial</Text>
+                          <Text style={styles.buttonText}>Start Free Trial</Text>
                           <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
                         </View>
                       )}
@@ -941,18 +970,33 @@ const styles = StyleSheet.create({
     padding: 25,
     paddingBottom: 15,
   },
+  logoStack: {
+    position: 'relative',
+    marginBottom: 15,
+  },
   logoContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
     shadowColor: '#6543CC',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 15,
     elevation: 10,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    right: -5,
+    top: -5,
+    borderWidth: 2,
+    borderColor: '#1A1A2A',
   },
   headerTitle: {
     fontSize: 28,
@@ -962,6 +1006,7 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(101, 67, 204, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 10,
+    fontFamily: 'Orbitron-Bold',
   },
   subtitle: {
     fontSize: 16,
@@ -1015,11 +1060,11 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   priceBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: 'rgba(101, 67, 204, 0.1)',
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(101, 67, 204, 0.2)',
     marginBottom: 20,
   },
   priceHeader: {
@@ -1032,9 +1077,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
+    fontFamily: 'Orbitron',
   },
   popularBadge: {
-    backgroundColor: '#6543CC',
+    backgroundColor: '#FF4C8B',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
@@ -1043,6 +1089,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: 'bold',
+    fontFamily: 'ShareTechMono',
   },
   priceRow: {
     flexDirection: 'row',
@@ -1053,7 +1100,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: 'bold',
-    marginTop: 8,
+    marginTop: 12,
   },
   price: {
     color: '#FFFFFF',
@@ -1076,6 +1123,39 @@ const styles = StyleSheet.create({
   priceBilled: {
     color: '#AAAAAA',
     fontSize: 14,
+  },
+  priceCancelAnytime: {
+    color: '#2ebb77',
+    fontSize: 14,
+    marginTop: 5,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  statLabel: {
+    color: '#AAAAAA',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 5,
   },
   subscribeButton: {
     height: 56,
@@ -1105,7 +1185,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  // NEW: Free tier button
+  // Free tier button styles
   freeButton: {
     height: 44,
     borderRadius: 16,
@@ -1121,7 +1201,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  // NEW: Comparison styles
+  // Comparison styles
   comparisonContainer: {
     marginTop: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.2)',

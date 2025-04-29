@@ -406,18 +406,93 @@ const UpgradeSubscriptionScreen = () => {
                 }
               ]}
             >
-              <View style={styles.successIconContainer}>
+              {/* Confetti effect background */}
+              <View style={styles.confettiContainer}>
+                {[...Array(20)].map((_, i) => (
+                  <Animated.View
+                    key={i}
+                    style={[
+                      styles.confetti,
+                      {
+                        left: `${Math.random() * 100}%`,
+                        top: `${Math.random() * 100}%`,
+                        backgroundColor: 
+                          i % 3 === 0 ? '#6543CC' : 
+                          i % 3 === 1 ? '#FF4C8B' : '#2ebb77',
+                        width: 8 + Math.random() * 8,
+                        height: 8 + Math.random() * 8,
+                        transform: [
+                          { rotate: `${Math.random() * 360}deg` },
+                          { translateY: successAnimation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [-50, 0]
+                          })}
+                        ]
+                      }
+                    ]}
+                  />
+                ))}
+              </View>
+              
+              {/* Pulse animation around success icon */}
+              <View style={styles.successIconWrapper}>
+                <Animated.View 
+                  style={[
+                    styles.iconPulse,
+                    {
+                      opacity: pulseAnim.interpolate({
+                        inputRange: [1, 1.03],
+                        outputRange: [0.6, 0]
+                      }),
+                      transform: [{ scale: pulseAnim }]
+                    }
+                  ]} 
+                />
+                <View style={styles.successIconContainer}>
+                  <LinearGradient
+                    colors={['#2ebb77', '#25A76A']}
+                    style={styles.successIconGradient}
+                  >
+                    <Ionicons name="checkmark" size={60} color="#FFFFFF" />
+                  </LinearGradient>
+                </View>
+              </View>
+              
+              <Text style={styles.successTitle}>Upgrade Successful!</Text>
+              
+              {/* Premium badge */}
+              <View style={styles.premiumBadge}>
                 <LinearGradient
-                  colors={['#2ebb77', '#25A76A']}
-                  style={styles.successIconGradient}
+                  colors={['#FFD700', '#FFA500']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.premiumBadgeGradient}
                 >
-                  <Ionicons name="checkmark" size={60} color="#FFFFFF" />
+                  <Ionicons name="star" size={14} color="#FFFFFF" />
+                  <Text style={styles.premiumBadgeText}>PREMIUM ACTIVATED</Text>
                 </LinearGradient>
               </View>
-              <Text style={styles.successTitle}>Upgrade Successful!</Text>
+              
               <Text style={styles.successText}>
                 Thank you for upgrading to Premium! You now have unlimited access to all premium features.
               </Text>
+              
+              {/* Feature unlocked section */}
+              <View style={styles.featuresUnlockedContainer}>
+                <View style={styles.featureRow}>
+                  <Ionicons name="infinite-outline" size={18} color="#2ebb77" />
+                  <Text style={styles.featureText}>Unlimited practice questions</Text>
+                </View>
+                <View style={styles.featureRow}>
+                  <Ionicons name="rocket-outline" size={18} color="#2ebb77" />
+                  <Text style={styles.featureText}>All premium tools unlocked</Text>
+                </View>
+                <View style={styles.featureRow}>
+                  <Ionicons name="shield-checkmark-outline" size={18} color="#2ebb77" />
+                  <Text style={styles.featureText}>Priority support activated</Text>
+                </View>
+              </View>
+              
               <TouchableOpacity
                 style={styles.successButton}
                 onPress={handleBackPress}
@@ -428,7 +503,8 @@ const UpgradeSubscriptionScreen = () => {
                   end={{ x: 1, y: 0 }}
                   style={styles.buttonGradient}
                 >
-                  <Text style={styles.successButtonText}>Return to App</Text>
+                  <Text style={styles.successButtonText}>Start Using Premium</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
@@ -437,6 +513,7 @@ const UpgradeSubscriptionScreen = () => {
               colors={['rgba(30, 30, 50, 0.8)', 'rgba(23, 26, 35, 0.95)']}
               style={styles.cardGradient}
             >
+              {/* Rest of your existing code for the non-success state */}
               <View style={styles.cardAccent} />
               
               <View style={styles.header}>
@@ -508,8 +585,7 @@ const UpgradeSubscriptionScreen = () => {
                       <Text style={styles.statLabel}>Certification Paths</Text>
                     </View>
                   </View>
-         
-         
+                  
                   {/* Subscribe Button */}
                   <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
                     <TouchableOpacity 
@@ -541,14 +617,13 @@ const UpgradeSubscriptionScreen = () => {
                 </View>
               )}         
                   
-                  {/* Current status box */}
-                  <View style={styles.currentStatusBox}>
-                    <Ionicons name="information-circle" size={20} color="#6543CC" />
-                    <Text style={styles.currentStatusText}>
-                      You have <Text style={styles.highlightText}>{practiceQuestionsRemaining}</Text> free questions remaining
-                    </Text>
-                  </View>
-                  
+              {/* Current status box */}
+              <View style={styles.currentStatusBox}>
+                <Ionicons name="information-circle" size={20} color="#6543CC" />
+                <Text style={styles.currentStatusText}>
+                  You have <Text style={styles.highlightText}>{practiceQuestionsRemaining}</Text> free questions remaining
+                </Text>
+              </View>
               
               <View style={styles.benefitsContainer}>
                 <View style={styles.benefitsList}>
@@ -1034,38 +1109,145 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(23, 26, 35, 0.95)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    width: 100, 
-  },
-  successIconContainer: {
-    marginBottom: 20,
-  },
-  successIconGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#2ebb77',
-    shadowOffset: { width: 0, height: 4 },
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    width: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
-    shadowRadius: 15,
+    shadowRadius: 20,
     elevation: 10,
   },
+  
+  // Confetti container and individual confetti styles
+  confettiContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  confetti: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    opacity: 0.7,
+  },
+  
+  // Enhanced success icon styles
+  successIconWrapper: {
+    position: 'relative',
+    marginTop: 10,
+    marginBottom: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconPulse: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#2ebb77',
+    opacity: 0.3,
+  },
+  successIconContainer: {
+    marginBottom: 5,
+    shadowColor: '#2ebb77',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 15,
+    zIndex: 2,
+  },
+  successIconGradient: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  
+  // Premium badge
+  premiumBadge: {
+    marginTop: 5,
+    marginBottom: 15,
+    overflow: 'hidden',
+    borderRadius: 12,
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  premiumBadgeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    gap: 6,
+  },
+  premiumBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 12,
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  
+  // Enhanced success text
   successTitle: {
-    fontSize: 27,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 15,
+    marginBottom: 5,
+    fontFamily: 'Orbitron-Bold',
+    textAlign: 'center',
+    textShadowColor: 'rgba(101, 67, 204, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 10,
   },
   successText: {
-    fontSize: 17,
-    color: '#AAAAAA',
+    fontSize: 16,
+    color: '#BBBBBB',
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
     lineHeight: 24,
-    paddingHorizontal: 10, 
+    paddingHorizontal: 10,
   },
+  
+  // Features unlocked section
+  featuresUnlockedContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 12,
+    padding: 15,
+    width: '100%',
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  featureText: {
+    color: '#FFFFFF',
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  
+  // Enhanced success button
   successButton: {
     height: 56,
     borderRadius: 16,
@@ -1076,11 +1258,20 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
     width: '100%',
+    marginTop: 5,
   },
   successButtonText: {
     color: '#FFFFFF',
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: 'bold',
+    marginRight: 5,
+  },
+  buttonGradient: {
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

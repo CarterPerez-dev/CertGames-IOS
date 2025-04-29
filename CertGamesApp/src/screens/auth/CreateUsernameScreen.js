@@ -77,8 +77,6 @@ const CreateUsernameScreen = () => {
   const handleBackPress = () => {
     console.log("Back button pressed in CreateUsernameScreen");
     
-    // Since this screen is often reached after OAuth and there might not be
-    // any screen to go back to, we should handle this differently
     Alert.alert(
       "Cancel Setup",
       "Are you sure you want to cancel the username setup?",
@@ -90,15 +88,27 @@ const CreateUsernameScreen = () => {
         {
           text: "Cancel Setup",
           style: "destructive",
-          onPress: () => {
-            // Log the user out
-            dispatch(logout());
-            
-            // Reset the navigation stack to AuthNavigator, similar to renewal users
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Register' }],
-            });
+          onPress: async () => {
+            try {
+              // First, clear any stored userId
+              await SecureStore.deleteItemAsync('userId');
+              
+              // Then perform logout (which will clear Redux state)
+              dispatch(logout());
+              
+              // Finally navigate - use the simplest approach
+              // Just go back to the Register screen directly
+              if (navigation && navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                // Fallback if we can't go back
+                navigation.navigate('Register');
+              }
+            } catch (error) {
+              console.error("Error during navigation:", error);
+              // Fallback approach if the above fails
+              navigation.navigate('Register');
+            }
           } 
         }
       ]

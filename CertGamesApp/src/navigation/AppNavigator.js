@@ -281,35 +281,44 @@ const AppNavigator = () => {
     if (!appIsReady) return;
     
     debugLog(`Navigation state check: userId=${userId?.substring(0,8) || 'null'}, prevUserId=${prevUserId?.substring(0,8) || 'null'}, needsUsername=${needsUsername}`);
-  
-    // Condition 1: User just logged in successfully and doesn't need a username
+    
+    // CRITICAL FIX: Skip all navigation logic if we're in a transitioning state
+    const isNavigatorReady = navigationRef.isReady();
+    if (!isNavigatorReady) {
+      debugLog("Navigation ref not ready - skipping navigation logic");
+      return;
+    }
+    
+    // CRITICAL FIX: Check current navigation state before attempting navigation
+    const currentRoute = navigationRef.getCurrentRoute()?.name;
+    debugLog(`Current route: ${currentRoute || 'unknown'}`);
+    
+    // If we're already in CreateUsername flow, don't try to navigate elsewhere
+    if (currentRoute === 'CreateUsername') {
+      debugLog("Already in CreateUsername flow - skipping navigation");
+      return;
+    }
+    
+    // Only update prevUserId if there's a change to avoid reruns
+    if (userId !== prevUserId) {
+      setPrevUserId(userId);
+    }
+    
+    // Skip auto-navigation completely if needsUsername is true
+    if (needsUsername) {
+      debugLog("Username setup needed - skipping auto-navigation logic");
+      return;
+    }
+    
+    // User just logged in successfully (no previous userId, has userId, doesn't need username)
     if (userId && !prevUserId && !needsUsername) {
       debugLog(`>>> Detected LOGIN transition (userId: ${userId.substring(0,8)}). Navigating to Main.`);
-      
-      // Simple setTimeout to allow current render to complete
-      setTimeout(() => {
-        if (navigationRef.isReady()) {
-          debugLog(`>>> Dispatching navigation reset to Main`);
-          navigationRef.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: 'Main' }],
-            })
-          );
-        }
-      }, 150); // Short timeout instead of InteractionManager
-      
-      setPrevUserId(userId);
-    } 
-    // Condition 2: User just logged out
+      // No navigation here - let the renderNavigator handle it
+    }
+    // User just logged out
     else if (!userId && prevUserId) {
       debugLog(`>>> Detected LOGOUT transition.`);
-      setPrevUserId(null);
-    }
-    // Condition 3: User logged in but needs username
-    else if (userId && !prevUserId && needsUsername) {
-      debugLog(`>>> Detected login transition needing username (userId: ${userId.substring(0,8)}).`);
-      setPrevUserId(userId);
+      // No navigation here - let the renderNavigator handle it
     }
   }, [userId, needsUsername, appIsReady, prevUserId, navigationRef]);
   

@@ -2,7 +2,7 @@
   "expo": {
     "name": "CertGamesApp",
     "slug": "CertGamesApp",
-    "version": "1.0.6",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -93,7 +93,7 @@
       }
     },
     "owner": "certgames",
-    "runtimeVersion": "1.0.6",
+    "runtimeVersion": "1.0.8",
     "privacy": "unlisted",
     "primaryColor": "#6543CC"
   }

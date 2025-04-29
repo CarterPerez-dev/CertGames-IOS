@@ -71,7 +71,7 @@ const PrivacyPolicyScreen = () => {
           <Ionicons name="shield-checkmark-outline" size={30} color="#6543CC" style={styles.headerIcon} />
           <Text style={styles.headerTitle}>Privacy Policy</Text>
         </View>
-        <Text style={styles.headerDate}>Last updated: April 04, 2025</Text>
+        <Text style={styles.headerDate}>Last updated: April 20, 2025</Text>
       </View>
       
       <ScrollView 

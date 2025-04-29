@@ -70,7 +70,7 @@ const TermsScreen = () => {
           <Ionicons name="document-text-outline" size={30} color="#6543CC" style={styles.headerIcon} />
           <Text style={styles.headerTitle}>Terms of Service</Text>
         </View>
-        <Text style={styles.headerDate}>Last updated: April 04, 2025</Text>
+        <Text style={styles.headerDate}>Last updated: April 20, 2025</Text>
       </View>
       
       <ScrollView 

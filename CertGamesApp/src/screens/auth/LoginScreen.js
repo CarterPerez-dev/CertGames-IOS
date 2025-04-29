@@ -438,7 +438,7 @@ const LoginScreen = () => {
                     <Ionicons name="person-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Enter your Username"
+                      placeholder="Enter Username"
                       placeholderTextColor="#AAAAAA"
                       value={usernameOrEmail}
                       onChangeText={setUsernameOrEmail}
@@ -455,7 +455,7 @@ const LoginScreen = () => {
                     <Ionicons name="lock-closed-outline" size={20} color="#AAAAAA" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Enter Update password"
+                      placeholder="Enter password"
                       placeholderTextColor="#AAAAAA"
                       value={password}
                       onChangeText={setPassword}

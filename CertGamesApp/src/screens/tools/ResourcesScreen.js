@@ -33,7 +33,7 @@ const ResourcesScreen = () => {
   // Navigation
   const navigation = useNavigation();
   const { subscriptionActive } = useSelector(state => state.user);
-  const { hasAccess, navigateToPremiumFeaturePrompt } = usePremiumCheck('resources_view');  
+  const { hasAccess, navigateToPremiumFeaturePrompt } = usePremiumCheck('resources'); 
   // Access theme
   const { theme } = useTheme();
   const globalStyles = createGlobalStyles(theme);
@@ -138,7 +138,6 @@ const ResourcesScreen = () => {
   
   // Render resource item
   const renderResourceItem = useCallback(({ item, index }) => {
-    // Get animation value for this item
     const animIndex = Math.min(index, cardAnims.length - 1);
     
     return (
@@ -156,10 +155,12 @@ const ResourcesScreen = () => {
         <ResourceItemComponent 
           resource={item} 
           listMode={true}
+          subscriptionActive={subscriptionActive}  // Add this line
+          onPremiumPrompt={handlePremiumPrompt}    // Add this line
         />
       </Animated.View>
     );
-  }, [cardAnims]);
+  }, [cardAnims, subscriptionActive, handlePremiumPrompt]);
   
   // Render empty state when no resources match the search
   const renderEmptyState = useCallback(() => (
